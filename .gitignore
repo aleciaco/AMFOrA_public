@@ -1,0 +1,59 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.so
+
+# Packaging artifacts
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Saved Outputs
+*.csv
+*.png
+*.jpg
+*.jpeg
+*.xlsx
+*.pdf
+
+# Jupyter Notebooks
+amacfa_local_example.ipynb
+segmentation_watershed.ipynb
+amacfa_full_example copy.ipynb
+amacfa_bulk_run.ipynb
+
+# Extraneous .py files
+statistical_analysis_example.py
+basic_analysis.py
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Environment variables
+.env
+
+# Local configuration files
+settings.local.json
+/docs
+
+# macOS system files
+.DS_Store
+
+# VSCode personal settings
+.vscode/
