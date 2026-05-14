@@ -267,6 +267,8 @@ def setup_robust_blob_params(image, scan_dpi, blob_type="light", size_params=Non
     return params
 
 
+## potential to replace sherd_mask function with a more robust version that employs grab_cut algorithm without user interaction, using the current contour-based mask as an initial seed.  This could improve edge accuracy and handle cases where contours are incomplete or noisy.  However, it would add complexity and processing time, so it may be best as an optional alternative rather than a wholesale replacement of the existing sherd_mask logic.
+
 def sherd_mask(sherd_scan, gray=False, scan_dpi=1200, crop_buffer=125, auto_crop=True):
     """
     Enhanced sherd masking with optimal edge detection and adaptive parameters.
