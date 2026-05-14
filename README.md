@@ -17,8 +17,8 @@ An enhanced Python package for automated analysis of ceramic sherd fabric, inclu
 ### From Source
 
 ```bash
-git clone https://github.com/your-username/amacfa-plus.git
-cd amacfa-plus
+git clone https://github.com/aleciaco/AMFOrA_public.git
+cd AMFOrA_public
 pip install -e .
 ```
 
@@ -145,7 +145,7 @@ MIT License - see LICENSE file for details.
 
 ## Citation
 
- https://github.com/your-username/amacfa-plus
+ https://github.com/aleciaco/AMFOrA_public
 ```
 
 ## Support
