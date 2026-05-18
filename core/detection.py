@@ -13,6 +13,7 @@ from pathlib import Path
 __all__ = [
     'setup_robust_blob_params', 'sherd_mask', 'apply_mask',
     'super_zorro_cv', 'sherd_blobs', 'detect_multiple_sherds',
+    'split_multi_sherd_scan', 'prepare_multi_sherd_directory',
     'contour_detection',
 ]
 
@@ -269,6 +270,265 @@ def setup_robust_blob_params(image, scan_dpi, blob_type="light", size_params=Non
 
 ## potential to replace sherd_mask function with a more robust version that employs grab_cut algorithm without user interaction, using the current contour-based mask as an initial seed.  This could improve edge accuracy and handle cases where contours are incomplete or noisy.  However, it would add complexity and processing time, so it may be best as an optional alternative rather than a wholesale replacement of the existing sherd_mask logic.
 
+
+def _optimal_canny_thresholds(image, sigma=0.33):
+    """Compute Canny lower/upper thresholds from Otsu, image median, and gradient stats."""
+    otsu_thresh, _ = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    median_val = np.median(image)
+    sobel_x = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=3)
+    sobel_y = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=3)
+    gradient_magnitude = np.sqrt(sobel_x ** 2 + sobel_y ** 2)
+    gradient_mean = np.mean(gradient_magnitude)
+    base_thresh = min(otsu_thresh * 0.5, median_val, gradient_mean)
+    lower_thresh = max(10, int((1.0 - sigma) * base_thresh))
+    upper_thresh = max(30, int((1.0 + sigma) * base_thresh))
+    lower_thresh = min(lower_thresh, 100)
+    upper_thresh = min(upper_thresh, 255)
+    upper_thresh = max(upper_thresh, lower_thresh * 2)
+    return lower_thresh, upper_thresh
+
+
+def _detect_background_statistics(image, border_size=0.05):
+    """Sample image borders to estimate background median and std."""
+    h, w = image.shape
+    border_pixels = int(min(h, w) * border_size)
+    top = image[:border_pixels, :]
+    bottom = image[-border_pixels:, :]
+    left = image[:, :border_pixels]
+    right = image[:, -border_pixels:]
+    all_border = np.concatenate([top.flatten(), bottom.flatten(),
+                                 left.flatten(), right.flatten()])
+    return np.median(all_border), np.std(all_border)
+
+
+def _adaptive_morphology_kernel(scan_dpi, target_size_mm=0.5):
+    """Build an elliptical structuring element sized for the scan resolution."""
+    dpcm = scan_dpi * 0.3937
+    target_size_cm = target_size_mm / 10.0
+    kernel_size_pixels = int(target_size_cm * dpcm)
+    kernel_size_pixels = max(3, kernel_size_pixels)
+    if kernel_size_pixels % 2 == 0:
+        kernel_size_pixels += 1
+    kernel_size_pixels = min(kernel_size_pixels, 21)
+    return cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
+                                     (kernel_size_pixels, kernel_size_pixels))
+
+
+def _run_edge_pipeline(image_cropped, scan_dpi):
+    """
+    Run the three-method edge detection pipeline (Canny + Otsu + adaptive
+    threshold) and return the resulting contour lists.
+
+    Returns
+    -------
+    dict
+        ``{"canny": [...], "otsu": [...], "adaptive": [...]}`` — contour
+        lists in ``image_cropped`` pixel coordinates.
+    """
+    im_gray = cv2.cvtColor(image_cropped, cv2.COLOR_BGR2GRAY)
+
+    lower_thresh, upper_thresh = _optimal_canny_thresholds(im_gray)
+    edges = cv2.Canny(im_gray, lower_thresh, upper_thresh)
+    kernel = _adaptive_morphology_kernel(scan_dpi, target_size_mm=0.5)
+    edges_closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+    edges_clean = cv2.morphologyEx(edges_closed, cv2.MORPH_OPEN, kernel)
+    contours_canny, _ = cv2.findContours(edges_clean, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+
+    bg_mean, bg_std = _detect_background_statistics(im_gray)
+    blur = cv2.GaussianBlur(im_gray, (5, 5), 0)
+    _, thresh_otsu = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    adaptive_thresh_val = max(0, min(255, int(bg_mean + 2 * bg_std)))
+    _, thresh_adaptive = cv2.threshold(blur, adaptive_thresh_val, 255, cv2.THRESH_BINARY)
+    contours_otsu, _ = cv2.findContours(thresh_otsu, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    contours_adaptive, _ = cv2.findContours(thresh_adaptive, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+
+    return {
+        "canny": list(contours_canny),
+        "otsu": list(contours_otsu),
+        "adaptive": list(contours_adaptive),
+        "_gray_shape": im_gray.shape,
+    }
+
+
+def _select_best_contour(contour_methods, image_area):
+    """
+    Pick the single best sherd contour across detection methods.
+
+    Reproduces the original ``sherd_mask`` selection: among the largest
+    contour from each method, prefer those whose area is <=90% of the image
+    (skip the "whole frame" contour), and among those, take the biggest.
+    Falls back to the original area-ratio tie-breaker if nothing qualifies.
+    """
+    methods = [("canny", contour_methods.get("canny", [])),
+               ("otsu", contour_methods.get("otsu", [])),
+               ("adaptive", contour_methods.get("adaptive", []))]
+
+    best_contour = None
+    best_area = 0
+    for contours, _name in [(c, n) for n, c in methods]:
+        if len(contours) > 0:
+            largest = max(contours, key=cv2.contourArea)
+            area = cv2.contourArea(largest)
+            area_ratio = area / image_area if image_area else 0
+            if area_ratio <= 0.9 and area > best_area:
+                best_contour = largest
+                best_area = area
+
+    if best_contour is None:
+        contours_canny = contour_methods.get("canny", [])
+        contours_otsu = contour_methods.get("otsu", [])
+        if len(contours_otsu) > 0 and len(contours_canny) > 0:
+            ic_canny = max(contours_canny, key=cv2.contourArea)
+            ic_thresh = max(contours_otsu, key=cv2.contourArea)
+            if cv2.contourArea(ic_canny) > 1.1 * cv2.contourArea(ic_thresh):
+                best_contour = ic_thresh
+            elif cv2.contourArea(ic_canny) < cv2.contourArea(ic_thresh):
+                best_contour = ic_thresh
+            else:
+                best_contour = ic_canny
+        elif len(contours_otsu) > 0:
+            best_contour = max(contours_otsu, key=cv2.contourArea)
+        elif len(contours_canny) > 0:
+            best_contour = max(contours_canny, key=cv2.contourArea)
+
+    return best_contour
+
+
+def _bbox_iou(b1, b2):
+    """Intersection-over-union of two ``(x, y, w, h)`` bounding rects."""
+    x1, y1, w1, h1 = b1
+    x2, y2, w2, h2 = b2
+    xi1, yi1 = max(x1, x2), max(y1, y2)
+    xi2, yi2 = min(x1 + w1, x2 + w2), min(y1 + h1, y2 + h2)
+    inter = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+    union = w1 * h1 + w2 * h2 - inter
+    return inter / union if union > 0 else 0
+
+
+def _select_multiple_contours(contour_methods, image_area, scan_dpi,
+                              n_sherds=None, min_area_cm2=0.25,
+                              max_area_ratio=0.9, iou_threshold=0.5):
+    """
+    Pick multiple sherd contours using absolute size filters, bbox-IoU
+    deduplication, and a gap-based stopping rule.
+
+    Strategy
+    --------
+    1. Pool contours from every method.
+    2. Drop anything below ``min_area_cm2`` (DPI-aware) or above
+       ``max_area_ratio`` of the image area.
+    3. Deduplicate by bbox IoU: when two contours overlap by more than
+       ``iou_threshold`` keep the larger.
+    4. Sort survivors descending by area.
+    5. Auto-count: walk consecutive pairs and stop at the largest ratio
+       drop-off (``area[i] / area[i-1]`` minimum). Everything before the
+       gap survives.
+    6. If ``n_sherds`` is given, skip the gap rule and just take top-N.
+
+    Returns
+    -------
+    list of contours, sorted descending by area.
+    """
+    dpcm = scan_dpi * 0.3937
+    min_area_px = min_area_cm2 * (dpcm ** 2)
+    max_area_px = max_area_ratio * image_area
+
+    pooled = []
+    for name in ("canny", "otsu", "adaptive"):
+        for c in contour_methods.get(name, []):
+            a = cv2.contourArea(c)
+            if a < min_area_px or a > max_area_px:
+                continue
+            pooled.append((a, cv2.boundingRect(c), c))
+
+    if not pooled:
+        return []
+
+    pooled.sort(key=lambda t: t[0], reverse=True)
+
+    kept = []
+    for area, bbox, contour in pooled:
+        duplicate = False
+        for k_area, k_bbox, _ in kept:
+            if _bbox_iou(bbox, k_bbox) > iou_threshold:
+                duplicate = True
+                break
+        if not duplicate:
+            kept.append((area, bbox, contour))
+
+    if not kept:
+        return []
+
+    if n_sherds is not None:
+        return [c for _, _, c in kept[:int(n_sherds)]]
+
+    if len(kept) == 1:
+        return [kept[0][2]]
+
+    ratios = [kept[i][0] / kept[i - 1][0] for i in range(1, len(kept))]
+    gap_idx = int(np.argmin(ratios))
+    keep_count = gap_idx + 1
+    return [c for _, _, c in kept[:keep_count]]
+
+
+def _contour_to_crop_and_mask(contour, orig_h, orig_w, border_crop,
+                              crop_buffer, auto_crop):
+    """
+    Convert a sherd contour (in ``image_cropped`` coords) into a
+    full-size binary mask, a cropped+padded ``mask_slice``, and the
+    crop tuple in original-image coordinates.
+
+    Returns
+    -------
+    tuple
+        ``(mask_slice, crop)`` where ``crop`` is the same 8-element tuple
+        ``sherd_mask`` returns: ``(y1, y2, x1, x2, pad_top, pad_bottom,
+        pad_left, pad_right)``.
+    """
+    cropped_h = orig_h - 2 * border_crop
+    cropped_w = orig_w - 2 * border_crop
+
+    blackbox = np.zeros((cropped_h, cropped_w), np.uint8)
+    if contour is not None:
+        mask_cropped = cv2.drawContours(blackbox.copy(), [contour], -1, 255, cv2.FILLED, 1)
+    else:
+        mask_cropped = blackbox
+
+    mask = np.zeros((orig_h, orig_w), np.uint8)
+    mask[border_crop:orig_h - border_crop, border_crop:orig_w - border_crop] = mask_cropped
+
+    if contour is not None and auto_crop:
+        x_br, y_br, w_br, h_br = cv2.boundingRect(contour)
+        side = max(w_br, h_br)
+        x_center = x_br + w_br // 2
+        y_center = y_br + h_br // 2
+        x1_raw = x_center + border_crop - side // 2 - crop_buffer
+        x2_raw = x_center + border_crop + side // 2 + crop_buffer
+        y1_raw = y_center + border_crop - side // 2 - crop_buffer
+        y2_raw = y_center + border_crop + side // 2 + crop_buffer
+        x1 = max(0, x1_raw)
+        x2 = min(orig_w, x2_raw)
+        y1 = max(0, y1_raw)
+        y2 = min(orig_h, y2_raw)
+        pad_left = x1 - x1_raw
+        pad_right = x2_raw - x2
+        pad_top = y1 - y1_raw
+        pad_bottom = y2_raw - y2
+    else:
+        y1, y2, x1, x2 = 0, orig_h, 0, orig_w
+        pad_top = pad_bottom = pad_left = pad_right = 0
+
+    crop = (y1, y2, x1, x2, pad_top, pad_bottom, pad_left, pad_right)
+
+    mask_slice = mask[y1:y2, x1:x2]
+    if pad_top or pad_bottom or pad_left or pad_right:
+        mask_slice = np.pad(mask_slice,
+                            ((pad_top, pad_bottom), (pad_left, pad_right)),
+                            mode='constant', constant_values=0)
+
+    return mask_slice, crop
+
+
 def sherd_mask(sherd_scan, gray=False, scan_dpi=1200, crop_buffer=125, auto_crop=True):
     """
     Enhanced sherd masking with optimal edge detection and adaptive parameters.
@@ -310,220 +570,28 @@ def sherd_mask(sherd_scan, gray=False, scan_dpi=1200, crop_buffer=125, auto_crop
         crop rectangle spans the full image ``(0, H, 0, W)`` and the mask is
         full-size.
     """
-    def optimal_canny_thresholds(image, sigma=0.33):
-        """Calculate optimal Canny edge detection thresholds using automatic methods"""
-        # Method 1: Otsu-based automatic threshold
-        otsu_thresh, _ = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-        
-        # Method 2: Median-based automatic threshold  
-        median_val = np.median(image)
-        
-        # Method 3: Statistical approach - use image gradients
-        sobel_x = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=3)
-        sobel_y = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=3)
-        gradient_magnitude = np.sqrt(sobel_x**2 + sobel_y**2)
-        gradient_mean = np.mean(gradient_magnitude)
-        
-        # Combine methods for robust threshold selection
-        base_thresh = min(otsu_thresh * 0.5, median_val, gradient_mean)
-        
-        # Calculate Canny thresholds with optimal ratio
-        lower_thresh = max(10, int((1.0 - sigma) * base_thresh))
-        upper_thresh = max(30, int((1.0 + sigma) * base_thresh))
-        
-        # Ensure reasonable bounds
-        lower_thresh = min(lower_thresh, 100)
-        upper_thresh = min(upper_thresh, 255)
-        upper_thresh = max(upper_thresh, lower_thresh * 2)
-        
-        return lower_thresh, upper_thresh
-
-    def detect_background_statistics(image, border_size=0.05):
-        """Detect background color/intensity by sampling image borders."""
-        h, w = image.shape
-        border_pixels = int(min(h, w) * border_size)
-
-        # Sample all four borders
-        top_border = image[:border_pixels, :]
-        bottom_border = image[-border_pixels:, :]
-        left_border = image[:, :border_pixels]
-        right_border = image[:, -border_pixels:]
-
-        # Combine border pixels
-        all_border_pixels = np.concatenate([
-            top_border.flatten(),
-            bottom_border.flatten(),
-            left_border.flatten(),
-            right_border.flatten()
-        ])
-
-        # Calculate robust statistics
-        bg_mean = np.median(all_border_pixels)  # More robust than mean
-        bg_std = np.std(all_border_pixels)
-
-        return bg_mean, bg_std
-
-    def adaptive_morphology_kernel(scan_dpi, target_size_mm=0.5):
-        """Create morphological kernel sized appropriately for scan resolution"""
-        # Convert mm to pixels
-        dpcm = scan_dpi * 0.3937
-        target_size_cm = target_size_mm / 10.0
-        kernel_size_pixels = int(target_size_cm * dpcm)
-        
-        # Ensure odd kernel size and reasonable bounds
-        kernel_size_pixels = max(3, kernel_size_pixels)
-        if kernel_size_pixels % 2 == 0:
-            kernel_size_pixels += 1
-        
-        # Limit maximum kernel size to prevent over-smoothing
-        kernel_size_pixels = min(kernel_size_pixels, 21)
-        
-        return cv2.getStructuringElement(cv2.MORPH_ELLIPSE, 
-                                        (kernel_size_pixels, kernel_size_pixels))
-
     # Input validation
     if scan_dpi < 150 or scan_dpi > 2400:
         print(f"Warning: scan_dpi {scan_dpi} outside recommended range (150-2400)")
 
-    #read image
     image = sherd_scan
     orig_h, orig_w = image.shape[:2]
 
     # Crop off outer 0.5cm border to remove box outline used to block light during scanning
     dpcm = scan_dpi * 0.3937
-    border_crop = int(0.5 * dpcm)  # 0.5cm in pixels
-
-    # Ensure we don't crop more than available
+    border_crop = int(0.5 * dpcm)
     border_crop = min(border_crop, min(orig_h, orig_w) // 4)
-
-    # Crop the image
     image_cropped = image[border_crop:orig_h - border_crop, border_crop:orig_w - border_crop]
 
-    #cvt to grayscale
-    im_gray = cv2.cvtColor(image_cropped, cv2.COLOR_BGR2GRAY)
+    contour_methods = _run_edge_pipeline(image_cropped, scan_dpi)
+    gray_shape = contour_methods["_gray_shape"]
+    image_area = gray_shape[0] * gray_shape[1]
+    best_contour = _select_best_contour(contour_methods, image_area)
 
-    # Enhanced edge detection with optimal thresholds
-    lower_thresh, upper_thresh = optimal_canny_thresholds(im_gray)
-    edges = cv2.Canny(im_gray, lower_thresh, upper_thresh)
-    
-    # DPI-aware morphological operations
-    kernel = adaptive_morphology_kernel(scan_dpi, target_size_mm=0.5)
-    
-    # Improved morphological sequence
-    # Close gaps in edges
-    edges_closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
-    # Clean up noise
-    edges_clean = cv2.morphologyEx(edges_closed, cv2.MORPH_OPEN, kernel)
+    mask_slice, crop = _contour_to_crop_and_mask(
+        best_contour, orig_h, orig_w, border_crop, crop_buffer, auto_crop
+    )
 
-    #find the contours of the almost fully binarized mask
-    contours_canny, _ = cv2.findContours(edges_clean, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-
-    # Enhanced threshold-based approach with background detection
-    bg_mean, bg_std = detect_background_statistics(im_gray)
-    
-    #run a blur on the grayscale image
-    blur = cv2.GaussianBlur(im_gray,(5,5),0)
-    
-    # Original OTSU thresholding
-    ret,thresh_otsu = cv2.threshold(blur,0,255,cv2.THRESH_BINARY|cv2.THRESH_OTSU)
-    
-    # Adaptive threshold based on background statistics
-    adaptive_thresh_val = max(0, min(255, int(bg_mean + 2 * bg_std)))
-    _, thresh_adaptive = cv2.threshold(blur, adaptive_thresh_val, 255, cv2.THRESH_BINARY)
-    
-    #find the contours from both thresholding methods
-    contours_otsu, _ = cv2.findContours(thresh_otsu, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-    contours_adaptive, _ = cv2.findContours(thresh_adaptive, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-
-    # Select best contours based on multiple criteria
-    all_contour_methods = [
-        (contours_canny, "canny"),
-        (contours_otsu, "otsu"), 
-        (contours_adaptive, "adaptive")
-    ]
-    
-    best_contour = None
-    best_area = 0
-    
-    for contours, method in all_contour_methods:
-        if len(contours) > 0:
-            largest_contour = max(contours, key=cv2.contourArea)
-            area = cv2.contourArea(largest_contour)
-            
-            # Prefer contours that are reasonable size (10-90% of image)
-            image_area = im_gray.shape[0] * im_gray.shape[1]
-            area_ratio = area / image_area
-
-            if 0.1 <= area_ratio <= 0.9 and area > best_area:
-                best_contour = largest_contour
-                best_area = area
-    
-    # Fallback if no good contour found - use original logic
-    if best_contour is None:
-        if len(contours_otsu) > 0 and len(contours_canny) > 0:
-            importantcontour_canny = max(contours_canny, key = cv2.contourArea)
-            importantcontour_thresh = max(contours_otsu, key = cv2.contourArea)
-            
-            # Use original selection logic as fallback
-            if cv2.contourArea(importantcontour_canny) > 1.1*cv2.contourArea(importantcontour_thresh):
-                best_contour = importantcontour_thresh
-            elif cv2.contourArea(importantcontour_canny) < cv2.contourArea(importantcontour_thresh):
-                best_contour = importantcontour_thresh
-            else:
-                best_contour = importantcontour_canny
-        elif len(contours_otsu) > 0:
-            best_contour = max(contours_otsu, key = cv2.contourArea)
-        elif len(contours_canny) > 0:
-            best_contour = max(contours_canny, key = cv2.contourArea)
-
-    #create a mask that is all zeros the same shape as the cropped image;
-    #take that big ole contour and try to fill it in with ones
-    blackbox = np.zeros(im_gray.shape, np.uint8)
-    mask_cropped = cv2.drawContours(blackbox.copy(), [best_contour], -1, 255, cv2.FILLED, 1)
-
-    # Pad the mask back to original image size (border region stays 0/black)
-    mask = np.zeros((orig_h, orig_w), np.uint8)
-    mask[border_crop:orig_h - border_crop, border_crop:orig_w - border_crop] = mask_cropped
-
-    # Compute crop bounds from the sherd contour bounding rect.
-    # best_contour is in image_cropped coordinates; translate back to original.
-    if best_contour is not None and auto_crop:
-        x_br, y_br, w_br, h_br = cv2.boundingRect(best_contour)
-        # Calculate square side length
-        side = max(w_br, h_br)
-        # Center of the bounding rectangle
-        x_center = x_br + w_br // 2
-        y_center = y_br + h_br // 2
-        # Ideal (possibly out-of-bounds) square crop coordinates
-        x1_raw = x_center + border_crop - side // 2 - crop_buffer
-        x2_raw = x_center + border_crop + side // 2 + crop_buffer
-        y1_raw = y_center + border_crop - side // 2 - crop_buffer
-        y2_raw = y_center + border_crop + side // 2 + crop_buffer
-        # Clip to image bounds
-        x1 = max(0, x1_raw)
-        x2 = min(orig_w, x2_raw)
-        y1 = max(0, y1_raw)
-        y2 = min(orig_h, y2_raw)
-        # Padding needed to restore the intended square shape
-        pad_left   = x1 - x1_raw
-        pad_right  = x2_raw - x2
-        pad_top    = y1 - y1_raw
-        pad_bottom = y2_raw - y2
-    else:
-        # auto_crop=False or no contour found: return full-size mask
-        y1, y2, x1, x2 = 0, orig_h, 0, orig_w
-        pad_top = pad_bottom = pad_left = pad_right = 0
-
-    crop = (y1, y2, x1, x2, pad_top, pad_bottom, pad_left, pad_right)
-
-    # Slice mask to crop region, then pad if edge-clipped
-    mask_slice = mask[y1:y2, x1:x2]
-    if pad_top or pad_bottom or pad_left or pad_right:
-        mask_slice = np.pad(mask_slice,
-                            ((pad_top, pad_bottom), (pad_left, pad_right)),
-                            mode='constant', constant_values=0)
-
-    #Need to 'stack' the image to create a 3D array, because RGB images are 3D arrays
     color_mask_slice = np.dstack((mask_slice, mask_slice, mask_slice))
 
     #return the mask (cropped when auto_crop=True), the crop rectangle, and the
@@ -849,76 +917,345 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None):
     return blobs_inclusions, blobs_voids
 
 
-def detect_multiple_sherds(image, mask):
+def detect_multiple_sherds(sherd_scan, scan_dpi=1200, crop_buffer=125,
+                           auto_crop=True, n_sherds=None,
+                           min_area_cm2=0.75, mask=None):
     """
-    Detect if there are multiple sherds in a single scan and separate them.
-    
+    Detect one or many sherds in a single scan and return per-sherd masks/crops.
+
+    This is the multi-sherd counterpart to ``sherd_mask``.  When the scanning
+    plate carries several pieces it runs the same Canny + Otsu + adaptive
+    threshold pipeline used by ``sherd_mask`` but, instead of keeping only the
+    largest contour, retains every contour that survives an absolute-size
+    filter, a bbox-IoU deduplication pass, and a gap-based stopping rule.
+
+    Auto-count heuristic
+    --------------------
+    1. Pool contours from all three methods.
+    2. Drop anything smaller than ``min_area_cm2`` (DPI-aware) or larger than
+       90% of the image (filters out the whole-frame contour).
+    3. Sort descending by area and deduplicate any pair whose bounding boxes
+       overlap with IoU > 0.5 (keeps the larger of the two — prevents the
+       outer Canny ring and the filled Otsu interior of the same sherd from
+       being counted twice).
+    4. Walk consecutive area ratios and stop at the largest drop-off
+       (``area[i] / area[i-1]`` minimum).  Everything before the gap is a
+       real sherd; everything after is noise.
+
+    If ``n_sherds`` is supplied, the gap rule is skipped and the top-N largest
+    survivors are returned instead.
+
     Parameters
     ----------
-    image : numpy.ndarray
-        Original image
-    mask : numpy.ndarray
-        Binary mask of ceramic areas
-        
+    sherd_scan : numpy.ndarray
+        The scanned image.  Expected to be BGR (as returned by ``cv2.imread``).
+    scan_dpi : int, optional
+        Scan resolution for adaptive parameter scaling (default: 1200).
+    crop_buffer : int, optional
+        Extra pixels kept beyond each sherd's bounding box on all four sides
+        when ``auto_crop=True`` (default: 125).
+    auto_crop : bool, optional
+        If True (default), each returned ``mask`` is cropped to its sherd's
+        bounding box plus ``crop_buffer``.  If False, every returned mask is
+        full-image-sized.
+    n_sherds : int, optional
+        Override the auto-count.  When set, returns the top-N contours by
+        area regardless of the gap heuristic.  Default ``None`` = auto.
+    min_area_cm2 : float, optional
+        Absolute lower bound on sherd area (default: 0.25 cm²).  Contours
+        below this are treated as noise.
+    mask : numpy.ndarray, optional
+        Pre-computed multi-blob mask.  When supplied, this function skips
+        the edge pipeline and runs connected-components on ``mask`` instead.
+        Useful for callers that already have a mask from a different source.
+        Note: ``sherd_mask`` only ever produces a single-blob mask, so do
+        **not** pass its output here.
+
     Returns
     -------
     list of dict
-        List of sherd regions, each containing:
-        - 'submask': Binary mask for this sherd
-        - 'bbox': Bounding box (x, y, width, height)
-        - 'centroid': Center point of sherd
-        - 'area': Area of sherd region
-        If only one sherd detected, returns single-item list
+        One entry per detected sherd, sorted descending by area.  Each entry
+        has the same keys ``sherd_mask`` would expose plus a few extras::
+
+            {
+                'mask':     mask_slice,       # cropped+padded binary mask (uint8)
+                'color_mask': color_mask_slice,  # 3-channel version of `mask`
+                'crop':     (y1, y2, x1, x2, pad_top, pad_bottom, pad_left, pad_right),
+                'contour':  contour,          # in image_cropped coordinates
+                'bbox':     (x, y, w, h),     # bbox in image_cropped coords
+                'centroid': (cx, cy),         # centroid in image_cropped coords
+                'area':     area_px,          # contour area in pixels
+                'area_cm2': area_cm2,         # contour area in cm²
+            }
+
+        Returns an empty list if no sherd survives the filters.
     """
-    
-    # Find connected components in the mask  
-    # Ensure mask is single-channel for OpenCV
-    if len(mask.shape) > 2:
-        mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
-    
-    # Ensure binary mask
-    mask_binary = (mask > 0).astype(np.uint8)
-    
-    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask_binary, connectivity=8)
-    
-    # Filter out background (label 0) and very small components
-    min_sherd_area = np.sum(mask) * 0.05  # Minimum 5% of total mask area
-    
-    sherd_regions = []
-    
-    for label in range(1, num_labels):  # Skip background (label 0)
-        component_area = stats[label, cv2.CC_STAT_AREA]
-        
-        if component_area > min_sherd_area:
-            # Create submask for this component
-            submask = (labels == label).astype(np.uint8) * 255
-            
-            # Get bounding box
-            x = stats[label, cv2.CC_STAT_LEFT]
-            y = stats[label, cv2.CC_STAT_TOP] 
-            width = stats[label, cv2.CC_STAT_WIDTH]
-            height = stats[label, cv2.CC_STAT_HEIGHT]
-            
-            sherd_regions.append({
-                'submask': submask,
-                'bbox': (x, y, width, height),
-                'centroid': centroids[label],
-                'area': component_area
-            })
-    
-    # Sort by area (largest first) for consistent ordering
-    sherd_regions.sort(key=lambda x: x['area'], reverse=True)
-    
-    # If no valid sherds found, return the original mask as single sherd
-    if not sherd_regions:
-        sherd_regions.append({
-            'submask': mask,
-            'bbox': (0, 0, mask.shape[1], mask.shape[0]),
-            'centroid': (mask.shape[1]//2, mask.shape[0]//2),
-            'area': np.sum(mask)
+    if scan_dpi < 150 or scan_dpi > 2400:
+        print(f"Warning: scan_dpi {scan_dpi} outside recommended range (150-2400)")
+
+    image = sherd_scan
+    orig_h, orig_w = image.shape[:2]
+    dpcm = scan_dpi * 0.3937
+    border_crop = int(0.5 * dpcm)
+    border_crop = min(border_crop, min(orig_h, orig_w) // 4)
+    image_cropped = image[border_crop:orig_h - border_crop, border_crop:orig_w - border_crop]
+    cropped_h, cropped_w = image_cropped.shape[:2]
+    image_area = cropped_h * cropped_w
+
+    if mask is not None:
+        # Connected-components branch: derive contours from the supplied mask
+        # so the per-sherd outputs match the edge-pipeline branch.
+        m = mask
+        if len(m.shape) > 2:
+            m = cv2.cvtColor(m, cv2.COLOR_BGR2GRAY)
+        # The supplied mask is in original-image coords; pull out the
+        # interior that corresponds to image_cropped.
+        m_cropped = m[border_crop:orig_h - border_crop,
+                      border_crop:orig_w - border_crop]
+        m_binary = (m_cropped > 0).astype(np.uint8)
+        contours, _ = cv2.findContours(m_binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        contour_methods = {"canny": list(contours), "otsu": [], "adaptive": []}
+    else:
+        contour_methods = _run_edge_pipeline(image_cropped, scan_dpi)
+
+    contours = _select_multiple_contours(
+        contour_methods, image_area, scan_dpi,
+        n_sherds=n_sherds, min_area_cm2=min_area_cm2,
+    )
+
+    if not contours:
+        return []
+
+    results = []
+    for contour in contours:
+        mask_slice, crop = _contour_to_crop_and_mask(
+            contour, orig_h, orig_w, border_crop, crop_buffer, auto_crop
+        )
+        color_mask_slice = np.dstack((mask_slice, mask_slice, mask_slice))
+        area_px = cv2.contourArea(contour)
+        x_br, y_br, w_br, h_br = cv2.boundingRect(contour)
+        M = cv2.moments(contour)
+        if M["m00"] != 0:
+            cx = M["m10"] / M["m00"]
+            cy = M["m01"] / M["m00"]
+        else:
+            cx = x_br + w_br / 2
+            cy = y_br + h_br / 2
+
+        results.append({
+            'mask': mask_slice,
+            'color_mask': color_mask_slice,
+            'crop': crop,
+            'contour': contour,
+            'bbox': (x_br, y_br, w_br, h_br),
+            'centroid': (cx, cy),
+            'area': area_px,
+            'area_cm2': area_px / (dpcm ** 2),
         })
-    
-    return sherd_regions
+
+    results.sort(key=lambda r: r['area'], reverse=True)
+    return results
+
+
+def split_multi_sherd_scan(image_path, output_dir, scan_dpi=1200,
+                           crop_buffer=125, n_sherds=None, min_area_cm2=0.25,
+                           write_manifest=True, manifest_path=None,
+                           apply_mask_to_output=False):
+    """
+    Split a (possibly multi-sherd) scan into one cropped image per sherd and
+    write them to ``output_dir`` so ``full_analysis`` can consume them.
+
+    The output naming convention is::
+
+        N == 1 : <stem>.<ext>           (no suffix; behaves like a normal single-sherd scan)
+        N >= 2 : <stem>_1.<ext>, <stem>_2.<ext>, ...
+
+    The shared ``<stem>`` is the original filename's stem, so downstream CSV
+    rows (``filename`` column from ``full_analysis``) trace back to the source
+    scan trivially.
+
+    Parameters
+    ----------
+    image_path : str or pathlib.Path
+        Path to the source scan.
+    output_dir : str or pathlib.Path
+        Directory to write cropped per-sherd images into.  Created if missing.
+    scan_dpi : int, optional
+        Scan resolution (default: 1200).
+    crop_buffer : int, optional
+        Pixels of padding around each sherd in the output crop (default: 125).
+    n_sherds : int, optional
+        Force a specific number of sherds.  Default ``None`` = auto-detect.
+    min_area_cm2 : float, optional
+        Minimum sherd area (default: 0.25 cm²).
+    write_manifest : bool, optional
+        If True (default), append a row per output file to ``manifest.csv``
+        in ``output_dir`` mapping it back to its source.
+    manifest_path : str or pathlib.Path, optional
+        Override the default manifest location (``output_dir/manifest.csv``).
+    apply_mask_to_output : bool, optional
+        If True, multiply each output crop by its mask so the background is
+        black.  Default ``False`` — write the raw crop so downstream
+        ``sherd_mask`` can re-derive an accurate boundary.
+
+    Returns
+    -------
+    list of pathlib.Path
+        Paths of the written per-sherd images, in detection order
+        (largest first).
+    """
+    image_path = Path(image_path)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    image = cv2.imread(str(image_path))
+    if image is None:
+        raise FileNotFoundError(f"Could not read image: {image_path}")
+
+    sherds = detect_multiple_sherds(
+        image, scan_dpi=scan_dpi, crop_buffer=crop_buffer,
+        auto_crop=True, n_sherds=n_sherds, min_area_cm2=min_area_cm2,
+    )
+
+    if not sherds:
+        print(f"  No sherds detected in {image_path.name}")
+        return []
+
+    stem = image_path.stem
+    ext = image_path.suffix
+    output_paths = []
+    manifest_rows = []
+
+    for i, sherd in enumerate(sherds, start=1):
+        if len(sherds) == 1:
+            out_name = f"{stem}{ext}"
+        else:
+            out_name = f"{stem}_{i}{ext}"
+        out_path = output_dir / out_name
+
+        y1, y2, x1, x2, pad_top, pad_bottom, pad_left, pad_right = sherd['crop']
+        crop_img = image[y1:y2, x1:x2]
+        if pad_top or pad_bottom or pad_left or pad_right:
+            crop_img = np.pad(
+                crop_img,
+                ((pad_top, pad_bottom), (pad_left, pad_right), (0, 0)),
+                mode='constant', constant_values=0,
+            )
+
+        if apply_mask_to_output:
+            crop_img = cv2.bitwise_and(crop_img, sherd['color_mask'])
+
+        cv2.imwrite(str(out_path), crop_img)
+        output_paths.append(out_path)
+
+        manifest_rows.append({
+            'output_file': out_name,
+            'source_file': image_path.name,
+            'source_path': str(image_path),
+            'sherd_index': i,
+            'sherd_count': len(sherds),
+            'bbox_x': int(sherd['bbox'][0]),
+            'bbox_y': int(sherd['bbox'][1]),
+            'bbox_w': int(sherd['bbox'][2]),
+            'bbox_h': int(sherd['bbox'][3]),
+            'area_cm2': float(sherd['area_cm2']),
+        })
+
+    if write_manifest and manifest_rows:
+        if manifest_path is None:
+            manifest_path = output_dir / 'manifest.csv'
+        else:
+            manifest_path = Path(manifest_path)
+        _append_manifest(manifest_path, manifest_rows)
+
+    return output_paths
+
+
+def _append_manifest(manifest_path, rows):
+    """Append ``rows`` (list of dict) to ``manifest_path``, writing header if new."""
+    import csv
+    manifest_path = Path(manifest_path)
+    fieldnames = ['output_file', 'source_file', 'source_path', 'sherd_index',
+                  'sherd_count', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h',
+                  'area_cm2']
+    write_header = not manifest_path.exists()
+    with open(manifest_path, 'a', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if write_header:
+            writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+
+
+def prepare_multi_sherd_directory(input_dir, output_dir, scan_dpi=1200,
+                                  crop_buffer=125, n_sherds=None,
+                                  min_area_cm2=0.25, file_formats=None,
+                                  write_manifest=True,
+                                  apply_mask_to_output=False):
+    """
+    Batch wrapper for ``split_multi_sherd_scan``.
+
+    Iterates every image in ``input_dir`` (recursively), splits each one,
+    and writes the per-sherd crops into ``output_dir`` with consistent
+    ``<stem>[_N].<ext>`` naming.  A single combined ``manifest.csv`` is
+    written into ``output_dir`` so every output file can be traced back to
+    its source scan.
+
+    Parameters
+    ----------
+    input_dir : str or pathlib.Path
+        Directory of source scans (each scan may contain 1+ sherds).
+    output_dir : str or pathlib.Path
+        Directory to write per-sherd images into.
+    scan_dpi, crop_buffer, n_sherds, min_area_cm2, apply_mask_to_output
+        Forwarded to ``split_multi_sherd_scan`` and
+        ``detect_multiple_sherds``.
+    file_formats : list of str, optional
+        Extensions to look for.  Default:
+        ``['jpg', 'jpeg', 'png', 'bmp', 'tiff', 'tif']``.
+    write_manifest : bool, optional
+        Write a combined ``manifest.csv`` in ``output_dir`` (default True).
+
+    Returns
+    -------
+    list of pathlib.Path
+        All per-sherd image paths that were written.
+    """
+    if file_formats is None:
+        file_formats = ['jpg', 'jpeg', 'png', 'bmp', 'tiff', 'tif']
+
+    input_dir = Path(input_dir)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = output_dir / 'manifest.csv' if write_manifest else None
+
+    image_files = []
+    for ext in file_formats:
+        image_files.extend(list(input_dir.rglob(f'*.{ext}')))
+        image_files.extend(list(input_dir.rglob(f'*.{ext.upper()}')))
+
+    # rglob returns the same file twice on case-insensitive filesystems (macOS).
+    image_files = sorted({p.resolve() for p in image_files})
+
+    all_outputs = []
+    for i, image_path in enumerate(image_files, start=1):
+        print(f"Splitting {image_path.name} ({i}/{len(image_files)})")
+        try:
+            outs = split_multi_sherd_scan(
+                image_path, output_dir,
+                scan_dpi=scan_dpi, crop_buffer=crop_buffer,
+                n_sherds=n_sherds, min_area_cm2=min_area_cm2,
+                write_manifest=write_manifest,
+                manifest_path=manifest_path,
+                apply_mask_to_output=apply_mask_to_output,
+            )
+            all_outputs.extend(outs)
+            print(f"  -> wrote {len(outs)} sherd image(s)")
+        except Exception as e:
+            print(f"  Error processing {image_path.name}: {e}")
+
+    print(f"Done. Wrote {len(all_outputs)} per-sherd images to {output_dir}")
+    return all_outputs
 
 
 def enhanced_contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
