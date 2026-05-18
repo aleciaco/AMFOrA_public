@@ -405,12 +405,26 @@ def _bbox_iou(b1, b2):
     return inter / union if union > 0 else 0
 
 
+def _bbox_containment(inner, outer):
+    """Fraction of ``inner`` bbox area that lies inside ``outer`` bbox."""
+    x1, y1, w1, h1 = inner
+    x2, y2, w2, h2 = outer
+    xi1, yi1 = max(x1, x2), max(y1, y2)
+    xi2, yi2 = min(x1 + w1, x2 + w2), min(y1 + h1, y2 + h2)
+    inter = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+    inner_area = w1 * h1
+    return inter / inner_area if inner_area > 0 else 0
+
+
 def _select_multiple_contours(contour_methods, image_area, scan_dpi,
                               n_sherds=None, min_area_cm2=0.25,
-                              max_area_ratio=0.9, iou_threshold=0.5):
+                              max_area_ratio=0.9, iou_threshold=0.5,
+                              envelope_containment=0.8, envelope_min_children=2,
+                              gap_ratio_threshold=0.5):
     """
     Pick multiple sherd contours using absolute size filters, bbox-IoU
-    deduplication, and a gap-based stopping rule.
+    deduplication, envelope-contour elimination, and a gap-based stopping
+    rule.
 
     Strategy
     --------
@@ -419,11 +433,21 @@ def _select_multiple_contours(contour_methods, image_area, scan_dpi,
        ``max_area_ratio`` of the image area.
     3. Deduplicate by bbox IoU: when two contours overlap by more than
        ``iou_threshold`` keep the larger.
-    4. Sort survivors descending by area.
-    5. Auto-count: walk consecutive pairs and stop at the largest ratio
-       drop-off (``area[i] / area[i-1]`` minimum). Everything before the
-       gap survives.
-    6. If ``n_sherds`` is given, skip the gap rule and just take top-N.
+    4. Eliminate "envelope" contours.  When sherds are clustered close
+       enough that their halos bridge into one connected bright region,
+       Otsu/adaptive can produce a single big contour wrapping the whole
+       cluster.  Any survivor whose bbox contains ``envelope_min_children``
+       or more *other* survivors' bboxes at ``envelope_containment``
+       fraction is treated as that wrapper and dropped.
+    5. Sort survivors descending by area.
+    6. Auto-count: walk consecutive pairs and stop at the largest ratio
+       drop-off (``area[i] / area[i-1]`` minimum) **only if that drop-off
+       is below ``gap_ratio_threshold``** (default 0.5 = "next contour at
+       least 2x smaller").  When all survivors are similar in size the
+       minimum ratio stays near 1.0 and no gap counts as a stop — every
+       survivor is kept.
+    7. If ``n_sherds`` is given, skip the gap rule and just take top-N
+       (still after envelope elimination, so the wrapper can't steal a slot).
 
     Returns
     -------
@@ -459,6 +483,24 @@ def _select_multiple_contours(contour_methods, image_area, scan_dpi,
     if not kept:
         return []
 
+    if len(kept) >= envelope_min_children + 1:
+        non_envelope = []
+        for i, (area_i, bbox_i, contour_i) in enumerate(kept):
+            child_count = 0
+            for j, (area_j, bbox_j, _) in enumerate(kept):
+                if i == j or area_j >= area_i:
+                    continue
+                if _bbox_containment(bbox_j, bbox_i) >= envelope_containment:
+                    child_count += 1
+                    if child_count >= envelope_min_children:
+                        break
+            if child_count < envelope_min_children:
+                non_envelope.append((area_i, bbox_i, contour_i))
+        kept = non_envelope
+
+    if not kept:
+        return []
+
     if n_sherds is not None:
         return [c for _, _, c in kept[:int(n_sherds)]]
 
@@ -467,7 +509,10 @@ def _select_multiple_contours(contour_methods, image_area, scan_dpi,
 
     ratios = [kept[i][0] / kept[i - 1][0] for i in range(1, len(kept))]
     gap_idx = int(np.argmin(ratios))
-    keep_count = gap_idx + 1
+    if ratios[gap_idx] < gap_ratio_threshold:
+        keep_count = gap_idx + 1
+    else:
+        keep_count = len(kept)
     return [c for _, _, c in kept[:keep_count]]
 
 
