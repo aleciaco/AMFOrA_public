@@ -622,10 +622,16 @@ def sherd_mask(sherd_scan, gray=False, scan_dpi=1200, crop_buffer=125, auto_crop
     image = sherd_scan
     orig_h, orig_w = image.shape[:2]
 
-    # Crop off outer 0.5cm border to remove box outline used to block light during scanning
+    # Crop off outer 0.5cm border to remove the scanner-box outline that
+    # blocks stray light on full-bed scans.  Tight per-sherd crops have no
+    # scanner box and would lose their actual background margin, so the
+    # crop is skipped when the image is too small to spare it.
     dpcm = scan_dpi * 0.3937
-    border_crop = int(0.5 * dpcm)
-    border_crop = min(border_crop, min(orig_h, orig_w) // 4)
+    desired_border = int(0.5 * dpcm)
+    if min(orig_h, orig_w) >= 6 * desired_border:
+        border_crop = desired_border
+    else:
+        border_crop = 0
     image_cropped = image[border_crop:orig_h - border_crop, border_crop:orig_w - border_crop]
 
     contour_methods = _run_edge_pipeline(image_cropped, scan_dpi)
@@ -1041,8 +1047,13 @@ def detect_multiple_sherds(sherd_scan, scan_dpi=1200, crop_buffer=125,
     image = sherd_scan
     orig_h, orig_w = image.shape[:2]
     dpcm = scan_dpi * 0.3937
-    border_crop = int(0.5 * dpcm)
-    border_crop = min(border_crop, min(orig_h, orig_w) // 4)
+    # Skip the scanner-box border crop on images too small to spare it
+    # (e.g. tight per-sherd crops from split_multi_sherd_scan).
+    desired_border = int(0.5 * dpcm)
+    if min(orig_h, orig_w) >= 6 * desired_border:
+        border_crop = desired_border
+    else:
+        border_crop = 0
     image_cropped = image[border_crop:orig_h - border_crop, border_crop:orig_w - border_crop]
     cropped_h, cropped_w = image_cropped.shape[:2]
     image_area = cropped_h * cropped_w
