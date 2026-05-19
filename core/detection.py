@@ -314,84 +314,182 @@ def _adaptive_morphology_kernel(scan_dpi, target_size_mm=0.5):
                                      (kernel_size_pixels, kernel_size_pixels))
 
 
-def _run_edge_pipeline(image_cropped, scan_dpi):
+def _grabcut_mask(image, scan_dpi, clahe_clip=2.0, clahe_grid=(8, 8),
+                  loose_thresh_fraction=0.6, fg_erode_iter=2,
+                  bg_dilate_iter=5, iterations=5, max_dim=1500):
     """
-    Run the three-method edge detection pipeline (Canny + Otsu + adaptive
-    threshold) and return the resulting contour lists.
+    Foreground extraction via CLAHE-enhanced V-channel + dual-Otsu trimap
+    + ``cv2.grabCut``.
+
+    Pipeline
+    --------
+    1. Convert BGR → HSV, take the V (value) channel.  V preserves
+       luminance through JPEG chroma subsampling better than BGR→GRAY.
+    2. Apply CLAHE (``clipLimit=clahe_clip``, ``tileGridSize=clahe_grid``)
+       to V.  Adaptive histogram equalization enhances local contrast and
+       suppresses large-scale shading (vignetting, lighting drift).
+    3. Tight Otsu binarization on the CLAHE-enhanced V → ``tight_mask``
+       (conservative sherd core).
+    4. Loose threshold at ``loose_thresh_fraction × tight_Otsu`` →
+       ``loose_mask`` (sherd plus halo).
+    5. Build a three-zone trimap directly from the two masks:
+         · ``GC_FGD``    = ``tight_mask`` eroded ``fg_erode_iter``× with
+                          a 3×3 kernel (strictly inside the sherd, away
+                          from halo).
+         · ``GC_BGD``    = outside (``loose_mask`` dilated ``bg_dilate_iter``×
+                          with a 5×5 kernel) — guaranteed clean background
+                          samples well clear of the halo.
+         · ``GC_PR_BGD`` = everything else (halo + uncertain boundary).
+                          GrabCut classifies these via the learned colour
+                          GMMs.
+    6. ``cv2.grabCut(image, trimap, None, bgM, fgM, iterations,
+                     cv2.GC_INIT_WITH_MASK)``.
+    7. Output = pixels labelled ``GC_FGD`` or ``GC_PR_FGD`` → 255, else 0.
+    8. Fill holes via ``findContours(RETR_EXTERNAL) + drawContours(FILLED)``
+       so dark inclusions inside the sherd don't punch through the mask.
+    9. Safety fallback: when the final output area is < 50% of the
+       ``GC_FGD`` seed area, GrabCut has diverged — return ``tight_mask``
+       so downstream code still has a usable mask.
 
     Returns
     -------
-    dict
-        ``{"canny": [...], "otsu": [...], "adaptive": [...]}`` — contour
-        lists in ``image_cropped`` pixel coordinates.
+    numpy.ndarray
+        Single-channel ``uint8`` mask in ``image`` coordinates.
     """
-    im_gray = cv2.cvtColor(image_cropped, cv2.COLOR_BGR2GRAY)
+    # GrabCut is O(N²) on pixel count, so downsample very large scans for
+    # the segmentation step and upsample the result mask afterwards.
+    H_in, W_in = image.shape[:2]
+    scale = 1.0
+    if max(H_in, W_in) > max_dim:
+        scale = max_dim / max(H_in, W_in)
+        new_w = max(8, int(W_in * scale))
+        new_h = max(8, int(H_in * scale))
+        work_image = cv2.resize(image, (new_w, new_h),
+                                interpolation=cv2.INTER_AREA)
+    else:
+        work_image = image
 
-    lower_thresh, upper_thresh = _optimal_canny_thresholds(im_gray)
-    edges = cv2.Canny(im_gray, lower_thresh, upper_thresh)
-    kernel = _adaptive_morphology_kernel(scan_dpi, target_size_mm=0.5)
-    edges_closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
-    edges_clean = cv2.morphologyEx(edges_closed, cv2.MORPH_OPEN, kernel)
-    contours_canny, _ = cv2.findContours(edges_clean, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    hsv = cv2.cvtColor(work_image, cv2.COLOR_BGR2HSV)
+    v = hsv[:, :, 2]
 
-    bg_mean, bg_std = _detect_background_statistics(im_gray)
-    blur = cv2.GaussianBlur(im_gray, (5, 5), 0)
-    _, thresh_otsu = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-    adaptive_thresh_val = max(0, min(255, int(bg_mean + 2 * bg_std)))
-    _, thresh_adaptive = cv2.threshold(blur, adaptive_thresh_val, 255, cv2.THRESH_BINARY)
-    contours_otsu, _ = cv2.findContours(thresh_otsu, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-    contours_adaptive, _ = cv2.findContours(thresh_adaptive, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    clahe = cv2.createCLAHE(clipLimit=float(clahe_clip),
+                            tileGridSize=tuple(clahe_grid))
+    v_eq = clahe.apply(v)
 
-    return {
-        "canny": list(contours_canny),
-        "otsu": list(contours_otsu),
-        "adaptive": list(contours_adaptive),
-        "_gray_shape": im_gray.shape,
-    }
+    otsu_thresh, tight_mask = cv2.threshold(
+        v_eq, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU
+    )
+    _, loose_mask = cv2.threshold(
+        v_eq, int(loose_thresh_fraction * otsu_thresh), 255, cv2.THRESH_BINARY
+    )
+
+    fg_core = cv2.erode(tight_mask, np.ones((3, 3), np.uint8),
+                        iterations=fg_erode_iter)
+    bg_far = cv2.dilate(loose_mask, np.ones((5, 5), np.uint8),
+                        iterations=bg_dilate_iter)
+
+    trimap = np.full(v.shape, cv2.GC_PR_BGD, dtype=np.uint8)
+    trimap[bg_far == 0] = cv2.GC_BGD
+    trimap[fg_core > 0] = cv2.GC_FGD
+
+    sure_fg_area = int(cv2.countNonZero(fg_core))
+    if sure_fg_area == 0:
+        # No core to seed the FG GMM — fall back to the tight mask
+        # (resized back to input dimensions if we downsampled).
+        if scale != 1.0:
+            return cv2.resize(tight_mask, (W_in, H_in),
+                              interpolation=cv2.INTER_NEAREST)
+        return tight_mask
+
+    bg_model = np.zeros((1, 65), dtype=np.float64)
+    fg_model = np.zeros((1, 65), dtype=np.float64)
+    try:
+        cv2.grabCut(work_image, trimap, None, bg_model, fg_model,
+                    iterations, cv2.GC_INIT_WITH_MASK)
+    except cv2.error:
+        if scale != 1.0:
+            return cv2.resize(tight_mask, (W_in, H_in),
+                              interpolation=cv2.INTER_NEAREST)
+        return tight_mask
+
+    fg_mask = np.where(
+        (trimap == cv2.GC_FGD) | (trimap == cv2.GC_PR_FGD), 255, 0
+    ).astype(np.uint8)
+
+    # Fill holes (background-coloured inclusions inside the sherd).
+    contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL,
+                                   cv2.CHAIN_APPROX_NONE)
+    if contours:
+        filled = np.zeros_like(fg_mask)
+        cv2.drawContours(filled, contours, -1, 255, cv2.FILLED)
+        fg_mask = filled
+
+    # Safety fallback: when GrabCut collapses the output below half the
+    # FG seed area, distrust the result and return the tight Otsu mask.
+    if int(cv2.countNonZero(fg_mask)) / sure_fg_area < 0.5:
+        fg_mask = tight_mask
+
+    # Upsample mask back to the original input size if we downsampled.
+    if scale != 1.0:
+        fg_mask = cv2.resize(fg_mask, (W_in, H_in),
+                             interpolation=cv2.INTER_NEAREST)
+
+    return fg_mask
 
 
-def _select_best_contour(contour_methods, image_area):
+def _solidity(contour):
+    """area / convex-hull area; 1.0 = perfectly convex, lower = ragged."""
+    area = cv2.contourArea(contour)
+    if area <= 0:
+        return 0.0
+    hull = cv2.convexHull(contour)
+    hull_area = cv2.contourArea(hull)
+    if hull_area <= 0:
+        return 0.0
+    return float(area / hull_area)
+
+
+def _smooth_contour(contour, eps_frac=0.001, eps_min=1.0):
+    """Flatten pixel-level zigzag with approxPolyDP; preserves overall shape."""
+    perim = cv2.arcLength(contour, True)
+    eps = max(eps_min, eps_frac * perim)
+    return cv2.approxPolyDP(contour, eps, True)
+
+
+def _select_best_contour(fg_mask, image_area, scan_dpi,
+                         min_area_cm2=0.25, max_area_ratio=0.9,
+                         solidity_floor=0.75):
     """
-    Pick the single best sherd contour across detection methods.
+    Pick the single best sherd contour from ``fg_mask``.
 
-    Reproduces the original ``sherd_mask`` selection: among the largest
-    contour from each method, prefer those whose area is <=90% of the image
-    (skip the "whole frame" contour), and among those, take the biggest.
-    Falls back to the original area-ratio tie-breaker if nothing qualifies.
+    Filters out tiny specks (area < ``min_area_cm2``), the whole-frame
+    fallback (area > ``max_area_ratio`` of image), and ragged dust-blob
+    contours (solidity < ``solidity_floor``).  Returns the largest
+    survivor smoothed with ``approxPolyDP``, or ``None`` when no contour
+    passes the filters.
     """
-    methods = [("canny", contour_methods.get("canny", [])),
-               ("otsu", contour_methods.get("otsu", [])),
-               ("adaptive", contour_methods.get("adaptive", []))]
+    dpcm2 = (scan_dpi * 0.3937) ** 2
+    min_area_px = min_area_cm2 * dpcm2
+    max_area_px = max_area_ratio * image_area
 
-    best_contour = None
-    best_area = 0
-    for contours, _name in [(c, n) for n, c in methods]:
-        if len(contours) > 0:
-            largest = max(contours, key=cv2.contourArea)
-            area = cv2.contourArea(largest)
-            area_ratio = area / image_area if image_area else 0
-            if area_ratio <= 0.9 and area > best_area:
-                best_contour = largest
-                best_area = area
+    contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL,
+                                   cv2.CHAIN_APPROX_NONE)
+    if not contours:
+        return None
 
-    if best_contour is None:
-        contours_canny = contour_methods.get("canny", [])
-        contours_otsu = contour_methods.get("otsu", [])
-        if len(contours_otsu) > 0 and len(contours_canny) > 0:
-            ic_canny = max(contours_canny, key=cv2.contourArea)
-            ic_thresh = max(contours_otsu, key=cv2.contourArea)
-            if cv2.contourArea(ic_canny) > 1.1 * cv2.contourArea(ic_thresh):
-                best_contour = ic_thresh
-            elif cv2.contourArea(ic_canny) < cv2.contourArea(ic_thresh):
-                best_contour = ic_thresh
-            else:
-                best_contour = ic_canny
-        elif len(contours_otsu) > 0:
-            best_contour = max(contours_otsu, key=cv2.contourArea)
-        elif len(contours_canny) > 0:
-            best_contour = max(contours_canny, key=cv2.contourArea)
+    survivors = []
+    for c in contours:
+        a = cv2.contourArea(c)
+        if a < min_area_px or a > max_area_px:
+            continue
+        if _solidity(c) < solidity_floor:
+            continue
+        survivors.append((a, c))
+    if not survivors:
+        return None
 
-    return best_contour
+    survivors.sort(key=lambda t: t[0], reverse=True)
+    return _smooth_contour(survivors[0][1])
 
 
 def _bbox_iou(b1, b2):
@@ -416,78 +514,64 @@ def _bbox_containment(inner, outer):
     return inter / inner_area if inner_area > 0 else 0
 
 
-def _select_multiple_contours(contour_methods, image_area, scan_dpi,
+def _select_multiple_contours(fg_mask, image_area, scan_dpi,
                               n_sherds=None, min_area_cm2=0.25,
-                              max_area_ratio=0.9, iou_threshold=0.5,
+                              max_area_ratio=0.9, solidity_floor=0.75,
                               envelope_containment=0.8, envelope_min_children=2,
-                              gap_ratio_threshold=0.5):
+                              gap_ratio_threshold=0.4):
     """
-    Pick multiple sherd contours using absolute size filters, bbox-IoU
-    deduplication, envelope-contour elimination, and a gap-based stopping
-    rule.
+    Pick sherd contours from an HSV foreground mask using shape filters,
+    envelope-contour elimination, and a gap-based stopping rule.
 
     Strategy
     --------
-    1. Pool contours from every method.
-    2. Drop anything below ``min_area_cm2`` (DPI-aware) or above
-       ``max_area_ratio`` of the image area.
-    3. Deduplicate by bbox IoU: when two contours overlap by more than
-       ``iou_threshold`` keep the larger.
-    4. Eliminate "envelope" contours.  When sherds are clustered close
-       enough that their halos bridge into one connected bright region,
-       Otsu/adaptive can produce a single big contour wrapping the whole
-       cluster.  Any survivor whose bbox contains ``envelope_min_children``
-       or more *other* survivors' bboxes at ``envelope_containment``
-       fraction is treated as that wrapper and dropped.
-    5. Sort survivors descending by area.
-    6. Auto-count: walk consecutive pairs and stop at the largest ratio
-       drop-off (``area[i] / area[i-1]`` minimum) **only if that drop-off
-       is below ``gap_ratio_threshold``** (default 0.5 = "next contour at
-       least 2x smaller").  When all survivors are similar in size the
-       minimum ratio stays near 1.0 and no gap counts as a stop — every
-       survivor is kept.
-    7. If ``n_sherds`` is given, skip the gap rule and just take top-N
-       (still after envelope elimination, so the wrapper can't steal a slot).
+    1. Extract external contours from ``fg_mask``.
+    2. Drop contours below ``min_area_cm2`` (DPI-aware), above
+       ``max_area_ratio`` of the image, or below ``solidity_floor``
+       (ragged dust-blob contours).
+    3. Sort survivors descending by area.
+    4. Eliminate envelope contours: any survivor whose bbox contains
+       ``envelope_min_children``+ other survivors at ``envelope_containment``
+       fraction is a wrapper around a cluster (halos bridging) and dropped.
+    5. Auto-count: walk consecutive area pairs and stop at the largest
+       ratio drop-off only when that drop is ``< gap_ratio_threshold``
+       (default 0.5 = "next contour at least 2× smaller").  Otherwise keep
+       every survivor.
+    6. If ``n_sherds`` is given, skip the gap rule and take top-N.
+    7. Smooth each chosen contour with ``approxPolyDP``.
 
     Returns
     -------
-    list of contours, sorted descending by area.
+    list of contours (smoothed), sorted descending by area.
     """
-    dpcm = scan_dpi * 0.3937
-    min_area_px = min_area_cm2 * (dpcm ** 2)
+    dpcm2 = (scan_dpi * 0.3937) ** 2
+    min_area_px = min_area_cm2 * dpcm2
     max_area_px = max_area_ratio * image_area
 
-    pooled = []
-    for name in ("canny", "otsu", "adaptive"):
-        for c in contour_methods.get(name, []):
-            a = cv2.contourArea(c)
-            if a < min_area_px or a > max_area_px:
-                continue
-            pooled.append((a, cv2.boundingRect(c), c))
-
-    if not pooled:
+    raw_contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL,
+                                       cv2.CHAIN_APPROX_NONE)
+    if not raw_contours:
         return []
 
-    pooled.sort(key=lambda t: t[0], reverse=True)
+    pool = []
+    for c in raw_contours:
+        a = cv2.contourArea(c)
+        if a < min_area_px or a > max_area_px:
+            continue
+        if _solidity(c) < solidity_floor:
+            continue
+        pool.append((a, cv2.boundingRect(c), c))
 
-    kept = []
-    for area, bbox, contour in pooled:
-        duplicate = False
-        for k_area, k_bbox, _ in kept:
-            if _bbox_iou(bbox, k_bbox) > iou_threshold:
-                duplicate = True
-                break
-        if not duplicate:
-            kept.append((area, bbox, contour))
-
-    if not kept:
+    if not pool:
         return []
 
-    if len(kept) >= envelope_min_children + 1:
+    pool.sort(key=lambda t: t[0], reverse=True)
+
+    if len(pool) >= envelope_min_children + 1:
         non_envelope = []
-        for i, (area_i, bbox_i, contour_i) in enumerate(kept):
+        for i, (area_i, bbox_i, contour_i) in enumerate(pool):
             child_count = 0
-            for j, (area_j, bbox_j, _) in enumerate(kept):
+            for j, (area_j, bbox_j, _) in enumerate(pool):
                 if i == j or area_j >= area_i:
                     continue
                 if _bbox_containment(bbox_j, bbox_i) >= envelope_containment:
@@ -496,24 +580,25 @@ def _select_multiple_contours(contour_methods, image_area, scan_dpi,
                         break
             if child_count < envelope_min_children:
                 non_envelope.append((area_i, bbox_i, contour_i))
-        kept = non_envelope
+        pool = non_envelope
 
-    if not kept:
+    if not pool:
         return []
 
     if n_sherds is not None:
-        return [c for _, _, c in kept[:int(n_sherds)]]
-
-    if len(kept) == 1:
-        return [kept[0][2]]
-
-    ratios = [kept[i][0] / kept[i - 1][0] for i in range(1, len(kept))]
-    gap_idx = int(np.argmin(ratios))
-    if ratios[gap_idx] < gap_ratio_threshold:
-        keep_count = gap_idx + 1
+        chosen = [c for _, _, c in pool[:int(n_sherds)]]
+    elif len(pool) == 1:
+        chosen = [pool[0][2]]
     else:
-        keep_count = len(kept)
-    return [c for _, _, c in kept[:keep_count]]
+        ratios = [pool[i][0] / pool[i - 1][0] for i in range(1, len(pool))]
+        gap_idx = int(np.argmin(ratios))
+        if ratios[gap_idx] < gap_ratio_threshold:
+            keep_count = gap_idx + 1
+        else:
+            keep_count = len(pool)
+        chosen = [c for _, _, c in pool[:keep_count]]
+
+    return [_smooth_contour(c) for c in chosen]
 
 
 def _contour_to_crop_and_mask(contour, orig_h, orig_w, border_crop,
@@ -628,16 +713,16 @@ def sherd_mask(sherd_scan, gray=False, scan_dpi=1200, crop_buffer=125, auto_crop
     # crop is skipped when the image is too small to spare it.
     dpcm = scan_dpi * 0.3937
     desired_border = int(0.5 * dpcm)
-    if min(orig_h, orig_w) >= 6 * desired_border:
+    if min(orig_h, orig_w) >= 8 * desired_border:
         border_crop = desired_border
     else:
         border_crop = 0
     image_cropped = image[border_crop:orig_h - border_crop, border_crop:orig_w - border_crop]
 
-    contour_methods = _run_edge_pipeline(image_cropped, scan_dpi)
-    gray_shape = contour_methods["_gray_shape"]
-    image_area = gray_shape[0] * gray_shape[1]
-    best_contour = _select_best_contour(contour_methods, image_area)
+    # CLAHE-enhanced V channel + dual Otsu thresholds → GrabCut trimap.
+    fg_mask = _grabcut_mask(image_cropped, scan_dpi)
+    image_area = image_cropped.shape[0] * image_cropped.shape[1]
+    best_contour = _select_best_contour(fg_mask, image_area, scan_dpi)
 
     mask_slice, crop = _contour_to_crop_and_mask(
         best_contour, orig_h, orig_w, border_crop, crop_buffer, auto_crop
@@ -1050,7 +1135,7 @@ def detect_multiple_sherds(sherd_scan, scan_dpi=1200, crop_buffer=125,
     # Skip the scanner-box border crop on images too small to spare it
     # (e.g. tight per-sherd crops from split_multi_sherd_scan).
     desired_border = int(0.5 * dpcm)
-    if min(orig_h, orig_w) >= 6 * desired_border:
+    if min(orig_h, orig_w) >= 8 * desired_border:
         border_crop = desired_border
     else:
         border_crop = 0
@@ -1059,8 +1144,6 @@ def detect_multiple_sherds(sherd_scan, scan_dpi=1200, crop_buffer=125,
     image_area = cropped_h * cropped_w
 
     if mask is not None:
-        # Connected-components branch: derive contours from the supplied mask
-        # so the per-sherd outputs match the edge-pipeline branch.
         m = mask
         if len(m.shape) > 2:
             m = cv2.cvtColor(m, cv2.COLOR_BGR2GRAY)
@@ -1068,14 +1151,17 @@ def detect_multiple_sherds(sherd_scan, scan_dpi=1200, crop_buffer=125,
         # interior that corresponds to image_cropped.
         m_cropped = m[border_crop:orig_h - border_crop,
                       border_crop:orig_w - border_crop]
-        m_binary = (m_cropped > 0).astype(np.uint8)
-        contours, _ = cv2.findContours(m_binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        contour_methods = {"canny": list(contours), "otsu": [], "adaptive": []}
+        fg_mask = (m_cropped > 0).astype(np.uint8) * 255
     else:
-        contour_methods = _run_edge_pipeline(image_cropped, scan_dpi)
+        # CLAHE-enhanced V + dual-Otsu trimap → GrabCut, single pass for
+        # the whole image_cropped.  Inter-sherd gaps in the background
+        # show through naturally because the loose Otsu mask leaves them
+        # uncovered, so the trimap's GC_BGD reaches between sherds and
+        # separate contours fall out of findContours downstream.
+        fg_mask = _grabcut_mask(image_cropped, scan_dpi)
 
     contours = _select_multiple_contours(
-        contour_methods, image_area, scan_dpi,
+        fg_mask, image_area, scan_dpi,
         n_sherds=n_sherds, min_area_cm2=min_area_cm2,
     )
 
