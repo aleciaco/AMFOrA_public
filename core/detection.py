@@ -12,9 +12,9 @@ from pathlib import Path
 
 __all__ = [
     'setup_robust_blob_params', 'sherd_mask', 'apply_mask',
-    'super_zorro_cv', 'sherd_blobs', 'detect_multiple_sherds',
-    'split_multi_sherd_scan', 'prepare_multi_sherd_directory',
-    'contour_detection',
+    'clahe_enhance', 'super_zorro_cv', 'sherd_blobs',
+    'detect_multiple_sherds', 'split_multi_sherd_scan',
+    'prepare_multi_sherd_directory', 'contour_detection',
 ]
 
 
@@ -456,6 +456,35 @@ def _smooth_contour(contour, eps_frac=0.001, eps_min=1.0):
     return cv2.approxPolyDP(contour, eps, True)
 
 
+def _drop_nested(contours, areas):
+    """Keep only outermost contours.
+
+    Walks contours largest-first and rejects any whose centroid lies inside
+    an already-kept larger contour.  A single inclusion with internal color
+    gradient otherwise registers as 2+ detections (one parent contour + child
+    contours from threshold-band boundaries inside it).
+    """
+    if len(contours) < 2:
+        return list(contours), list(areas)
+    order = sorted(range(len(contours)), key=lambda i: areas[i], reverse=True)
+    kept_idx = []
+    for i in order:
+        M = cv2.moments(contours[i])
+        if M['m00'] == 0:
+            kept_idx.append(i)
+            continue
+        cx = float(M['m10'] / M['m00'])
+        cy = float(M['m01'] / M['m00'])
+        nested = any(
+            cv2.pointPolygonTest(contours[j], (cx, cy), False) >= 0
+            for j in kept_idx
+        )
+        if not nested:
+            kept_idx.append(i)
+    kept_idx.sort()  # preserve original input order
+    return [contours[i] for i in kept_idx], [areas[i] for i in kept_idx]
+
+
 def _select_best_contour(fg_mask, image_area, scan_dpi,
                          min_area_cm2=0.25, max_area_ratio=0.9,
                          solidity_floor=0.75):
@@ -777,6 +806,222 @@ def apply_mask(image, mask, crop=None):
     return masked_image
 
 
+def clahe_enhance(masked_image, clip_limit=2.0, tile_grid=(8, 8)):
+    """
+    Apply CLAHE to the L* channel of a masked sherd image.
+
+    Enhances local contrast between paste and inclusions/voids so the
+    downstream blob and contour detectors see a wider, cleaner intra-sherd
+    intensity range.  Operates in CIELAB to stay consistent with the rest
+    of the analysis pipeline (sherd_blobs, contour_detection, and the
+    color analysis all work in Lab).
+
+    Parameters
+    ----------
+    masked_image : numpy.ndarray
+        BGR image with the non-sherd background already set to zero
+        (output of ``apply_mask``).
+    clip_limit : float, optional
+        CLAHE contrast clipping limit (default: 2.0).  Higher values give
+        more aggressive enhancement; values above ~4 tend to amplify noise.
+    tile_grid : tuple of int, optional
+        CLAHE tile grid size (default: (8, 8)).  Smaller tiles give more
+        local adaptation but can introduce boundary artifacts in
+        low-texture regions.
+
+    Returns
+    -------
+    numpy.ndarray
+        BGR image with CLAHE-enhanced L*; background pixels (those that
+        were zero on input) are re-zeroed so the mask remains intact.
+
+    Notes
+    -----
+    CLAHE is applied to the full L* channel and then the original
+    background (any pixel that was zero across all three input channels)
+    is re-zeroed.  Tiles spanning the sherd boundary see a bimodal
+    histogram (black background + sherd); the ``clip_limit`` of 2.0 keeps
+    the resulting boundary artifacts well below the inclusion-detection
+    thresholds.
+    """
+    if masked_image is None or masked_image.size == 0:
+        return masked_image
+
+    # Remember which pixels were background so we can re-zero them after
+    # CLAHE inevitably bleeds some signal into boundary tiles.
+    if masked_image.ndim == 3:
+        bg = np.all(masked_image == 0, axis=2)
+    else:
+        bg = (masked_image == 0)
+
+    lab = cv2.cvtColor(masked_image, cv2.COLOR_BGR2Lab)
+    l_channel = lab[:, :, 0]
+
+    clahe = cv2.createCLAHE(clipLimit=float(clip_limit),
+                            tileGridSize=tuple(tile_grid))
+    lab[:, :, 0] = clahe.apply(l_channel)
+
+    enhanced = cv2.cvtColor(lab, cv2.COLOR_Lab2BGR)
+    enhanced[bg] = 0
+    return enhanced
+
+
+_VALID_CHANNELS = ('L', 'B', 'G', 'R')
+
+
+def _extract_channel(image, channel, enhance_contrast=False,
+                     clip_limit=2.0, tile_grid=(8, 8)):
+    """Extract a single-channel uint8 image, optionally CLAHE-enhanced.
+
+    Parameters
+    ----------
+    image : numpy.ndarray
+        Masked BGR image (OpenCV's native channel order — not RGB).
+        Background pixels are expected to be zero across all channels.
+    channel : {'L', 'B', 'G', 'R'}
+        'L' = CIELAB lightness (BGR→Lab, take L*); 'B'/'G'/'R' = the
+        corresponding BGR channel directly from the input.
+    enhance_contrast : bool
+        If True, apply CLAHE on the extracted channel.  Background pixels
+        (zero across all input channels) are re-zeroed afterward so the mask
+        stays intact even though CLAHE bleeds signal into boundary tiles.
+    clip_limit, tile_grid
+        Forwarded to ``cv2.createCLAHE``.
+    """
+    if image is None or image.size == 0:
+        return image
+    if channel not in _VALID_CHANNELS:
+        raise ValueError(
+            f"Unknown channel {channel!r}; expected one of {_VALID_CHANNELS}")
+
+    if image.ndim == 2:
+        gray = image.copy()
+    elif channel == 'L':
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2Lab)[:, :, 0]
+    else:
+        # cv2 stores images in BGR order, so index 0=B, 1=G, 2=R.
+        bgr_idx = {'B': 0, 'G': 1, 'R': 2}[channel]
+        gray = image[:, :, bgr_idx].copy()
+
+    if enhance_contrast:
+        if image.ndim == 3:
+            bg = np.all(image == 0, axis=2)
+        else:
+            bg = (image == 0)
+        clahe = cv2.createCLAHE(clipLimit=float(clip_limit),
+                                tileGridSize=tuple(tile_grid))
+        gray = clahe.apply(gray)
+        gray[bg] = 0
+    return gray
+
+
+def _combine_blob_lists(blob_lists_by_channel, combine_mode='union', vote_min=2,
+                        distance_factor=0.5):
+    """Pool blob keypoints across channels with NMS-based dedup and optional voting.
+
+    Parameters
+    ----------
+    blob_lists_by_channel : dict[str, list[cv2.KeyPoint]]
+        One list of detected keypoints per channel name.
+    combine_mode : {'union', 'vote'}
+        'union' returns the deduplicated pool (each spatial cluster contributes
+        its largest blob).  'vote' additionally requires a cluster to contain
+        contributions from at least ``vote_min`` distinct channels.
+    vote_min : int
+        Minimum number of distinct channels that must agree for a blob to pass
+        in 'vote' mode.  Ignored for 'union'.
+    distance_factor : float
+        Two keypoints belong to the same spatial cluster when their centers
+        are within ``distance_factor * max(size_a, size_b)`` pixels.
+    """
+    if not blob_lists_by_channel:
+        return []
+    channels = list(blob_lists_by_channel.keys())
+    if len(channels) == 1:
+        return list(blob_lists_by_channel[channels[0]])
+
+    pooled = [(ch, b) for ch, bs in blob_lists_by_channel.items() for b in bs]
+    pooled.sort(key=lambda cb: -cb[1].size)
+
+    clusters = []  # list of [set(channels_seen), representative_blob]
+    for ch, b in pooled:
+        bx, by = b.pt
+        matched = None
+        for cluster in clusters:
+            rb = cluster[1]
+            rx, ry = rb.pt
+            dist = float(np.hypot(bx - rx, by - ry))
+            if dist < distance_factor * max(b.size, rb.size):
+                matched = cluster
+                break
+        if matched is None:
+            clusters.append([{ch}, b])
+        else:
+            matched[0].add(ch)
+
+    if combine_mode == 'vote':
+        return [rb for chs, rb in clusters if len(chs) >= vote_min]
+    return [rb for _, rb in clusters]
+
+
+def _combine_contour_lists(contour_lists_by_channel, image_shape,
+                           combine_mode='union', vote_min=2):
+    """Pool contour lists across channels with centroid-containment dedup and optional voting.
+
+    Parameters
+    ----------
+    contour_lists_by_channel : dict[str, list[contour]]
+        One list of contours per channel name.
+    image_shape : tuple
+        ``(h, w[, ...])`` of the source image; used to rasterize per-channel
+        masks for the vote count.
+    combine_mode : {'union', 'vote'}
+        'union' returns the pooled outermost contours (``_drop_nested`` does
+        the cross-channel dedup since a contour fully containing another's
+        centroid is treated as the same physical feature).  'vote' additionally
+        requires the contour's centroid to fall inside ≥ ``vote_min`` per-channel
+        masks.
+    vote_min : int
+        Minimum number of channels that must agree.  Ignored for 'union'.
+    """
+    if not contour_lists_by_channel:
+        return []
+    channels = list(contour_lists_by_channel.keys())
+    if len(channels) == 1:
+        return list(contour_lists_by_channel[channels[0]])
+
+    all_contours = [c for cs in contour_lists_by_channel.values() for c in cs]
+    if not all_contours:
+        return []
+    areas = [cv2.contourArea(c) for c in all_contours]
+    kept_contours, _ = _drop_nested(all_contours, areas)
+
+    if combine_mode != 'vote':
+        return kept_contours
+
+    h, w = image_shape[:2]
+    channel_masks = {}
+    for ch, contours in contour_lists_by_channel.items():
+        m = np.zeros((h, w), dtype=np.uint8)
+        if contours:
+            cv2.drawContours(m, contours, -1, 1, thickness=cv2.FILLED)
+        channel_masks[ch] = m
+
+    filtered = []
+    for c in kept_contours:
+        M = cv2.moments(c)
+        if M['m00'] == 0:
+            continue
+        cx = int(M['m10'] / M['m00'])
+        cy = int(M['m01'] / M['m00'])
+        cx = max(0, min(w - 1, cx))
+        cy = max(0, min(h - 1, cy))
+        votes = sum(1 for ch in channels if channel_masks[ch][cy, cx] > 0)
+        if votes >= vote_min:
+            filtered.append(c)
+    return filtered
+
+
 def super_zorro_cv(folder_read, folder_write, fileformat='jpeg', gray=False, scan_dpi=1200):
     """
     Enhanced batch sherd masking with optimal edge detection and adaptive parameters.
@@ -896,7 +1141,9 @@ def super_zorro_cv(folder_read, folder_write, fileformat='jpeg', gray=False, sca
     print('Done!')
 
 
-def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None):
+def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_scale=1.0,
+                channels=('L',), combine_mode='union', vote_min=2,
+                enhance_contrast=False, clahe_clip=2.0, clahe_grid=(8, 8)):
     """
     Enhanced blob detection with robust, adaptive parameters and customizable size filtering.
 
@@ -913,6 +1160,29 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None):
         - max_inclusion_area_px: maximum inclusion area in pixels
         - min_void_area_px: minimum void area in pixels
         - max_void_area_px: maximum void area in pixels
+    channels : tuple of str, optional
+        Channels to run blob detection on (default: ``('L',)`` — current
+        behavior).  Valid entries are ``'L'`` (CIELAB lightness), ``'B'``,
+        ``'G'``, ``'R'`` (the three BGR channels — note that OpenCV's native
+        order is BGR, not RGB).  Inclusions that stand out only in one colour
+        channel — e.g. iron-rich grains in R, organic dark voids in B — are
+        picked up when more than one channel is enabled.
+    combine_mode : {'union', 'vote'}, optional
+        How to merge per-channel detections when ``len(channels) > 1``
+        (default: ``'union'``).  ``'union'`` pools all detections and removes
+        spatial duplicates.  ``'vote'`` additionally requires a feature to be
+        detected in at least ``vote_min`` channels (higher precision, lower
+        recall).
+    vote_min : int, optional
+        Minimum number of channels that must agree for a feature to be kept
+        when ``combine_mode='vote'`` (default: 2).
+    enhance_contrast : bool, optional
+        Apply CLAHE to each requested channel before detection (default:
+        False).  Use this when calling ``sherd_blobs`` directly with multiple
+        channels — ``analyze_single_sherd`` handles CLAHE itself and sets this
+        appropriately.
+    clahe_clip, clahe_grid : float / tuple, optional
+        Forwarded to ``cv2.createCLAHE`` when ``enhance_contrast=True``.
     blob_params : dict, optional
         Dictionary to override any cv2.SimpleBlobDetector_Params attributes
         after the adaptive defaults are calculated by setup_robust_blob_params.
@@ -1004,16 +1274,21 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None):
 
     im = image.copy()
 
-    image_gray = cv2.cvtColor(im, cv2.COLOR_BGR2Lab)[:, :, 0]  # L* channel
+    if not channels:
+        raise ValueError("`channels` must contain at least one entry")
+    for ch in channels:
+        if ch not in _VALID_CHANNELS:
+            raise ValueError(
+                f"Unknown channel {ch!r}; expected one of {_VALID_CHANNELS}")
 
     # DPI-scaled Gaussian blur to reduce noise before thresholding.
-    # Calibrated: 5×5 @ 600 DPI, 11×11 @ 1200 DPI, 21×21 @ 2400 DPI.
-    # Scales linearly with DPI and forced odd for OpenCV.
-    blur_k = int(round(scan_dpi / 600.0 * 5))
+    # Base: 5×5 @ 600 DPI, 11×11 @ 1200 DPI, 21×21 @ 2400 DPI.
+    # blur_scale boosts this multiplicatively — callers pass blur_scale=2.0
+    # when CLAHE is enabled, since the contrast enhancement also amplifies
+    # sub-tile noise that the threshold-then-findContours pipeline grabs.
+    blur_k = int(round(scan_dpi / 600.0 * 5 * blur_scale))
     blur_k = blur_k if blur_k % 2 == 1 else blur_k + 1  # must be odd
     blur_k = max(3, blur_k)  # minimum 3×3
-
-    gray_blur = cv2.GaussianBlur(image_gray, (blur_k, blur_k), 0)
 
     def _apply_overrides(params):
         """Apply user blob_params overrides to a detector param object."""
@@ -1023,33 +1298,49 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None):
                     setattr(params, key, val)
         return params
 
-    # 1. Light inclusions (bright features on darker background)
-    light_params = _apply_overrides(
-        setup_robust_blob_params(gray_blur, scan_dpi, "light", size_params))
-    blobs_light_inc = list(
-        cv2.SimpleBlobDetector_create(light_params).detect(gray_blur))
+    def _detect_one_channel(gray_blur):
+        """Run the three blob detectors on a single blurred channel."""
+        # 1. Light inclusions (bright features on darker background)
+        light_params = _apply_overrides(
+            setup_robust_blob_params(gray_blur, scan_dpi, "light", size_params))
+        light_inc = list(
+            cv2.SimpleBlobDetector_create(light_params).detect(gray_blur))
 
-    # 2. Dark inclusions (dark minerals: ferruginous grains, magnetite, biotite, dark grog)
-    dark_inc_params = _apply_overrides(
-        setup_robust_blob_params(gray_blur, scan_dpi, "dark_inclusion", size_params))
-    blobs_dark_inc = list(
-        cv2.SimpleBlobDetector_create(dark_inc_params).detect(gray_blur))
+        # 2. Dark inclusions (dark minerals: ferruginous grains, magnetite, biotite, dark grog)
+        dark_inc_params = _apply_overrides(
+            setup_robust_blob_params(gray_blur, scan_dpi, "dark_inclusion", size_params))
+        dark_inc = list(
+            cv2.SimpleBlobDetector_create(dark_inc_params).detect(gray_blur))
 
-    # 3. Dark voids (pores, organic burnout channels)
-    dark_void_params = _apply_overrides(
-        setup_robust_blob_params(gray_blur, scan_dpi, "dark", size_params))
-    blobs_dark_void = list(
-        cv2.SimpleBlobDetector_create(dark_void_params).detect(gray_blur))
+        # 3. Dark voids (pores, organic burnout channels)
+        dark_void_params = _apply_overrides(
+            setup_robust_blob_params(gray_blur, scan_dpi, "dark", size_params))
+        dark_void = list(
+            cv2.SimpleBlobDetector_create(dark_void_params).detect(gray_blur))
 
-    # Combine light + dark inclusions
-    blobs_inclusions = blobs_light_inc + blobs_dark_inc
+        # Light + dark inclusions are pooled per channel.  Voids are kept
+        # independent (dark_inclusion's strict shape filters and the void
+        # detector's upper-bound shape filters form complementary
+        # discriminators, so overlap is minimal).
+        return light_inc + dark_inc, dark_void
 
-    # Dark voids are independent — no deduplication needed.  The strict
-    # shape filters on dark_inclusion (circularity, convexity, inertia)
-    # naturally separate compact mineral grains from irregular voids,
-    # so overlap between the two lists is minimal.
-    blobs_voids = blobs_dark_void
+    inc_by_channel = {}
+    void_by_channel = {}
+    for ch in channels:
+        gray = _extract_channel(im, ch,
+                                enhance_contrast=enhance_contrast,
+                                clip_limit=clahe_clip, tile_grid=clahe_grid)
+        gray_blur = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
+        inc_ch, void_ch = _detect_one_channel(gray_blur)
+        inc_by_channel[ch] = inc_ch
+        void_by_channel[ch] = void_ch
 
+    if len(channels) == 1:
+        only = channels[0]
+        return inc_by_channel[only], void_by_channel[only]
+
+    blobs_inclusions = _combine_blob_lists(inc_by_channel, combine_mode, vote_min)
+    blobs_voids = _combine_blob_lists(void_by_channel, combine_mode, vote_min)
     return blobs_inclusions, blobs_voids
 
 
@@ -1765,7 +2056,10 @@ def enhanced_contour_detection(image, scan_dpi=1200, size_params=None, shape_par
         'geometric_analysis': geometric_analysis,
     }
 
-def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None, debug_mode=False):
+def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
+                      debug_mode=False, blur_scale=1.0,
+                      channels=('L',), combine_mode='union', vote_min=2,
+                      enhance_contrast=False, clahe_clip=2.0, clahe_grid=(8, 8)):
     """
     Contour-based detection using the exact cv2_test.py methodology for individual inclusions.
 
@@ -1816,22 +2110,42 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
         If None, calibrated defaults are used.
 
         Keys:
-        - inclusion_solidity_min (float, default 0.6)
+        - inclusion_solidity_min (float, default 0.45)
           Ratio of contour area to convex hull area.
           Lower values (e.g. 0.3) accept more irregular, angular grains;
           higher values (e.g. 0.9) restrict to nearly-convex shapes only.
-          Sub-angular to rounded grains typical of ceramic fabric score 0.6–0.95.
-        - inclusion_compactness_min (float, default 0.25)
+          The 0.45 default is permissive enough to capture angular ceramic
+          temper (sub-angular to rounded grains in ceramic fabric score
+          0.6–0.95 still pass with margin).
+        - inclusion_compactness_min (float, default 0.125)
           4π · area / perimeter².  A perfect circle = 1.0.
           Lower values accept more irregular outlines (e.g. angular grog fragments);
           higher values (e.g. 0.5) restrict to rounder, more compact grains.
         - void_solidity_min (float, default 0.1)
-          Solidity threshold for void contours.  More permissive than for inclusions
-          because firing voids from organic burnout can be very irregular.
-        - void_compactness_min (float, default 0.25)
-          4π · area / perimeter² threshold for void contours.  Filters out
-          wiggly, sinuous void shapes with irregular perimeters.
-        - inclusion_max_aspect_ratio (float, default 3.0)
+          Solidity lower bound for void contours.  More permissive than for
+          inclusions because firing voids from organic burnout can be very
+          irregular.
+        - void_compactness_min (float, default 0.06)
+          4π · area / perimeter² lower bound for void contours.  Very permissive
+          since organic-burnout voids can have highly irregular perimeters;
+          tighter checks are handled by aspect ratio and the boundary-band gate.
+        - void_solidity_max (float, default 1.01)
+          Optional solidity *upper* bound for void contours.  In principle
+          voids are concave (low solidity) and inclusions are convex, but the
+          DPI-scaled blur + contour-simplification pipeline rounds out
+          concavities so on real masked sherds nearly all dark contours end
+          up with solidity ≥ 0.5 regardless of class.  The default leaves
+          this gate effectively disabled; tighten it only if you know your
+          scans preserve concavity well.
+        - void_intensity_max (float in 0..255, default 60)
+          **Primary inclusion-vs-void discriminator.**  Maximum allowed mean
+          pixel intensity *inside* a void contour, measured on the channel
+          being processed.  A real pore is a hole, so its interior reads
+          near-black; a dark mineral inclusion is just darker paste with no
+          near-black core.  Lower this for stricter void detection (e.g. 45
+          to keep only deep blacks); raise it to count grey-toned cavities
+          (e.g. 90 on low-contrast scans).
+        - inclusion_max_aspect_ratio (float, default 4.0)
           **Primary shape filter.**  Maximum allowed ratio of the longer side
           to the shorter side of the minimum-area bounding rectangle (from
           ``cv2.minAreaRect``).  Contours exceeding this ratio are rejected as
@@ -1840,15 +2154,23 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
           blob detector's ``minInertiaRatio`` filter:
 
               inclusion_max_aspect_ratio = 1 / minInertiaRatio
-              3.0  ↔  minInertiaRatio = 0.333  (the shared default for both detectors)
+              5.0  ↔  minInertiaRatio = 0.2  (the shared default for both detectors)
 
            Decreasing accepts fewer shapes (more equant only); increasing passes
            more elongated contours.  Most ceramic inclusions (biotite laths,
            elongated grog) fall in the 2:1–4:1 range and are safely captured
-           by the 3:1 default.  Wire-thin artifacts typically exceed 10:1.
+           by the 4:1 default.  Wire-thin artifacts typically exceed 10:1.
         - void_max_aspect_ratio (float, default 5.0)
             Maximum aspect ratio for void contours.  Voids can be more elongated
             but still filter out wire-thin artifacts.
+        - edge_band_px (int, default max(5, 1.5% of shorter image dimension))
+            Width of the band inside the sherd mask boundary that is treated
+            as "edge."  Any candidate contour with a vertex inside this band
+            is rejected as a CLAHE tile-boundary artifact or sherd-outline
+            leak.  Scales with image size because CLAHE artifact band width
+            tracks tile size (= image_dim / 8) rather than scan DPI; e.g.
+            ~15 px on a 1000×1000 crop, ~85 px on a 5669×5669 scan.
+            Set to 0 to disable.
 
         Example — strict detection, convex grains only::
 
@@ -1872,6 +2194,29 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
             )
     debug_mode : bool, optional
         If True, prints a summary of candidate counts and filter decisions (default: False)
+    channels : tuple of str, optional
+        Channels to run contour detection on (default: ``('L',)`` — current
+        behavior).  Valid entries are ``'L'`` (CIELAB lightness), ``'B'``,
+        ``'G'``, ``'R'`` (the three BGR channels — note that OpenCV's native
+        order is BGR, not RGB).  Inclusions that only contrast strongly in a
+        single colour channel (e.g. iron-rich grains in R, organic dark voids
+        in B) are picked up when more than one channel is enabled.
+    combine_mode : {'union', 'vote'}, optional
+        How to merge per-channel detections when ``len(channels) > 1``
+        (default: ``'union'``).  ``'union'`` pools detections and removes
+        spatial duplicates via centroid containment.  ``'vote'`` additionally
+        requires a contour's centroid to fall inside the rasterized contour
+        mask of at least ``vote_min`` channels (higher precision, lower recall).
+    vote_min : int, optional
+        Minimum number of channels that must agree for a contour to be kept
+        when ``combine_mode='vote'`` (default: 2).
+    enhance_contrast : bool, optional
+        Apply CLAHE to each requested channel before detection (default:
+        False).  Use this when calling ``contour_detection`` directly with
+        multiple channels — ``analyze_single_sherd`` handles CLAHE itself and
+        sets this appropriately.
+    clahe_clip, clahe_grid : float / tuple, optional
+        Forwarded to ``cv2.createCLAHE`` when ``enhance_contrast=True``.
 
     Returns
     -------
@@ -1883,37 +2228,38 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
         - 'void_areas': list of void areas in cm²
         - 'total_inclusions': count of inclusions
         - 'total_voids': count of voids
-        - 'debug_info': dict with candidate counts, filter thresholds, and rejection breakdown
+        - 'debug_info': dict with candidate counts, filter thresholds, and rejection breakdown.
+          When multi-channel mode is active, also contains a ``per_channel`` key
+          mapping each channel to its individual debug_info.
     """
     # Validate inputs
     if image is None or image.size == 0:
         print("Warning: Invalid image data provided")
         return {
-            'inclusions': [], 'voids': [], 
+            'inclusions': [], 'voids': [],
             'inclusion_areas': [], 'void_areas': [],
             'total_inclusions': 0, 'total_voids': 0
         }
-    
+
+    if not channels:
+        raise ValueError("`channels` must contain at least one entry")
+    for ch in channels:
+        if ch not in _VALID_CHANNELS:
+            raise ValueError(
+                f"Unknown channel {ch!r}; expected one of {_VALID_CHANNELS}")
+
     if scan_dpi < 150 or scan_dpi > 2400:
         print(f"Warning: scan_dpi {scan_dpi} is outside recommended range (150-2400)")
-    
-    # Convert to L* (lightness) channel from CIELAB colour space.
-    # L* is perceptually uniform and consistent with the Lab colour analyses
-    # used throughout the pipeline, unlike cv2.cvtColor(BGR2GRAY) which is a
-    # weighted RGB sum biased toward green.
-    if len(image.shape) == 3:
-        lab = cv2.cvtColor(image, cv2.COLOR_BGR2Lab)
-        gray = lab[:, :, 0]  # L* channel (0-255 in OpenCV's 8-bit Lab)
-    else:
-        gray = image.copy()
 
     # Calculate DPI-aware parameters
     dpcm = scan_dpi * 0.3937  # dots per cm
 
     # DPI-scaled Gaussian blur to reduce noise before thresholding.
-    # Calibrated: 5×5 @ 600 DPI, 11×11 @ 1200 DPI, 21×21 @ 2400 DPI.
-    # Scales linearly with DPI and forced odd for OpenCV.
-    blur_k = int(round(scan_dpi / 600.0 * 5))
+    # Base: 5×5 @ 600 DPI, 11×11 @ 1200 DPI, 21×21 @ 2400 DPI.
+    # blur_scale boosts this multiplicatively — callers pass blur_scale=2.0
+    # when CLAHE is enabled, since the contrast enhancement also amplifies
+    # sub-tile noise that the threshold-then-findContours pipeline grabs.
+    blur_k = int(round(scan_dpi / 600.0 * 5 * blur_scale))
     blur_k = blur_k if blur_k % 2 == 1 else blur_k + 1  # must be odd
     blur_k = max(3, blur_k)  # minimum 3×3
 
@@ -1942,50 +2288,59 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
         void_min_area_threshold = size_params.get('min_void_area_px', void_min_area_threshold)
         void_max_area_threshold = size_params.get('max_void_area_px', void_max_area_threshold)
 
-    # INCLUSION DETECTION - Handle both dark and light inclusions
-    # Get image statistics for adaptive thresholding
-    mean_brightness = np.mean(gray[gray > 0])  # Exclude black pixels
-    std_brightness = np.std(gray[gray > 0])
+    # Sherd-mask footprint — channel-independent because masked background is
+    # zero across every input channel, so any channel's `gray > 0` agrees.
+    if image.ndim == 3:
+        sherd_pixels = np.any(image > 0, axis=2)
+    else:
+        sherd_pixels = (image > 0)
+    sherd_area_px = int(np.count_nonzero(sherd_pixels))
 
-    # Apply DPI-scaled Gaussian blur before thresholding
-    gray_blur = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
+    # Relative max-area cap: no legitimate inclusion or void should occupy
+    # more than ~30% of the sherd.  Without this, small sherds (~1.5 cm²) hit
+    # the absolute 1.5 cm² cap and the sherd boundary contour traced inside
+    # the mask by findContours sails through as a single huge "void" (smooth
+    # boundary = high solidity, high compactness, low aspect ratio).
+    if sherd_area_px > 0:
+        relative_max_px = int(0.30 * sherd_area_px)
+        max_area_threshold = min(max_area_threshold, relative_max_px)
+        void_max_area_threshold = min(void_max_area_threshold, relative_max_px)
 
-    # Create two thresholded images: one for dark inclusions, one for light
-    # Dark inclusions (lower threshold for dark features)
-    dark_thresh = max(30, int(mean_brightness - std_brightness))
-    ret_dark, th_dark = cv2.threshold(gray_blur, dark_thresh, 255, cv2.THRESH_BINARY_INV)
-    
-    # Light inclusions (higher threshold for bright features)  
-    light_thresh = min(220, int(mean_brightness + std_brightness))
-    ret_light, th_light = cv2.threshold(gray_blur, light_thresh, 255, cv2.THRESH_BINARY)
-    
-    # Combine both thresholded images
-    th1 = cv2.bitwise_or(th_dark, th_light)
-    
-    # Optional morphological cleaning (as shown in notebook)
-    # cleaned_inc_cont = cv2.morphologyEx(th1, cv2.MORPH_CLOSE, 
-    #                                    kernel=cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(2,2)))
-    
-    # Find inclusion contours (RETR_TREE, CHAIN_APPROX_SIMPLE as in cv2_test.py line 1598)
-    contours_inc, _ = cv2.findContours(th1, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    
-    # Size-filter inclusion candidates.  max_area_threshold (1.5 cm²) excludes the
-    # sherd boundary and any hierarchy duplicates from RETR_TREE.
-    sel = [c for c in contours_inc
-           if min_area_threshold < cv2.contourArea(c) < max_area_threshold]
-    
     # Shape-quality thresholds — calibrated defaults, overridable via shape_params.
     # max_aspect_ratio is the primary elongation gate applied FIRST in the filter chain;
     # solidity and compactness are secondary convexity/regularity checks.
     # CROSS-METHOD CONSISTENCY: max_aspect_ratio = 1 / minInertiaRatio (blob detector)
-    #   → max_aspect_ratio 5.0  ↔  minInertiaRatio 0.2  (both defaults identical)
+    #   → max_aspect_ratio 5.0  ↔  minInertiaRatio 0.2  (the shared default)
     inclusion_max_aspect_ratio = 4.0    # primary filter: rejects contours with long/short > 4:1
-                                       # matches blob default minInertiaRatio=0.2 exactly
-    void_max_aspect_ratio     = 5.0
-    inclusion_solidity_min    = 0.45    # secondary: area / convex-hull area
-    inclusion_compactness_min = 0.125   # secondary: 4π·area / perimeter²
-    void_solidity_min         = 0.1    # secondary (voids only, more permissive)
-    void_compactness_min      = 0.06   # secondary: 4π·area / perimeter² (voids)
+    void_max_aspect_ratio      = 5.0
+    inclusion_solidity_min     = 0.45   # secondary: area / convex-hull area
+    inclusion_compactness_min  = 0.125  # secondary: 4π·area / perimeter²
+    void_solidity_min          = 0.1    # secondary (voids only, more permissive)
+    void_compactness_min       = 0.06   # secondary: 4π·area / perimeter² (voids)
+    # Void solidity upper bound is left effectively unrestricted by default.
+    # In principle voids are concave (low solidity) and inclusions are convex
+    # (high solidity), but the DPI-scaled Gaussian blur plus
+    # ``CHAIN_APPROX_SIMPLE`` contour simplification rounds out concavities,
+    # so on real masked sherds almost every dark contour ends up with
+    # solidity ≥ 0.5 regardless of class.  The real discriminator is below.
+    void_solidity_max          = 1.01
+
+    # Brightness-based discriminator.  A void is a *hole* in the ceramic, so
+    # the pixels inside its contour read near-black; a dark mineral inclusion
+    # is just paste with a darker hue, with no near-black core.  The mean
+    # pixel intensity inside the contour separates these two classes
+    # cleanly across paste colours (light grey bars, terra-cotta, low-fired
+    # buff sherds, etc.) because CLAHE pushes true voids toward 0 in every
+    # channel.  60/255 is a permissive default; tighten (smaller) for
+    # stricter void detection, loosen for sparser/less-contrasty scans.
+    void_intensity_max         = 60.0
+    # Boundary-band rejection: contours within this many pixels of the mask
+    # edge are almost always CLAHE tile-boundary artifacts (bimodal histogram
+    # at the mask edge creates a contrast jump), not real paste features.
+    # Width scales with image size because CLAHE tile size = image_dim / 8,
+    # so artifact bands on larger images are proportionally thicker.  1.5%
+    # of the shorter dimension stays well under one tile width (12.5%).
+    edge_band_px = max(5, int(min(image.shape[:2]) * 0.015))
     if shape_params:
         # Primary filter first
         inclusion_max_aspect_ratio          = shape_params.get('inclusion_max_aspect_ratio',          inclusion_max_aspect_ratio)
@@ -1995,125 +2350,277 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
         inclusion_compactness_min = shape_params.get('inclusion_compactness_min', inclusion_compactness_min)
         void_solidity_min         = shape_params.get('void_solidity_min',         void_solidity_min)
         void_compactness_min      = shape_params.get('void_compactness_min',      void_compactness_min)
+        void_solidity_max         = shape_params.get('void_solidity_max',     void_solidity_max)
+        void_intensity_max        = shape_params.get('void_intensity_max',    void_intensity_max)
+        edge_band_px              = shape_params.get('edge_band_px',          edge_band_px)
 
-    # Apply shape-quality filtering to inclusion candidates
-    inclusion_contours = []
-    inclusion_areas = []
-    debug_info = {
-        'total_candidates': len(sel),
-        'inclusion_accepted': 0,
-        'inclusion_rejected_solidity': 0,
-        'inclusion_rejected_compactness': 0,
-        'void_accepted': 0,
-        'void_rejected': 0,
-        'void_rejected_solidity': 0,
-        'void_rejected_compactness': 0,
-        'solidity_threshold': inclusion_solidity_min,
-        'compactness_threshold': inclusion_compactness_min,
-        'void_solidity_threshold': void_solidity_min,
-        'void_compactness_threshold': void_compactness_min,
-        'inclusion_max_aspect_ratio': inclusion_max_aspect_ratio,
-        'void_max_aspect_ratio': void_max_aspect_ratio,
-    }
+    # Build the interior mask used to reject boundary-touching contours.
+    interior_mask = sherd_pixels.astype(np.uint8) * 255
+    if edge_band_px > 0:
+        interior_mask = cv2.erode(interior_mask, np.ones((3, 3), np.uint8),
+                                  iterations=int(edge_band_px))
 
-    for contour in sel:
-        area_pixels = cv2.contourArea(contour)
-        # Calculate solidity: area / convex hull area
-        hull = cv2.convexHull(contour)
-        hull_area = cv2.contourArea(hull)
+    def _touches_boundary(contour):
+        """True if any contour vertex lies in the eroded mask boundary band."""
+        h, w = interior_mask.shape
+        pts = contour.reshape(-1, 2)
+        step = max(1, len(pts) // 20)
+        sampled = pts[::step]
+        xs = np.clip(sampled[:, 0], 0, w - 1)
+        ys = np.clip(sampled[:, 1], 0, h - 1)
+        return bool(np.any(interior_mask[ys, xs] == 0))
 
-        if hull_area > 0:
-            solidity = float(area_pixels) / hull_area
+    def _run_pipeline_for_channel(gray):
+        """Threshold + size + shape + boundary + nested filtering on a single channel.
 
-            # Calculate compactness to filter out wiggly, sinuous shapes
-            perimeter = cv2.arcLength(contour, True)
-            if perimeter > 0:
-                compactness = (4 * np.pi * area_pixels) / (perimeter ** 2)
-            else:
-                compactness = 0
+        Returns (inclusion_contours, inclusion_areas, void_contours, void_areas, debug_info).
+        """
+        # Adaptive thresholding statistics — exclude masked-out pixels.
+        nonzero = gray[gray > 0]
+        if nonzero.size > 0:
+            mean_brightness = float(np.mean(nonzero))
+            std_brightness = float(np.std(nonzero))
+        else:
+            mean_brightness, std_brightness = 0.0, 0.0
 
-            # PRIMARY FILTER: aspect ratio from minAreaRect.
-            # Equivalent of blob detector's minInertiaRatio (max_aspect_ratio = 1/minInertiaRatio).
-            # Applied before solidity/compactness — a clean-edged narrow rectangle is convex
-            # (passes solidity) and has regular perimeter (passes compactness), so without this
-            # filter wire-thin scan artifacts would be silently accepted by the other two checks.
-            _, (rw, rh), _ = cv2.minAreaRect(contour)
-            aspect_ratio = (max(rw, rh) / max(min(rw, rh), 1e-6))
+        gray_blur = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
 
-            if (aspect_ratio <= inclusion_max_aspect_ratio           # primary: elongation gate
-                    and solidity > inclusion_solidity_min  # secondary: convexity
-                    and compactness > inclusion_compactness_min):  # secondary: perimeter regularity
-                inclusion_contours.append(contour)
-                area_cm2 = area_pixels / (dpcm ** 2)
-                inclusion_areas.append(area_cm2)
-                debug_info['inclusion_accepted'] += 1
-            elif solidity <= inclusion_solidity_min:
-                debug_info['inclusion_rejected_solidity'] += 1
-            elif compactness <= inclusion_compactness_min:
-                debug_info['inclusion_rejected_compactness'] += 1
-            # (aspect ratio rejections counted implicitly in total_candidates - accepted)
+        # INCLUSION DETECTION — dark + light thresholds on the same blurred channel.
+        dark_thresh = max(30, int(mean_brightness - std_brightness))
+        _, th_dark = cv2.threshold(gray_blur, dark_thresh, 255, cv2.THRESH_BINARY_INV)
 
-    # VOID DETECTION - Use OTSU thresholding on same blurred L* channel
-    _, thresh_voids = cv2.threshold(gray_blur, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU) # maybe change back to 0, 255? 125 seems to give better void detection but may need tuning
+        light_thresh = min(220, int(mean_brightness + std_brightness))
+        _, th_light = cv2.threshold(gray_blur, light_thresh, 255, cv2.THRESH_BINARY)
 
+        th1 = cv2.bitwise_or(th_dark, th_light)
 
+        # Find inclusion contours (RETR_TREE, CHAIN_APPROX_SIMPLE as in cv2_test.py line 1598)
+        contours_inc, _ = cv2.findContours(th1, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
+        # Size-filter inclusion candidates.  max_area_threshold (1.5 cm²) excludes the
+        # sherd boundary and any hierarchy duplicates from RETR_TREE.
+        sel = [c for c in contours_inc
+               if min_area_threshold < cv2.contourArea(c) < max_area_threshold]
 
-    # Find void contours
-    contours_voids, _ = cv2.findContours(th_dark, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        inclusion_contours = []
+        inclusion_areas = []
+        debug_info = {
+            'total_candidates': len(sel),
+            'inclusion_accepted': 0,
+            'inclusion_rejected_solidity': 0,
+            'inclusion_rejected_compactness': 0,
+            'inclusion_rejected_boundary': 0,
+            'void_accepted': 0,
+            'void_rejected': 0,
+            'void_rejected_solidity': 0,
+            'void_rejected_compactness': 0,
+            'void_rejected_boundary': 0,
+            'void_rejected_intensity': 0,
+            'solidity_threshold': inclusion_solidity_min,
+            'compactness_threshold': inclusion_compactness_min,
+            'void_solidity_threshold': void_solidity_min,
+            'void_compactness_threshold': void_compactness_min,
+            'void_solidity_max': void_solidity_max,
+            'void_intensity_max': void_intensity_max,
+            'inclusion_max_aspect_ratio': inclusion_max_aspect_ratio,
+            'void_max_aspect_ratio': void_max_aspect_ratio,
+            'edge_band_px': edge_band_px,
+        }
 
-    # Size-filter void candidates (same logic — max threshold excludes sherd boundary)
-    sel_voids = [c for c in contours_voids
-                 if void_min_area_threshold < cv2.contourArea(c) < void_max_area_threshold]
+        for contour in sel:
+            # Boundary-band gate — applied before shape checks so a clean-edged
+            # CLAHE artifact contour can't sneak through on solidity/compactness.
+            if _touches_boundary(contour):
+                debug_info['inclusion_rejected_boundary'] += 1
+                continue
 
-    void_contours = []
-    void_areas = []
-    debug_info['void_candidates'] = len(sel_voids)
+            area_pixels = cv2.contourArea(contour)
+            hull = cv2.convexHull(contour)
+            hull_area = cv2.contourArea(hull)
 
-    for contour in sel_voids:
-        area_pixels = cv2.contourArea(contour)
-        hull = cv2.convexHull(contour)
-        hull_area = cv2.contourArea(hull)
+            if hull_area > 0:
+                solidity = float(area_pixels) / hull_area
 
-        if hull_area > 0:
-            solidity = float(area_pixels) / hull_area
+                perimeter = cv2.arcLength(contour, True)
+                if perimeter > 0:
+                    compactness = (4 * np.pi * area_pixels) / (perimeter ** 2)
+                else:
+                    compactness = 0
 
-            perimeter = cv2.arcLength(contour, True)
-            compactness = (4 * np.pi * area_pixels) / (perimeter ** 2) if perimeter > 0 else 0
+                # PRIMARY FILTER: aspect ratio from minAreaRect.
+                # Equivalent of blob detector's minInertiaRatio (max_aspect_ratio = 1/minInertiaRatio).
+                # Applied before solidity/compactness — a clean-edged narrow rectangle is convex
+                # (passes solidity) and has regular perimeter (passes compactness), so without this
+                # filter wire-thin scan artifacts would be silently accepted by the other two checks.
+                _, (rw, rh), _ = cv2.minAreaRect(contour)
+                aspect_ratio = (max(rw, rh) / max(min(rw, rh), 1e-6))
 
-            _, (rw, rh), _ = cv2.minAreaRect(contour)
-            aspect_ratio = (max(rw, rh) / max(min(rw, rh), 1e-6))
+                if (aspect_ratio <= inclusion_max_aspect_ratio           # primary: elongation gate
+                        and solidity > inclusion_solidity_min  # secondary: convexity
+                        and compactness > inclusion_compactness_min):  # secondary: perimeter regularity
+                    inclusion_contours.append(contour)
+                    area_cm2 = area_pixels / (dpcm ** 2)
+                    inclusion_areas.append(area_cm2)
+                    debug_info['inclusion_accepted'] += 1
+                elif solidity <= inclusion_solidity_min:
+                    debug_info['inclusion_rejected_solidity'] += 1
+                elif compactness <= inclusion_compactness_min:
+                    debug_info['inclusion_rejected_compactness'] += 1
+                # (aspect ratio rejections counted implicitly in total_candidates - accepted)
 
-            if (aspect_ratio <= void_max_aspect_ratio
-                    and solidity > void_solidity_min
-                    and compactness > void_compactness_min):
-                void_contours.append(contour)
-                area_cm2 = area_pixels / (dpcm ** 2)
-                void_areas.append(area_cm2)
-                debug_info['void_accepted'] += 1
-            elif solidity <= void_solidity_min:
-                debug_info['void_rejected_solidity'] += 1
-            elif compactness <= void_compactness_min:
-                debug_info['void_rejected_compactness'] += 1
-            else:
-                debug_info['void_rejected'] += 1
+        # VOID DETECTION — void contours are extracted from the dark-threshold
+        # mask (th_dark).  The OTSU threshold below is dead code retained from
+        # earlier iterations of this function.
+        _, _thresh_voids_unused = cv2.threshold(gray_blur, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+
+        contours_voids, _ = cv2.findContours(th_dark, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Size-filter void candidates (same logic — max threshold excludes sherd boundary)
+        sel_voids = [c for c in contours_voids
+                     if void_min_area_threshold < cv2.contourArea(c) < void_max_area_threshold]
+
+        void_contours = []
+        void_areas = []
+        debug_info['void_candidates'] = len(sel_voids)
+
+        for contour in sel_voids:
+            # Boundary-band gate first — any "void" hugging the mask edge is the
+            # CLAHE boundary artifact or the sherd outline, not a real pore.
+            if _touches_boundary(contour):
+                debug_info['void_rejected_boundary'] += 1
+                continue
+
+            area_pixels = cv2.contourArea(contour)
+            hull = cv2.convexHull(contour)
+            hull_area = cv2.contourArea(hull)
+
+            if hull_area > 0:
+                solidity = float(area_pixels) / hull_area
+
+                perimeter = cv2.arcLength(contour, True)
+                compactness = (4 * np.pi * area_pixels) / (perimeter ** 2) if perimeter > 0 else 0
+
+                _, (rw, rh), _ = cv2.minAreaRect(contour)
+                aspect_ratio = (max(rw, rh) / max(min(rw, rh), 1e-6))
+
+                # Brightness gate is the primary inclusion-vs-void
+                # discriminator.  Compute the mean pixel intensity inside the
+                # contour from the (pre-blur) channel; a true pore reads
+                # near-black there, while a dark mineral inclusion is just
+                # darker paste and stays well above black.  Use a per-contour
+                # bbox + filled mask so this stays O(contour_area), not
+                # O(image_area).
+                x, y, w, h = cv2.boundingRect(contour)
+                roi = gray[y:y + h, x:x + w]
+                roi_mask = np.zeros((h, w), dtype=np.uint8)
+                shifted = contour - np.array([[x, y]])
+                cv2.drawContours(roi_mask, [shifted], -1, 255, cv2.FILLED)
+                roi_vals = roi[roi_mask > 0]
+                inside_mean = float(roi_vals.mean()) if roi_vals.size > 0 else 0.0
+
+                shape_ok = (aspect_ratio <= void_max_aspect_ratio
+                            and void_solidity_min < solidity < void_solidity_max
+                            and compactness > void_compactness_min)
+                bright_ok = inside_mean < void_intensity_max
+
+                if shape_ok and bright_ok:
+                    void_contours.append(contour)
+                    area_cm2 = area_pixels / (dpcm ** 2)
+                    void_areas.append(area_cm2)
+                    debug_info['void_accepted'] += 1
+                elif not bright_ok:
+                    debug_info['void_rejected_intensity'] += 1
+                elif solidity <= void_solidity_min or solidity >= void_solidity_max:
+                    debug_info['void_rejected_solidity'] += 1
+                elif compactness <= void_compactness_min:
+                    debug_info['void_rejected_compactness'] += 1
+                else:
+                    debug_info['void_rejected'] += 1
+
+        # Drop nested contours: a single inclusion with internal color gradient
+        # otherwise registers as parent + child contours.  Same for voids.
+        pre_nested_inc = len(inclusion_contours)
+        inclusion_contours, inclusion_areas = _drop_nested(inclusion_contours, inclusion_areas)
+        debug_info['inclusion_rejected_nested'] = pre_nested_inc - len(inclusion_contours)
+        pre_nested_void = len(void_contours)
+        void_contours, void_areas = _drop_nested(void_contours, void_areas)
+        debug_info['void_rejected_nested'] = pre_nested_void - len(void_contours)
+
+        return inclusion_contours, inclusion_areas, void_contours, void_areas, debug_info
+
+    # Run the per-channel pipeline on every requested channel.
+    inc_by_channel = {}
+    void_by_channel = {}
+    debug_per_channel = {}
+    for ch in channels:
+        gray = _extract_channel(image, ch,
+                                enhance_contrast=enhance_contrast,
+                                clip_limit=clahe_clip, tile_grid=clahe_grid)
+        inc_c, inc_a, void_c, void_a, dbg = _run_pipeline_for_channel(gray)
+        inc_by_channel[ch] = inc_c
+        void_by_channel[ch] = void_c
+        debug_per_channel[ch] = dbg
+
+    if len(channels) == 1:
+        only = channels[0]
+        inclusion_contours = inc_by_channel[only]
+        void_contours = void_by_channel[only]
+        debug_info = debug_per_channel[only]
+    else:
+        inclusion_contours = _combine_contour_lists(
+            inc_by_channel, image.shape, combine_mode, vote_min)
+        void_contours = _combine_contour_lists(
+            void_by_channel, image.shape, combine_mode, vote_min)
+        # Aggregate debug_info: threshold/configuration values come from the
+        # first channel (identical across all); integer counters are summed.
+        threshold_keys = (
+            'solidity_threshold', 'compactness_threshold',
+            'void_solidity_threshold', 'void_compactness_threshold',
+            'void_solidity_max', 'void_intensity_max',
+            'inclusion_max_aspect_ratio', 'void_max_aspect_ratio',
+            'edge_band_px',
+        )
+        first_dbg = debug_per_channel[channels[0]]
+        debug_info = {k: first_dbg[k] for k in threshold_keys if k in first_dbg}
+        counter_keys = [k for k in first_dbg if k not in threshold_keys]
+        for k in counter_keys:
+            debug_info[k] = sum(debug_per_channel[ch].get(k, 0) for ch in channels)
+        debug_info['per_channel'] = debug_per_channel
+        debug_info['combine_mode'] = combine_mode
+        debug_info['vote_min'] = vote_min if combine_mode == 'vote' else None
+        debug_info['channels'] = list(channels)
+
+    # Recompute areas from the final (possibly cross-channel-combined) contours.
+    inclusion_areas = [cv2.contourArea(c) / (dpcm ** 2) for c in inclusion_contours]
+    void_areas = [cv2.contourArea(c) / (dpcm ** 2) for c in void_contours]
 
     if debug_mode:
         di = debug_info
-        total_rej = di['inclusion_rejected_solidity'] + di['inclusion_rejected_compactness']
+        total_rej = (di.get('inclusion_rejected_solidity', 0)
+                     + di.get('inclusion_rejected_compactness', 0)
+                     + di.get('inclusion_rejected_boundary', 0)
+                     + di.get('inclusion_rejected_nested', 0))
         print(f"[contour_detection debug]")
-        print(f"  Size-filtered inclusion candidates : {di['total_candidates']}")
-        print(f"  Accepted inclusions                : {di['inclusion_accepted']}")
-        print(f"  Rejected – solidity < {di['solidity_threshold']:.2f}          : {di['inclusion_rejected_solidity']}")
-        print(f"  Rejected – compactness < {di['compactness_threshold']:.2f}       : {di['inclusion_rejected_compactness']}")
+        if len(channels) > 1:
+            print(f"  Channels                           : {', '.join(channels)}")
+            mode_suffix = f" (vote_min={vote_min})" if combine_mode == 'vote' else ""
+            print(f"  Combine mode                       : {combine_mode}{mode_suffix}")
+        print(f"  Size-filtered inclusion candidates : {di.get('total_candidates', 0)}")
+        print(f"  Accepted inclusions                : {len(inclusion_contours)}")
+        print(f"  Rejected – boundary band ({di.get('edge_band_px', '?')} px)   : {di.get('inclusion_rejected_boundary', 0)}")
+        print(f"  Rejected – solidity < {di.get('solidity_threshold', 0):.2f}          : {di.get('inclusion_rejected_solidity', 0)}")
+        print(f"  Rejected – compactness < {di.get('compactness_threshold', 0):.2f}       : {di.get('inclusion_rejected_compactness', 0)}")
+        print(f"  Rejected – nested in larger contour : {di.get('inclusion_rejected_nested', 0)}")
         print(f"  Size-filtered void candidates      : {di.get('void_candidates', '?')}")
-        print(f"  Accepted voids                     : {di['void_accepted']}")
-        print(f"  Rejected voids – solidity < {di['void_solidity_threshold']:.2f}   : {di['void_rejected_solidity']}")
-        print(f"  Rejected voids – compactness < {di['void_compactness_threshold']:.2f}: {di['void_rejected_compactness']}")
-        print(f"  Rejected voids – aspect ratio      : {di['void_rejected']}")
-        if di['total_candidates'] > 0:
+        print(f"  Accepted voids                     : {len(void_contours)}")
+        print(f"  Rejected voids – boundary band     : {di.get('void_rejected_boundary', 0)}")
+        print(f"  Rejected voids – solidity < {di.get('void_solidity_threshold', 0):.2f}   : {di.get('void_rejected_solidity', 0)}")
+        print(f"  Rejected voids – compactness < {di.get('void_compactness_threshold', 0):.2f}: {di.get('void_rejected_compactness', 0)}")
+        print(f"  Rejected voids – aspect ratio      : {di.get('void_rejected', 0)}")
+        print(f"  Rejected voids – nested in larger  : {di.get('void_rejected_nested', 0)}")
+        if di.get('total_candidates', 0) > 0:
             rate = total_rej / di['total_candidates'] * 100
-            print(f"  Shape-filter rejection rate (inc)  : {rate:.0f}%")
+            print(f"  Total inclusion rejection rate     : {rate:.0f}%")
 
     # GEOMETRIC ANGULARITY ANALYSIS - New Feature for Temper Analysis
     from .analysis import analyze_inclusion_angularity

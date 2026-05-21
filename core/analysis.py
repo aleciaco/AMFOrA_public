@@ -168,7 +168,9 @@ def size_count_summary_single(blobs_light, blobs_dark, scan_dpi=1200):
 
 
 def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_voids=True,
-                         analyze_core_periphery=True, use_blob=True, use_contour=True):
+                         analyze_core_periphery=True, use_blob=True, use_contour=True,
+                         enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
+                         channels=('B', 'G', 'R'), combine_mode='vote', vote_min=2):
     """
     Comprehensive analysis of a single ceramic sherd image.
 
@@ -189,13 +191,44 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         Whether to use blob detection method (default: True)
     use_contour : bool, optional
         Whether to use contour detection method (default: True)
+    enhance_contrast : bool, optional
+        If True (default), apply CLAHE before running blob/contour detection.
+        When ``channels == ('L',)`` CLAHE is applied once to the masked image's
+        L* channel via the BGR round-trip; when multiple channels are requested
+        CLAHE is instead applied to each channel inside the detectors so every
+        channel benefits from the contrast enhancement.  Set to False to
+        disable entirely.
+    clahe_clip : float, optional
+        CLAHE clip limit when ``enhance_contrast=True`` (default: 2.0).
+    clahe_grid : tuple of int, optional
+        CLAHE tile grid size when ``enhance_contrast=True`` (default: (8, 8)).
+    channels : tuple of str, optional
+        Image channels passed to both detectors.  Default
+        ``('B', 'G', 'R')`` runs detection independently on each of OpenCV's
+        native BGR channels (not RGB) and combines the results, so inclusions
+        that only contrast strongly in one channel (e.g. iron-rich grains in
+        R, organic dark cores in B) are still picked up.  L\* is excluded
+        from the default because it is a perceptually-weighted blend of B,
+        G, and R, so including it gives features visible in L\* an extra
+        redundant vote in the combination step.  Set ``channels=('L',)`` to
+        recover the pre-multi-channel behavior.
+    combine_mode : {'union', 'vote'}, optional
+        How to combine per-channel detections when ``len(channels) > 1``.
+        Default ``'vote'`` requires a feature to be detected in
+        ≥ ``vote_min`` channels — the sweet spot in our calibration: nearly
+        all L-only detections survive while channel-specific noise drops
+        out.  ``'union'`` pools detections and removes spatial duplicates
+        without the agreement requirement (higher recall, lower precision).
+    vote_min : int, optional
+        Minimum number of channels that must agree for a feature to be kept
+        when ``combine_mode='vote'`` (default: 2 of 3 BGR channels).
 
     Returns
     -------
     dict
         Dictionary containing comprehensive analysis results
     """
-    from .detection import sherd_mask, apply_mask, sherd_blobs
+    from .detection import sherd_mask, apply_mask, sherd_blobs, clahe_enhance
 
     results = {}
 
@@ -205,15 +238,36 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         mask, crop, best_contour = sherd_mask(image, scan_dpi=scan_dpi)
         masked_image = apply_mask(image, mask, crop)
 
-        # Calculate sherd area for density calculations (pixel count is unaffected by crop)
-        sherd_area_cm2 = np.sum(mask > 0) / ((scan_dpi * 0.3937) ** 2)
+        # CLAHE strategy:
+        #   - Single-channel L* mode keeps the legacy BGR-roundtrip path
+        #     (clahe_enhance on the masked image) so results match prior runs.
+        #   - Multi-channel mode pushes CLAHE into the detectors so every
+        #     requested channel — not just L* — receives contrast enhancement.
+        multi_channel = len(channels) > 1
+        if enhance_contrast and not multi_channel:
+            masked_image = clahe_enhance(masked_image,
+                                         clip_limit=clahe_clip,
+                                         tile_grid=clahe_grid)
+        detector_enhance = bool(enhance_contrast and multi_channel)
+        # CLAHE amplifies sub-tile noise; double the detector blur to compensate.
+        blur_scale = 2.0 if enhance_contrast else 1.0
+
+        # Calculate sherd area for density calculations (pixel count is unaffected by crop).
+        # sherd_mask returns a 3-channel mask by default, so collapse to 2D before
+        # counting — otherwise each pixel is counted once per channel (3x inflation).
+        mask_2d = mask[:, :, 0] if mask.ndim == 3 else mask
+        sherd_area_cm2 = np.sum(mask_2d > 0) / ((scan_dpi * 0.3937) ** 2)
         results['sherd_area_cm2'] = sherd_area_cm2
 
         # BLOB DETECTION - Better for round, circular inclusions and voids
         # Good for: quartz grains, rounded temper, spherical voids
         # Less good for: angular fragments, elongated inclusions, irregular shapes
         if use_blob:
-            light_blobs, dark_blobs = sherd_blobs(masked_image, scan_dpi=scan_dpi)
+            light_blobs, dark_blobs = sherd_blobs(
+                masked_image, scan_dpi=scan_dpi, blur_scale=blur_scale,
+                channels=channels, combine_mode=combine_mode, vote_min=vote_min,
+                enhance_contrast=detector_enhance,
+                clahe_clip=clahe_clip, clahe_grid=clahe_grid)
 
             # Size analysis for BLOB detection
             blob_stats = size_count_summary_single(light_blobs, dark_blobs, scan_dpi)
@@ -229,7 +283,12 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         if use_contour:
             from .detection import contour_detection
             try:
-                contour_results = contour_detection(masked_image, scan_dpi=scan_dpi, debug_mode=False)
+                contour_results = contour_detection(
+                    masked_image, scan_dpi=scan_dpi, debug_mode=False,
+                    blur_scale=blur_scale,
+                    channels=channels, combine_mode=combine_mode, vote_min=vote_min,
+                    enhance_contrast=detector_enhance,
+                    clahe_clip=clahe_clip, clahe_grid=clahe_grid)
                 contour_inclusions = contour_results.get('inclusions', [])
                 contour_voids = contour_results.get('voids', [])
 
@@ -516,7 +575,9 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
 
 def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_voids=True,
                   analyze_core_periphery=True, use_blob=True, use_contour=True,
-                  interleave_columns=False, file_formats=None, save_csv=True, output_filename=None):
+                  interleave_columns=False, file_formats=None, save_csv=True, output_filename=None,
+                  enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
+                  channels=('B', 'G', 'R'), combine_mode='vote', vote_min=2):
     """
     Comprehensive analysis of all ceramic sherds in a directory with both blob and contour detection.
 
@@ -549,6 +610,27 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
         Whether to automatically save results as CSV (default: True)
     output_filename : str, optional
         Custom filename for CSV output (default: auto-generated based on folder name)
+    enhance_contrast : bool, optional
+        If True (default), apply CLAHE before running blob/contour detection.
+        With the default multi-channel ``channels`` setting, CLAHE is applied
+        to each channel independently inside the detectors; with
+        ``channels=('L',)`` it falls back to the legacy single-pass L\* CLAHE
+        on the masked image.  Set to False to disable entirely.
+    clahe_clip : float, optional
+        CLAHE clip limit when ``enhance_contrast=True`` (default: 2.0).
+    clahe_grid : tuple of int, optional
+        CLAHE tile grid size when ``enhance_contrast=True`` (default: (8, 8)).
+    channels : tuple of str, optional
+        Image channels passed to both detectors.  Default ``('B', 'G', 'R')``
+        runs detection on each BGR channel and combines the results so
+        inclusions that only contrast in one channel are still picked up.
+        Set ``channels=('L',)`` to recover the pre-multi-channel L\*-only
+        behavior.  See ``analyze_single_sherd`` for the full description.
+    combine_mode : {'union', 'vote'}, optional
+        How to combine per-channel detections (default: ``'vote'``).
+    vote_min : int, optional
+        Minimum number of channels that must agree under ``combine_mode='vote'``
+        (default: 2 of 3 BGR channels).
 
     Returns
     -------
@@ -620,7 +702,13 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
                 analyze_voids=analyze_voids,
                 analyze_core_periphery=analyze_core_periphery,
                 use_blob=use_blob,
-                use_contour=use_contour
+                use_contour=use_contour,
+                enhance_contrast=enhance_contrast,
+                clahe_clip=clahe_clip,
+                clahe_grid=clahe_grid,
+                channels=channels,
+                combine_mode=combine_mode,
+                vote_min=vote_min,
             )
             
             # Add filename and path information
@@ -745,7 +833,10 @@ def size_count_summary(folder_path, fileformat='jpeg', scan_dpi=1200, use_blob=T
         try:
             mask, crop, _bc = sherd_mask(im, scan_dpi=scan_dpi)
             masked_im = apply_mask(im, mask, crop)
-            sherd_area_cm2 = np.sum(mask > 0) / (dpcm ** 2)
+            # mask is 3-channel by default; collapse to 2D so we don't count
+            # each sherd pixel three times.
+            mask_2d = mask[:, :, 0] if mask.ndim == 3 else mask
+            sherd_area_cm2 = np.sum(mask_2d > 0) / (dpcm ** 2)
             row['sherd_area_cm2'] = sherd_area_cm2
         except Exception as e:
             print(f"Warning: Could not mask {name}: {e}")
