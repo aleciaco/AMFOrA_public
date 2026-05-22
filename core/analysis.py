@@ -170,7 +170,8 @@ def size_count_summary_single(blobs_light, blobs_dark, scan_dpi=1200):
 def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_voids=True,
                          analyze_core_periphery=True, use_blob=True, use_contour=True,
                          enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
-                         channels=('B', 'G', 'R'), combine_mode='vote', vote_min=2):
+                         channels=('B', 'G', 'R'), combine_mode='vote', vote_min=2,
+                         void_intensity_max=60.0):
     """
     Comprehensive analysis of a single ceramic sherd image.
 
@@ -222,6 +223,16 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
     vote_min : int, optional
         Minimum number of channels that must agree for a feature to be kept
         when ``combine_mode='vote'`` (default: 2 of 3 BGR channels).
+    void_intensity_max : float in 0..255, optional
+        Brightness gate applied to void detections in both detectors.  A
+        candidate void's interior must read below this mean pixel intensity
+        on its channel (default: 60).  This is the primary
+        inclusion-vs-void discriminator on real scans, because the
+        DPI-scaled blur smooths shape concavities that would otherwise
+        distinguish a pore (hole, near-black inside) from a dark mineral
+        grain (just darker paste).  Lower (e.g. 45) for stricter void
+        detection; raise (e.g. 90) for low-contrast scans where genuine
+        pores don't quite reach black.
 
     Returns
     -------
@@ -267,7 +278,8 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
                 masked_image, scan_dpi=scan_dpi, blur_scale=blur_scale,
                 channels=channels, combine_mode=combine_mode, vote_min=vote_min,
                 enhance_contrast=detector_enhance,
-                clahe_clip=clahe_clip, clahe_grid=clahe_grid)
+                clahe_clip=clahe_clip, clahe_grid=clahe_grid,
+                void_intensity_max=void_intensity_max)
 
             # Size analysis for BLOB detection
             blob_stats = size_count_summary_single(light_blobs, dark_blobs, scan_dpi)
@@ -288,7 +300,8 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
                     blur_scale=blur_scale,
                     channels=channels, combine_mode=combine_mode, vote_min=vote_min,
                     enhance_contrast=detector_enhance,
-                    clahe_clip=clahe_clip, clahe_grid=clahe_grid)
+                    clahe_clip=clahe_clip, clahe_grid=clahe_grid,
+                    void_intensity_max=void_intensity_max)
                 contour_inclusions = contour_results.get('inclusions', [])
                 contour_voids = contour_results.get('voids', [])
 
@@ -577,7 +590,8 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
                   analyze_core_periphery=True, use_blob=True, use_contour=True,
                   interleave_columns=False, file_formats=None, save_csv=True, output_filename=None,
                   enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
-                  channels=('B', 'G', 'R'), combine_mode='vote', vote_min=2):
+                  channels=('B', 'G', 'R'), combine_mode='vote', vote_min=2,
+                  void_intensity_max=60.0):
     """
     Comprehensive analysis of all ceramic sherds in a directory with both blob and contour detection.
 
@@ -631,6 +645,10 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
     vote_min : int, optional
         Minimum number of channels that must agree under ``combine_mode='vote'``
         (default: 2 of 3 BGR channels).
+    void_intensity_max : float in 0..255, optional
+        Brightness gate for void detection in both detectors (default: 60).
+        See ``analyze_single_sherd`` for the full description; lower this
+        for stricter voids, raise for low-contrast scans.
 
     Returns
     -------
@@ -709,6 +727,7 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
                 channels=channels,
                 combine_mode=combine_mode,
                 vote_min=vote_min,
+                void_intensity_max=void_intensity_max,
             )
             
             # Add filename and path information

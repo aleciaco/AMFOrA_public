@@ -1142,8 +1142,9 @@ def super_zorro_cv(folder_read, folder_write, fileformat='jpeg', gray=False, sca
 
 
 def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_scale=1.0,
-                channels=('L',), combine_mode='union', vote_min=2,
-                enhance_contrast=False, clahe_clip=2.0, clahe_grid=(8, 8)):
+                channels=('B', 'G', 'R'), combine_mode='vote', vote_min=2,
+                enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
+                void_intensity_max=60.0):
     """
     Enhanced blob detection with robust, adaptive parameters and customizable size filtering.
 
@@ -1161,28 +1162,42 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         - min_void_area_px: minimum void area in pixels
         - max_void_area_px: maximum void area in pixels
     channels : tuple of str, optional
-        Channels to run blob detection on (default: ``('L',)`` — current
-        behavior).  Valid entries are ``'L'`` (CIELAB lightness), ``'B'``,
-        ``'G'``, ``'R'`` (the three BGR channels — note that OpenCV's native
-        order is BGR, not RGB).  Inclusions that stand out only in one colour
-        channel — e.g. iron-rich grains in R, organic dark voids in B — are
-        picked up when more than one channel is enabled.
+        Channels to run blob detection on.  Default ``('B', 'G', 'R')`` runs
+        detection on each of OpenCV's native BGR channels (not RGB) and
+        combines the results, so inclusions that only contrast strongly in
+        one channel (e.g. iron-rich grains in R, organic dark cores in B)
+        get picked up.  Valid entries also include ``'L'`` (CIELAB lightness)
+        — pass ``channels=('L',)`` to recover the pre-multi-channel L\*-only
+        behavior.  L\* is excluded from the default because it's a
+        perceptually-weighted blend of B/G/R, so including it gives features
+        visible in L\* an extra redundant vote in the combination step.
     combine_mode : {'union', 'vote'}, optional
-        How to merge per-channel detections when ``len(channels) > 1``
-        (default: ``'union'``).  ``'union'`` pools all detections and removes
-        spatial duplicates.  ``'vote'`` additionally requires a feature to be
-        detected in at least ``vote_min`` channels (higher precision, lower
-        recall).
+        How to merge per-channel detections when ``len(channels) > 1``.
+        Default ``'vote'`` requires a feature to be detected in
+        ≥ ``vote_min`` channels — the calibrated sweet spot: nearly all
+        L-only detections survive while channel-specific noise drops out.
+        ``'union'`` pools detections and removes spatial duplicates without
+        the agreement requirement (higher recall, lower precision).
     vote_min : int, optional
         Minimum number of channels that must agree for a feature to be kept
-        when ``combine_mode='vote'`` (default: 2).
+        when ``combine_mode='vote'`` (default: 2 of 3 BGR channels).
     enhance_contrast : bool, optional
         Apply CLAHE to each requested channel before detection (default:
-        False).  Use this when calling ``sherd_blobs`` directly with multiple
-        channels — ``analyze_single_sherd`` handles CLAHE itself and sets this
-        appropriately.
+        True).  Set to False if you've already pre-applied contrast
+        enhancement to the input image — otherwise the detector handles
+        CLAHE per channel internally.
     clahe_clip, clahe_grid : float / tuple, optional
         Forwarded to ``cv2.createCLAHE`` when ``enhance_contrast=True``.
+    void_intensity_max : float in 0..255, optional
+        Maximum allowed mean pixel intensity inside a void keypoint's
+        disc, sampled from the (pre-blur) channel (default: 60).  Mirrors
+        the gate in ``contour_detection``: a real pore reads near-black
+        inside, while a dark mineral inclusion is just darker paste and
+        stays well above black.  Without this gate, dark mineral grains on
+        light-grey fabrics show up in the void list because the dark-void
+        blob detector's upper-bound shape filters alone can't separate
+        them from grains.  Lower (e.g. 45) for stricter void detection;
+        raise (e.g. 90) for low-contrast scans.
     blob_params : dict, optional
         Dictionary to override any cv2.SimpleBlobDetector_Params attributes
         after the adaptive defaults are calculated by setup_robust_blob_params.
@@ -1252,9 +1267,13 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
     to reject features that are too regular — near-perfect circles or very
     smooth convex shapes are almost certainly mineral grains, not voids.
     Together the lower-bound (dark-inclusion) and upper-bound (void) filters
-    form complementary discriminators.  Some dark features may appear in both
-    lists — this matches the behavior of ``contour_detection``, which also
-    allows overlap between inclusion and void classifications.
+    form complementary shape discriminators, but on real masked sherds the
+    blur smooths concavities and dark mineral grains can still pass the
+    void detector's upper-bound shape gates.  A second gate — the
+    ``void_intensity_max`` brightness filter — therefore drops any void
+    keypoint whose disc isn't actually near-black, mirroring the gate in
+    ``contour_detection``.  This makes the void/inclusion classification
+    effectively mutually exclusive on common pottery samples.
 
     ``blob_params`` overrides are applied to all three detectors.  Note that
     ``blobColor`` and ``filterByColor`` are set internally per detector and
@@ -1324,6 +1343,38 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         # discriminators, so overlap is minimal).
         return light_inc + dark_inc, dark_void
 
+    def _gate_voids_by_intensity(void_blobs, gray):
+        """Drop void keypoints whose disc isn't actually dark.
+
+        Mirrors the ``void_intensity_max`` gate in ``contour_detection``: a
+        true pore reads near-black inside its bounds, while a dark mineral
+        inclusion is just darker paste and stays well above black.  Mean is
+        sampled on the unblurred channel within the keypoint's circular
+        footprint (``kp.size / 2`` radius).
+        """
+        if void_intensity_max is None or not void_blobs:
+            return void_blobs
+        h, w = gray.shape[:2]
+        kept = []
+        for kp in void_blobs:
+            x = int(round(kp.pt[0]))
+            y = int(round(kp.pt[1]))
+            r = max(1, int(round(kp.size / 2)))
+            y0, y1 = max(0, y - r), min(h, y + r + 1)
+            x0, x1 = max(0, x - r), min(w, x + r + 1)
+            patch = gray[y0:y1, x0:x1]
+            if patch.size == 0:
+                continue
+            yy = np.arange(y0 - y, y1 - y).reshape(-1, 1)
+            xx = np.arange(x0 - x, x1 - x).reshape(1, -1)
+            disc = (yy * yy + xx * xx) <= (r * r)
+            vals = patch[disc]
+            if vals.size == 0:
+                continue
+            if float(vals.mean()) < void_intensity_max:
+                kept.append(kp)
+        return kept
+
     inc_by_channel = {}
     void_by_channel = {}
     for ch in channels:
@@ -1332,6 +1383,9 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
                                 clip_limit=clahe_clip, tile_grid=clahe_grid)
         gray_blur = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
         inc_ch, void_ch = _detect_one_channel(gray_blur)
+        # Brightness gate uses the unblurred channel so the disc-mean
+        # reflects the true interior darkness rather than the blurred halo.
+        void_ch = _gate_voids_by_intensity(void_ch, gray)
         inc_by_channel[ch] = inc_ch
         void_by_channel[ch] = void_ch
 
@@ -2058,8 +2112,9 @@ def enhanced_contour_detection(image, scan_dpi=1200, size_params=None, shape_par
 
 def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
                       debug_mode=False, blur_scale=1.0,
-                      channels=('L',), combine_mode='union', vote_min=2,
-                      enhance_contrast=False, clahe_clip=2.0, clahe_grid=(8, 8)):
+                      channels=('B', 'G', 'R'), combine_mode='vote', vote_min=2,
+                      enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
+                      void_intensity_max=60.0):
     """
     Contour-based detection using the exact cv2_test.py methodology for individual inclusions.
 
@@ -2195,26 +2250,27 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
     debug_mode : bool, optional
         If True, prints a summary of candidate counts and filter decisions (default: False)
     channels : tuple of str, optional
-        Channels to run contour detection on (default: ``('L',)`` — current
-        behavior).  Valid entries are ``'L'`` (CIELAB lightness), ``'B'``,
-        ``'G'``, ``'R'`` (the three BGR channels — note that OpenCV's native
-        order is BGR, not RGB).  Inclusions that only contrast strongly in a
-        single colour channel (e.g. iron-rich grains in R, organic dark voids
-        in B) are picked up when more than one channel is enabled.
+        Channels to run contour detection on.  Default ``('B', 'G', 'R')``
+        runs detection on each BGR channel and combines the results so
+        inclusions that only contrast strongly in one channel get picked up.
+        Valid entries also include ``'L'`` (CIELAB lightness) — pass
+        ``channels=('L',)`` to recover the pre-multi-channel behavior.  See
+        ``sherd_blobs`` for why L\* is excluded by default.
     combine_mode : {'union', 'vote'}, optional
-        How to merge per-channel detections when ``len(channels) > 1``
-        (default: ``'union'``).  ``'union'`` pools detections and removes
-        spatial duplicates via centroid containment.  ``'vote'`` additionally
-        requires a contour's centroid to fall inside the rasterized contour
-        mask of at least ``vote_min`` channels (higher precision, lower recall).
+        How to merge per-channel detections when ``len(channels) > 1``.
+        Default ``'vote'`` requires a contour's centroid to fall inside the
+        rasterized contour mask of at least ``vote_min`` channels — the
+        calibrated sweet spot.  ``'union'`` pools detections and removes
+        spatial duplicates via centroid containment without the agreement
+        requirement.
     vote_min : int, optional
         Minimum number of channels that must agree for a contour to be kept
-        when ``combine_mode='vote'`` (default: 2).
+        when ``combine_mode='vote'`` (default: 2 of 3 BGR channels).
     enhance_contrast : bool, optional
         Apply CLAHE to each requested channel before detection (default:
-        False).  Use this when calling ``contour_detection`` directly with
-        multiple channels — ``analyze_single_sherd`` handles CLAHE itself and
-        sets this appropriately.
+        True).  Set to False if you've already pre-applied contrast
+        enhancement to the input image — otherwise the detector handles
+        CLAHE per channel internally.
     clahe_clip, clahe_grid : float / tuple, optional
         Forwarded to ``cv2.createCLAHE`` when ``enhance_contrast=True``.
 
@@ -2327,13 +2383,9 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
 
     # Brightness-based discriminator.  A void is a *hole* in the ceramic, so
     # the pixels inside its contour read near-black; a dark mineral inclusion
-    # is just paste with a darker hue, with no near-black core.  The mean
-    # pixel intensity inside the contour separates these two classes
-    # cleanly across paste colours (light grey bars, terra-cotta, low-fired
-    # buff sherds, etc.) because CLAHE pushes true voids toward 0 in every
-    # channel.  60/255 is a permissive default; tighten (smaller) for
-    # stricter void detection, loosen for sparser/less-contrasty scans.
-    void_intensity_max         = 60.0
+    # is just paste with a darker hue, with no near-black core.  Threshold
+    # comes from the top-level ``void_intensity_max`` kwarg; ``shape_params``
+    # may also carry it for backward compatibility but the kwarg wins.
     # Boundary-band rejection: contours within this many pixels of the mask
     # edge are almost always CLAHE tile-boundary artifacts (bimodal histogram
     # at the mask edge creates a contrast jump), not real paste features.
@@ -2351,7 +2403,10 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
         void_solidity_min         = shape_params.get('void_solidity_min',         void_solidity_min)
         void_compactness_min      = shape_params.get('void_compactness_min',      void_compactness_min)
         void_solidity_max         = shape_params.get('void_solidity_max',     void_solidity_max)
-        void_intensity_max        = shape_params.get('void_intensity_max',    void_intensity_max)
+        # void_intensity_max is also accepted here for backward compatibility,
+        # but the top-level kwarg takes precedence when explicitly supplied.
+        if 'void_intensity_max' in shape_params:
+            void_intensity_max    = shape_params['void_intensity_max']
         edge_band_px              = shape_params.get('edge_band_px',          edge_band_px)
 
     # Build the interior mask used to reject boundary-touching contours.
@@ -2521,7 +2576,10 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
                 shape_ok = (aspect_ratio <= void_max_aspect_ratio
                             and void_solidity_min < solidity < void_solidity_max
                             and compactness > void_compactness_min)
-                bright_ok = inside_mean < void_intensity_max
+                # ``void_intensity_max=None`` disables the brightness gate
+                # (matches the convention in ``sherd_blobs``).
+                bright_ok = (void_intensity_max is None
+                             or inside_mean < void_intensity_max)
 
                 if shape_ok and bright_ok:
                     void_contours.append(contour)
