@@ -1198,9 +1198,9 @@ def super_zorro_cv(folder_read, folder_write, fileformat='jpeg', gray=False, sca
 
 
 def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_scale=1.0,
-                channels=('B', 'G', 'R'), combine_mode='vote', vote_min=2,
+                channels=('B', 'G', 'R'), combine_mode='union', vote_min=2,
                 enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
-                void_intensity_max=60.0, inclusion_pop_min=20.0):
+                void_intensity_max=60.0, inclusion_pop_min=25.0):
     """
     Enhanced blob detection with robust, adaptive parameters and customizable size filtering.
 
@@ -1229,14 +1229,24 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         visible in L\* an extra redundant vote in the combination step.
     combine_mode : {'union', 'vote'}, optional
         How to merge per-channel detections when ``len(channels) > 1``.
-        Default ``'vote'`` requires a feature to be detected in
-        ≥ ``vote_min`` channels — the calibrated sweet spot: nearly all
-        L-only detections survive while channel-specific noise drops out.
-        ``'union'`` pools detections and removes spatial duplicates without
-        the agreement requirement (higher recall, lower precision).
+        Default ``'union'`` pools detections and removes spatial
+        duplicates without requiring cross-channel agreement.  This
+        catches monochromatic features that only contrast in one
+        channel — e.g. reddish-brown grog has near-zero contrast in the
+        R channel against a warm cream paste and only "pops" in B, so
+        the prior ``'vote'`` default with ``vote_min=2`` was dropping
+        roughly half of these legitimate inclusions.  Noise rejection
+        is instead handled by ``inclusion_pop_min`` (sampled on raw,
+        pre-CLAHE BGR), which is a stronger discriminator than per-
+        channel agreement: it directly measures whether a candidate
+        carries real intensity contrast on the original pixels.  Use
+        ``'vote'`` only if you have a specific reason to require
+        cross-channel agreement (e.g. very noisy scans where the pop
+        gate alone is insufficient).
     vote_min : int, optional
         Minimum number of channels that must agree for a feature to be kept
         when ``combine_mode='vote'`` (default: 2 of 3 BGR channels).
+        Ignored under the default ``combine_mode='union'``.
     enhance_contrast : bool, optional
         Apply CLAHE to each requested channel before detection (default:
         True).  Set to False if you've already pre-applied contrast
@@ -1258,16 +1268,20 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         Minimum required absolute difference between an inclusion
         keypoint's core disc mean and its surrounding annulus mean,
         sampled on the **raw (pre-CLAHE) BGR channels** and taken as the
-        maximum across the three native channels (default: 20).  CLAHE
+        maximum across the three native channels (default: 25).  CLAHE
         on uniform paste amplifies sub-tile noise into pseudo-blobs that
-        survive the per-channel detection and BGR voting because the
-        amplification is locally correlated across channels.  Sampling
-        center-vs-ring intensity on the original pixels reveals that
-        these locations have almost no real intensity differential,
-        while genuine inclusions pop strongly on at least one channel.
-        Set to 0 to disable; raise (e.g. 25-30) for very uniform paste
-        where weak inclusions are not expected; lower (e.g. 10-15) when
-        chasing subtle features in fine-grained fabrics.
+        would otherwise survive detection; sampling center-vs-ring
+        intensity on the original pixels reveals that these locations
+        have almost no real intensity differential, while genuine
+        inclusions pop strongly on at least one channel.  This is the
+        primary noise rejection mechanism under the default
+        ``combine_mode='union'`` — it replaces the old cross-channel
+        voting requirement, which incorrectly punished monochromatic
+        features (e.g. reddish grog visible only in B).  Set to 0 to
+        disable; raise (e.g. 30-35) for very uniform paste or to
+        further tighten precision; lower (e.g. 15-20) when chasing
+        subtle features in fine-grained fabrics (paired with
+        ``combine_mode='vote'`` for noise control if needed).
     blob_params : dict, optional
         Dictionary to override any cv2.SimpleBlobDetector_Params attributes
         after the adaptive defaults are calculated by setup_robust_blob_params.

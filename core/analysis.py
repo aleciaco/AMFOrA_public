@@ -170,8 +170,8 @@ def size_count_summary_single(blobs_light, blobs_dark, scan_dpi=1200):
 def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_voids=True,
                          analyze_core_periphery=True, use_blob=True, use_contour=True,
                          enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
-                         channels=('B', 'G', 'R'), combine_mode='vote', vote_min=2,
-                         void_intensity_max=60.0, inclusion_pop_min=20.0):
+                         channels=('B', 'G', 'R'), combine_mode='union', vote_min=2,
+                         void_intensity_max=60.0, inclusion_pop_min=25.0):
     """
     Comprehensive analysis of a single ceramic sherd image.
 
@@ -215,14 +215,27 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         recover the pre-multi-channel behavior.
     combine_mode : {'union', 'vote'}, optional
         How to combine per-channel detections when ``len(channels) > 1``.
-        Default ``'vote'`` requires a feature to be detected in
-        ≥ ``vote_min`` channels — the sweet spot in our calibration: nearly
-        all L-only detections survive while channel-specific noise drops
-        out.  ``'union'`` pools detections and removes spatial duplicates
-        without the agreement requirement (higher recall, lower precision).
+        Default ``'union'`` pools detections across channels and removes
+        spatial duplicates without requiring cross-channel agreement.
+        This catches monochromatic features (e.g. reddish-brown grog has
+        near-zero contrast in the R channel against a warm cream paste
+        and only appears in B) that the old ``'vote'`` default with
+        ``vote_min=2`` dropped — roughly half of legitimate inclusions
+        on iron-rich tempered fabrics were lost to the agreement
+        requirement.  Noise rejection is instead handled by
+        ``inclusion_pop_min``, which directly measures true intensity
+        contrast on the raw (pre-CLAHE) pixels and is a stronger
+        discriminator than per-channel voting.  Both detectors accept
+        this parameter; the contour detector's noise rejection is less
+        voting-dependent (shape filters do more of the work), so the
+        ``'union'`` default trades a small contour-recall hit (~5%) for
+        a large blob-recall gain (~27%) on iron-tempered fabrics.  Use
+        ``'vote'`` only if you have a specific reason to require
+        cross-channel agreement (e.g. very noisy scans).
     vote_min : int, optional
         Minimum number of channels that must agree for a feature to be kept
         when ``combine_mode='vote'`` (default: 2 of 3 BGR channels).
+        Ignored under the default ``combine_mode='union'``.
     void_intensity_max : float in 0..255, optional
         Brightness gate applied to void detections in both detectors.  A
         candidate void's interior must read below this mean pixel intensity
@@ -238,19 +251,24 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         disc mean and its surrounding annulus mean, sampled on the
         **raw (pre-CLAHE) BGR channels** of the masked input image and
         taken as the maximum across the three native channels
-        (default: 20).  Applied to both blob and contour detectors as
+        (default: 25).  Applied to both blob and contour detectors as
         the final inclusion filter.  CLAHE on uniform paste amplifies
-        sub-tile noise into pseudo-inclusions that survive per-channel
-        detection and BGR voting because the amplification is locally
-        correlated across channels; sampling raw center-vs-ring
-        intensity reveals these locations carry no real differential,
-        while genuine inclusions pop strongly on at least one channel.
-        Calibrated on the AMFOrA_Test_Bars R01 series (uniform paste,
-        zero true inclusions): ~78% false-positive reduction at the
-        default, with 80–92% true-positive retention on mixed-temper
-        samples.  Set to 0 to disable; raise (e.g. 25–30) for very
-        uniform paste where weak inclusions are not expected; lower
-        (e.g. 10–15) when chasing subtle features in fine-grained fabrics.
+        sub-tile noise into pseudo-inclusions that would otherwise
+        survive detection; sampling raw center-vs-ring intensity
+        reveals these locations carry no real differential, while
+        genuine inclusions pop strongly on at least one channel.
+        Under the default ``combine_mode='union'`` this is the primary
+        noise rejection mechanism, replacing the old cross-channel
+        voting requirement.  Calibrated on AMFOrA_Test_Bars: at the
+        default, ~43% reduction in R01-series (uniform paste, no true
+        inclusions) false positives vs the prior vote=2 + pop=20
+        configuration, with ~27% MORE true positives caught on
+        iron-tempered fabrics (R03G_4 jumps from 37 → 53 detections,
+        matching visual inspection).  Set to 0 to disable; raise
+        (e.g. 30–35) for very uniform paste or to further tighten
+        precision; lower (e.g. 15–20) when chasing subtle features in
+        fine-grained fabrics (pair with ``combine_mode='vote'`` for
+        additional noise control if needed).
 
     Returns
     -------
@@ -607,8 +625,8 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
                   analyze_core_periphery=True, use_blob=True, use_contour=True,
                   interleave_columns=False, file_formats=None, save_csv=True, output_filename=None,
                   enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
-                  channels=('B', 'G', 'R'), combine_mode='vote', vote_min=2,
-                  void_intensity_max=60.0, inclusion_pop_min=20.0):
+                  channels=('B', 'G', 'R'), combine_mode='union', vote_min=2,
+                  void_intensity_max=60.0, inclusion_pop_min=25.0):
     """
     Comprehensive analysis of all ceramic sherds in a directory with both blob and contour detection.
 
@@ -658,21 +676,28 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
         Set ``channels=('L',)`` to recover the pre-multi-channel L\*-only
         behavior.  See ``analyze_single_sherd`` for the full description.
     combine_mode : {'union', 'vote'}, optional
-        How to combine per-channel detections (default: ``'vote'``).
+        How to combine per-channel detections (default: ``'union'``).
+        Pools detections without requiring cross-channel agreement,
+        catching monochromatic features (e.g. red-brown grog only
+        visible in B) that voting would drop.  Noise rejection is
+        handled by ``inclusion_pop_min`` instead.  See
+        ``analyze_single_sherd`` for the full rationale and the
+        precision/recall data.
     vote_min : int, optional
         Minimum number of channels that must agree under ``combine_mode='vote'``
-        (default: 2 of 3 BGR channels).
+        (default: 2 of 3 BGR channels).  Ignored under the default
+        ``combine_mode='union'``.
     void_intensity_max : float in 0..255, optional
         Brightness gate for void detection in both detectors (default: 60).
         See ``analyze_single_sherd`` for the full description; lower this
         for stricter voids, raise for low-contrast scans.
     inclusion_pop_min : float in 0..255, optional
         Raw center-vs-ring intensity gate applied to inclusions in both
-        detectors (default: 20).  Suppresses CLAHE-amplified noise
-        pseudo-blobs that survive the BGR voting step on uniform paste.
-        See ``analyze_single_sherd`` for the full description and the
-        R01-series calibration data; set to 0 to disable, raise (25–30)
-        for very uniform paste, lower (10–15) for subtle features in
+        detectors (default: 25).  Primary noise rejection mechanism
+        under ``combine_mode='union'``.  See ``analyze_single_sherd``
+        for the full description and the R01-series calibration data;
+        set to 0 to disable, raise (30–35) for very uniform paste or
+        tighter precision, lower (15–20) for subtle features in
         fine-grained fabrics.
 
     Returns
@@ -1801,30 +1826,49 @@ def _classify_zone_atmosphere(lab):
     the oxidation state.  The a* channel (red-green axis) is the primary
     indicator: oxidized iron (Fe2O3, hematite) shifts a* strongly positive
     (red/brown), while reduced iron (FeO) and preserved carbon remain
-    chromatically neutral (gray/black).
+    chromatically neutral (gray/black).  Lightness then disambiguates
+    chromatically neutral cases: a light + neutral fabric must be a
+    low-iron clay fired oxidizing (kaolinitic/calcareous whitewares such
+    as American Southwest Anasazi wares), because reduced firing on an
+    iron-bearing clay would darken it.
 
     All values in OpenCV 8-bit encoding (L: 0-255, a/b: 128 = neutral).
+    Internal thresholds operate on the real CIELAB scale (L*: 0-100,
+    a*/b*: ±127); the conversions below match Photoshop/standard CIELAB.
     """
     L, a, b = lab[0], lab[1], lab[2]
-    a_c = a - 128   # centered: + = red, - = green
-    b_c = b - 128   # centered: + = yellow, - = blue
+    L_real = L * 100.0 / 255.0   # 8-bit L → standard L* (0..100)
+    a_c = a - 128                # centered: + = red, - = green
+    b_c = b - 128                # centered: + = yellow, - = blue
 
     # 1. CARBONACEOUS: very dark + completely neutral = unburnt organics
-    #    L < 75 ≈ real L* < 29;  chromaticity within ±8 of neutral
+    #    L* < 29 (raw L < 75); chromaticity within ±8 of neutral
     if L < 75 and abs(a_c) < 8 and abs(b_c) < 8:
         return 'carbonaceous'
 
     # 2. OXIDIZED: meaningful red shift from iron oxidation
-    #    a > 136 ≈ real a* > +8 (perceptible redness)
+    #    a* > +8 (raw a > 136) — perceptible redness from Fe2O3/hematite
     if a_c > 8:
         return 'oxidized'
 
     # 3. INCOMPLETE_OXIDATION: slight warmth developing
-    #    a in 130-136 ≈ real a* +2 to +8
+    #    a* +2 to +8 — partial Fe oxidation, brown/buff tones
     if a_c > 2:
         return 'incomplete_oxidation'
 
-    # 4. REDUCED: neutral chromaticity = reduced iron or preserved carbon
+    # 4. OXIDIZED_LOW_IRON: light + chromatically near-neutral
+    #    L* >= 65 (raw L >= 166), |a*| <= 4, |b*| <= 10.  Low-iron clays
+    #    (kaolinite, marl, calcareous) fired oxidizing develop no red
+    #    shift because there is little Fe to oxidize; the result is
+    #    white/cream/buff (Anasazi whitewares, calcareous Mediterranean
+    #    wares).  Distinct from 'reduced' because reduction on an
+    #    iron-bearing clay would darken the matrix — a light neutral
+    #    fabric is petrologically inconsistent with reduction.
+    if L_real >= 65 and abs(a_c) <= 4 and abs(b_c) <= 10:
+        return 'oxidized_low_iron'
+
+    # 5. REDUCED: dark + neutral chromaticity = reduced iron or
+    #    preserved carbon on an iron-bearing clay
     return 'reduced'
 
 
@@ -2046,20 +2090,42 @@ def extract_core_periphery_colors(masked_image, mask, scan_dpi=1200):
         result['color_gradient'] = float(max_de)
 
         # --- Firing interpretation from zone comparison ---
+        # 'oxidized_low_iron' groups with oxidized for sandwich/differential
+        # logic: a low-iron oxidized fabric is chemically oxidized, just
+        # without iron to redden it.
+        oxidized_set = {'oxidized', 'incomplete_oxidation', 'oxidized_low_iron'}
+        reduced_set = {'reduced', 'carbonaceous'}
+
+        # ΔE stability floor: when the max color gradient across zones is
+        # below this perceptual threshold, treat per-zone bin differences
+        # as noise (a sherd whose three zones differ by <15 ΔE in 8-bit
+        # CIELAB-Euclidean is visually uniform).  Without this, a uniform
+        # grey/light sherd whose core a* lands at +2.0 (just under the
+        # incomplete_oxidation cutoff of +2) reads as 'sandwich_oxidized'
+        # even though all three zones are within JND of each other.
+        UNIFORM_DE_FLOOR = 15.0
+        zones_uniform_by_color = (max_de < UNIFORM_DE_FLOOR)
+
         all_same = (core_atm == inner_atm == outer_atm)
-        if all_same:
-            if core_atm == 'oxidized':
+        if all_same or zones_uniform_by_color:
+            # When the zones are colorimetrically uniform but bins
+            # disagree (boundary-flicker case), re-classify from the
+            # whole-sherd mean LAB so the interpretation reflects the
+            # actual fabric rather than the noisier of two adjacent bins.
+            if zones_uniform_by_color and not all_same:
+                mean_lab = (core + inner + outer) / 3.0
+                resolved_atm = _classify_zone_atmosphere(mean_lab)
+            else:
+                resolved_atm = core_atm
+            if resolved_atm in oxidized_set and resolved_atm != 'incomplete_oxidation':
                 result['firing_interpretation'] = 'fully_oxidized'
-            elif core_atm == 'reduced':
+            elif resolved_atm == 'reduced':
                 result['firing_interpretation'] = 'fully_reduced'
-            elif core_atm == 'carbonaceous':
+            elif resolved_atm == 'carbonaceous':
                 result['firing_interpretation'] = 'carbonaceous_throughout'
             else:  # incomplete_oxidation
                 result['firing_interpretation'] = 'incomplete_oxidation'
         else:
-            reduced_set = {'reduced', 'carbonaceous'}
-            oxidized_set = {'oxidized', 'incomplete_oxidation'}
-
             core_reduced = core_atm in reduced_set
             both_margins_oxidized = (inner_atm in oxidized_set and outer_atm in oxidized_set)
             core_oxidized = core_atm in oxidized_set
