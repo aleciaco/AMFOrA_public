@@ -403,6 +403,10 @@ def _grabcut_mask(image, scan_dpi, clahe_clip=2.0, clahe_grid=(8, 8),
 
     bg_model = np.zeros((1, 65), dtype=np.float64)
     fg_model = np.zeros((1, 65), dtype=np.float64)
+    # GrabCut fits its foreground/background GMMs via K-means, whose
+    # initialization is seeded from OpenCV's global RNG.  Lock the seed
+    # so the mask (and every downstream detection) is bit-reproducible.
+    cv2.setRNGSeed(0)
     try:
         cv2.grabCut(work_image, trimap, None, bg_model, fg_model,
                     iterations, cv2.GC_INIT_WITH_MASK)
@@ -915,6 +919,58 @@ def _extract_channel(image, channel, enhance_contrast=False,
     return gray
 
 
+def _gate_contours_by_pop(contours, raw_bgr, pop_min):
+    """Drop contours whose center-vs-ring intensity on raw BGR is below ``pop_min``.
+
+    For each contour: derive an equivalent-circle radius from the contour
+    area, sample the core disc and a surrounding annulus on each native
+    BGR channel of the **unmodified input image**, take the maximum
+    absolute (core_mean - ring_mean) across channels, and keep only
+    contours whose max-pop is >= ``pop_min``.  Background pixels (== 0)
+    are excluded from both regions.  Mirrors the inclusion gate in
+    ``sherd_blobs`` so blob and contour pipelines share the same logic.
+    """
+    if not contours or raw_bgr.ndim != 3 or raw_bgr.shape[2] < 3:
+        return contours
+    h, w = raw_bgr.shape[:2]
+    kept = []
+    for c in contours:
+        area = cv2.contourArea(c)
+        if area <= 0:
+            continue
+        M = cv2.moments(c)
+        if M['m00'] <= 0:
+            continue
+        cx = int(round(M['m10'] / M['m00']))
+        cy = int(round(M['m01'] / M['m00']))
+        r = max(2, int(round(np.sqrt(area / np.pi))))
+        R = int(round(r * 2.0))
+        y0, y1 = max(0, cy - R), min(h, cy + R + 1)
+        x0, x1 = max(0, cx - R), min(w, cx + R + 1)
+        yy = np.arange(y0 - cy, y1 - cy).reshape(-1, 1)
+        xx = np.arange(x0 - cx, x1 - cx).reshape(1, -1)
+        d2 = yy * yy + xx * xx
+        core_mask = d2 <= (r * r)
+        ring_mask = (d2 > r * r) & (d2 <= R * R)
+        best = 0.0
+        for ch in range(3):
+            patch = raw_bgr[y0:y1, x0:x1, ch]
+            if patch.size == 0:
+                continue
+            valid = patch > 0
+            core_sel = core_mask & valid
+            ring_sel = ring_mask & valid
+            if core_sel.sum() < 3 or ring_sel.sum() < 3:
+                continue
+            delta = abs(float(patch[core_sel].mean())
+                        - float(patch[ring_sel].mean()))
+            if delta > best:
+                best = delta
+        if best >= pop_min:
+            kept.append(c)
+    return kept
+
+
 def _combine_blob_lists(blob_lists_by_channel, combine_mode='union', vote_min=2,
                         distance_factor=0.5):
     """Pool blob keypoints across channels with NMS-based dedup and optional voting.
@@ -1144,7 +1200,7 @@ def super_zorro_cv(folder_read, folder_write, fileformat='jpeg', gray=False, sca
 def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_scale=1.0,
                 channels=('B', 'G', 'R'), combine_mode='vote', vote_min=2,
                 enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
-                void_intensity_max=60.0):
+                void_intensity_max=60.0, inclusion_pop_min=20.0):
     """
     Enhanced blob detection with robust, adaptive parameters and customizable size filtering.
 
@@ -1198,6 +1254,20 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         blob detector's upper-bound shape filters alone can't separate
         them from grains.  Lower (e.g. 45) for stricter void detection;
         raise (e.g. 90) for low-contrast scans.
+    inclusion_pop_min : float in 0..255, optional
+        Minimum required absolute difference between an inclusion
+        keypoint's core disc mean and its surrounding annulus mean,
+        sampled on the **raw (pre-CLAHE) BGR channels** and taken as the
+        maximum across the three native channels (default: 20).  CLAHE
+        on uniform paste amplifies sub-tile noise into pseudo-blobs that
+        survive the per-channel detection and BGR voting because the
+        amplification is locally correlated across channels.  Sampling
+        center-vs-ring intensity on the original pixels reveals that
+        these locations have almost no real intensity differential,
+        while genuine inclusions pop strongly on at least one channel.
+        Set to 0 to disable; raise (e.g. 25-30) for very uniform paste
+        where weak inclusions are not expected; lower (e.g. 10-15) when
+        chasing subtle features in fine-grained fabrics.
     blob_params : dict, optional
         Dictionary to override any cv2.SimpleBlobDetector_Params attributes
         after the adaptive defaults are calculated by setup_robust_blob_params.
@@ -1302,9 +1372,11 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
 
     # DPI-scaled Gaussian blur to reduce noise before thresholding.
     # Base: 5×5 @ 600 DPI, 11×11 @ 1200 DPI, 21×21 @ 2400 DPI.
-    # blur_scale boosts this multiplicatively — callers pass blur_scale=2.0
-    # when CLAHE is enabled, since the contrast enhancement also amplifies
-    # sub-tile noise that the threshold-then-findContours pipeline grabs.
+    # blur_scale is a user tuning knob — raise for noisier scans, lower
+    # for crisper ones.  Default 1.0 is calibrated for the CLAHE +
+    # BGR-vote pipeline; heavier blur smears shape detail and lets dark
+    # mineral grains slip through the void detector's upper-bound shape
+    # gates, inflating void counts while dropping inclusion counts.
     blur_k = int(round(scan_dpi / 600.0 * 5 * blur_scale))
     blur_k = blur_k if blur_k % 2 == 1 else blur_k + 1  # must be odd
     blur_k = max(3, blur_k)  # minimum 3×3
@@ -1342,6 +1414,56 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         # detector's upper-bound shape filters form complementary
         # discriminators, so overlap is minimal).
         return light_inc + dark_inc, dark_void
+
+    def _gate_inclusions_by_pop(inclusion_blobs, raw_bgr):
+        """Drop inclusion keypoints with no real center-vs-ring contrast.
+
+        Sampled on the **raw (pre-CLAHE) BGR channels** of the input image
+        and taken as the max absolute (core_mean - annulus_mean) across
+        the three channels.  CLAHE on uniform paste manufactures pseudo-
+        blobs whose intensity is locally correlated across channels and
+        therefore survives the BGR voting step, but on the original
+        pixels those locations have almost no actual differential
+        between center and surround.  Real inclusions pop on at least
+        one channel.
+        """
+        if (inclusion_pop_min is None or inclusion_pop_min <= 0
+                or not inclusion_blobs):
+            return inclusion_blobs
+        if raw_bgr.ndim != 3 or raw_bgr.shape[2] < 3:
+            return inclusion_blobs
+        h, w = raw_bgr.shape[:2]
+        kept = []
+        for kp in inclusion_blobs:
+            x = int(round(kp.pt[0]))
+            y = int(round(kp.pt[1]))
+            r = max(2, int(round(kp.size / 2)))
+            R = int(round(r * 2.0))
+            y0, y1 = max(0, y - R), min(h, y + R + 1)
+            x0, x1 = max(0, x - R), min(w, x + R + 1)
+            yy = np.arange(y0 - y, y1 - y).reshape(-1, 1)
+            xx = np.arange(x0 - x, x1 - x).reshape(1, -1)
+            d2 = yy * yy + xx * xx
+            core_mask = d2 <= (r * r)
+            ring_mask = (d2 > r * r) & (d2 <= R * R)
+            best = 0.0
+            for c in range(3):
+                patch = raw_bgr[y0:y1, x0:x1, c]
+                if patch.size == 0:
+                    continue
+                # Exclude masked-out background (zero) from both regions.
+                valid = patch > 0
+                core_sel = core_mask & valid
+                ring_sel = ring_mask & valid
+                if core_sel.sum() < 3 or ring_sel.sum() < 3:
+                    continue
+                delta = abs(float(patch[core_sel].mean())
+                            - float(patch[ring_sel].mean()))
+                if delta > best:
+                    best = delta
+            if best >= inclusion_pop_min:
+                kept.append(kp)
+        return kept
 
     def _gate_voids_by_intensity(void_blobs, gray):
         """Drop void keypoints whose disc isn't actually dark.
@@ -1391,10 +1513,12 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
 
     if len(channels) == 1:
         only = channels[0]
-        return inc_by_channel[only], void_by_channel[only]
+        return (_gate_inclusions_by_pop(inc_by_channel[only], im),
+                void_by_channel[only])
 
     blobs_inclusions = _combine_blob_lists(inc_by_channel, combine_mode, vote_min)
     blobs_voids = _combine_blob_lists(void_by_channel, combine_mode, vote_min)
+    blobs_inclusions = _gate_inclusions_by_pop(blobs_inclusions, im)
     return blobs_inclusions, blobs_voids
 
 
@@ -2114,7 +2238,7 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
                       debug_mode=False, blur_scale=1.0,
                       channels=('B', 'G', 'R'), combine_mode='vote', vote_min=2,
                       enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
-                      void_intensity_max=60.0):
+                      void_intensity_max=60.0, inclusion_pop_min=20.0):
     """
     Contour-based detection using the exact cv2_test.py methodology for individual inclusions.
 
@@ -2312,9 +2436,11 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
 
     # DPI-scaled Gaussian blur to reduce noise before thresholding.
     # Base: 5×5 @ 600 DPI, 11×11 @ 1200 DPI, 21×21 @ 2400 DPI.
-    # blur_scale boosts this multiplicatively — callers pass blur_scale=2.0
-    # when CLAHE is enabled, since the contrast enhancement also amplifies
-    # sub-tile noise that the threshold-then-findContours pipeline grabs.
+    # blur_scale is a user tuning knob — raise for noisier scans, lower
+    # for crisper ones.  Default 1.0 is calibrated for the CLAHE +
+    # BGR-vote pipeline; heavier blur smears shape detail and lets dark
+    # mineral grains slip through the void detector's upper-bound shape
+    # gates, inflating void counts while dropping inclusion counts.
     blur_k = int(round(scan_dpi / 600.0 * 5 * blur_scale))
     blur_k = blur_k if blur_k % 2 == 1 else blur_k + 1  # must be odd
     blur_k = max(3, blur_k)  # minimum 3×3
@@ -2647,6 +2773,15 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
         debug_info['combine_mode'] = combine_mode
         debug_info['vote_min'] = vote_min if combine_mode == 'vote' else None
         debug_info['channels'] = list(channels)
+
+    # Drop low-pop inclusions: CLAHE-amplified noise on uniform paste
+    # produces contours that lack real center-vs-ring intensity differential
+    # on the raw BGR channels.  Mirrors ``sherd_blobs._gate_inclusions_by_pop``.
+    if inclusion_pop_min is not None and inclusion_pop_min > 0 and inclusion_contours:
+        pre_pop = len(inclusion_contours)
+        inclusion_contours = _gate_contours_by_pop(
+            inclusion_contours, image, inclusion_pop_min)
+        debug_info['inclusion_rejected_low_pop'] = pre_pop - len(inclusion_contours)
 
     # Recompute areas from the final (possibly cross-channel-combined) contours.
     inclusion_areas = [cv2.contourArea(c) / (dpcm ** 2) for c in inclusion_contours]

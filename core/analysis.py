@@ -171,7 +171,7 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
                          analyze_core_periphery=True, use_blob=True, use_contour=True,
                          enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
                          channels=('B', 'G', 'R'), combine_mode='vote', vote_min=2,
-                         void_intensity_max=60.0):
+                         void_intensity_max=60.0, inclusion_pop_min=20.0):
     """
     Comprehensive analysis of a single ceramic sherd image.
 
@@ -233,6 +233,24 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         grain (just darker paste).  Lower (e.g. 45) for stricter void
         detection; raise (e.g. 90) for low-contrast scans where genuine
         pores don't quite reach black.
+    inclusion_pop_min : float in 0..255, optional
+        Minimum required absolute difference between an inclusion's core
+        disc mean and its surrounding annulus mean, sampled on the
+        **raw (pre-CLAHE) BGR channels** of the masked input image and
+        taken as the maximum across the three native channels
+        (default: 20).  Applied to both blob and contour detectors as
+        the final inclusion filter.  CLAHE on uniform paste amplifies
+        sub-tile noise into pseudo-inclusions that survive per-channel
+        detection and BGR voting because the amplification is locally
+        correlated across channels; sampling raw center-vs-ring
+        intensity reveals these locations carry no real differential,
+        while genuine inclusions pop strongly on at least one channel.
+        Calibrated on the AMFOrA_Test_Bars R01 series (uniform paste,
+        zero true inclusions): ~78% false-positive reduction at the
+        default, with 80–92% true-positive retention on mixed-temper
+        samples.  Set to 0 to disable; raise (e.g. 25–30) for very
+        uniform paste where weak inclusions are not expected; lower
+        (e.g. 10–15) when chasing subtle features in fine-grained fabrics.
 
     Returns
     -------
@@ -260,8 +278,6 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
                                          clip_limit=clahe_clip,
                                          tile_grid=clahe_grid)
         detector_enhance = bool(enhance_contrast and multi_channel)
-        # CLAHE amplifies sub-tile noise; double the detector blur to compensate.
-        blur_scale = 2.0 if enhance_contrast else 1.0
 
         # Calculate sherd area for density calculations (pixel count is unaffected by crop).
         # sherd_mask returns a 3-channel mask by default, so collapse to 2D before
@@ -275,11 +291,12 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         # Less good for: angular fragments, elongated inclusions, irregular shapes
         if use_blob:
             light_blobs, dark_blobs = sherd_blobs(
-                masked_image, scan_dpi=scan_dpi, blur_scale=blur_scale,
+                masked_image, scan_dpi=scan_dpi,
                 channels=channels, combine_mode=combine_mode, vote_min=vote_min,
                 enhance_contrast=detector_enhance,
                 clahe_clip=clahe_clip, clahe_grid=clahe_grid,
-                void_intensity_max=void_intensity_max)
+                void_intensity_max=void_intensity_max,
+                inclusion_pop_min=inclusion_pop_min)
 
             # Size analysis for BLOB detection
             blob_stats = size_count_summary_single(light_blobs, dark_blobs, scan_dpi)
@@ -297,11 +314,11 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
             try:
                 contour_results = contour_detection(
                     masked_image, scan_dpi=scan_dpi, debug_mode=False,
-                    blur_scale=blur_scale,
                     channels=channels, combine_mode=combine_mode, vote_min=vote_min,
                     enhance_contrast=detector_enhance,
                     clahe_clip=clahe_clip, clahe_grid=clahe_grid,
-                    void_intensity_max=void_intensity_max)
+                    void_intensity_max=void_intensity_max,
+                    inclusion_pop_min=inclusion_pop_min)
                 contour_inclusions = contour_results.get('inclusions', [])
                 contour_voids = contour_results.get('voids', [])
 
@@ -591,7 +608,7 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
                   interleave_columns=False, file_formats=None, save_csv=True, output_filename=None,
                   enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
                   channels=('B', 'G', 'R'), combine_mode='vote', vote_min=2,
-                  void_intensity_max=60.0):
+                  void_intensity_max=60.0, inclusion_pop_min=20.0):
     """
     Comprehensive analysis of all ceramic sherds in a directory with both blob and contour detection.
 
@@ -649,6 +666,14 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
         Brightness gate for void detection in both detectors (default: 60).
         See ``analyze_single_sherd`` for the full description; lower this
         for stricter voids, raise for low-contrast scans.
+    inclusion_pop_min : float in 0..255, optional
+        Raw center-vs-ring intensity gate applied to inclusions in both
+        detectors (default: 20).  Suppresses CLAHE-amplified noise
+        pseudo-blobs that survive the BGR voting step on uniform paste.
+        See ``analyze_single_sherd`` for the full description and the
+        R01-series calibration data; set to 0 to disable, raise (25–30)
+        for very uniform paste, lower (10–15) for subtle features in
+        fine-grained fabrics.
 
     Returns
     -------
@@ -728,6 +753,7 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
                 combine_mode=combine_mode,
                 vote_min=vote_min,
                 void_intensity_max=void_intensity_max,
+                inclusion_pop_min=inclusion_pop_min,
             )
             
             # Add filename and path information
