@@ -999,6 +999,16 @@ def _combine_blob_lists(blob_lists_by_channel, combine_mode='union', vote_min=2,
     pooled = [(ch, b) for ch, bs in blob_lists_by_channel.items() for b in bs]
     pooled.sort(key=lambda cb: -cb[1].size)
 
+    # Cluster merge radius is keyed off the SMALLER of the two blob sizes,
+    # not the larger.  Rationale: two detections represent the same physical
+    # feature only when their centers are within roughly the smaller blob's
+    # own footprint — a spurious giant blob (e.g. when CLAHE on a partially
+    # darker sherd region promotes the whole hemisphere into one massive
+    # dark "blob") would otherwise sweep up every legitimate small detection
+    # within half its radius into a single cluster, silently zeroing
+    # detections across that area.  Using ``min`` keeps cross-channel
+    # duplicates merged (real duplicates are nearly coincident regardless
+    # of size) while preventing distant absorption.
     clusters = []  # list of [set(channels_seen), representative_blob]
     for ch, b in pooled:
         bx, by = b.pt
@@ -1007,7 +1017,7 @@ def _combine_blob_lists(blob_lists_by_channel, combine_mode='union', vote_min=2,
             rb = cluster[1]
             rx, ry = rb.pt
             dist = float(np.hypot(bx - rx, by - ry))
-            if dist < distance_factor * max(b.size, rb.size):
+            if dist < distance_factor * min(b.size, rb.size):
                 matched = cluster
                 break
         if matched is None:
