@@ -217,21 +217,23 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         How to combine per-channel detections when ``len(channels) > 1``.
         Default ``'union'`` pools detections across channels and removes
         spatial duplicates without requiring cross-channel agreement.
-        This catches monochromatic features (e.g. reddish-brown grog has
-        near-zero contrast in the R channel against a warm cream paste
-        and only appears in B) that the old ``'vote'`` default with
-        ``vote_min=2`` dropped — roughly half of legitimate inclusions
-        on iron-rich tempered fabrics were lost to the agreement
-        requirement.  Noise rejection is instead handled by
-        ``inclusion_pop_min``, which directly measures true intensity
-        contrast on the raw (pre-CLAHE) pixels and is a stronger
-        discriminator than per-channel voting.  Both detectors accept
-        this parameter; the contour detector's noise rejection is less
-        voting-dependent (shape filters do more of the work), so the
-        ``'union'`` default trades a small contour-recall hit (~5%) for
-        a large blob-recall gain (~27%) on iron-tempered fabrics.  Use
-        ``'vote'`` only if you have a specific reason to require
-        cross-channel agreement (e.g. very noisy scans).
+        This catches monochromatic features — e.g. an iron-bearing
+        sand grain can contrast strongly in B (where the warm-toned
+        grain reads dark against a cream matrix) while showing near-
+        zero contrast in R (where both grain and matrix read bright)
+        — that the old ``'vote'`` default with ``vote_min=2`` dropped:
+        roughly half of legitimate single-channel detections were lost
+        to the agreement requirement on sand-tempered fabrics.  Noise
+        rejection is instead handled by ``inclusion_pop_min``, which
+        directly measures true intensity contrast on the raw (pre-
+        CLAHE) pixels and is a stronger discriminator than per-channel
+        voting.  Both detectors accept this parameter; the contour
+        detector's noise rejection is less voting-dependent (shape
+        filters do more of the work), so the ``'union'`` default
+        trades a small contour-recall hit (~5%) for a large blob-
+        recall gain (~27%) on sand-tempered fabrics.  Use ``'vote'``
+        only if you have a specific reason to require cross-channel
+        agreement (e.g. very noisy scans).
     vote_min : int, optional
         Minimum number of channels that must agree for a feature to be kept
         when ``combine_mode='vote'`` (default: 2 of 3 BGR channels).
@@ -269,7 +271,7 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         Calibrated on AMFOrA_Test_Bars: at the default, ~43% reduction
         in R01-series (uniform paste, no true inclusions) false
         positives vs the prior vote=2 + pop=20 configuration, with
-        ~27% MORE true positives caught on iron-tempered fabrics
+        ~27% MORE true positives caught on sand-tempered fabrics
         (R03G_4 jumps from 37 → 53 detections, matching visual
         inspection).  Set to 0 to disable; raise (e.g. 30–35) for very
         uniform paste or to further tighten precision; lower (e.g.
@@ -281,6 +283,49 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
     -------
     dict
         Dictionary containing comprehensive analysis results
+
+    Limitations
+    -----------
+    **Optical contrast limit on same-coloured temper-in-matrix systems.**
+    Both detectors find features by their intensity contrast against the
+    surrounding paste on the scanned image.  When the optical signature
+    of the temper grains overlaps the optical signature of the matrix —
+    e.g. a quartz/feldspar/iron-mineral sand temper in an iron-rich
+    terra-cotta paste, where the warmer-toned mineral fraction of the
+    sand reads similarly to the surrounding red paste — those grains
+    become chromatically camouflaged and the detectors can only resolve
+    the subset that still differs in lightness.  This is a property of
+    the scan, not of the algorithm: in the AMFOrA_Test_Bars set the
+    R08G (grey clay body) and R08TC (terra-cotta clay body) bars share
+    an identical sand temper, but R08G yields ~200 inclusions/cm²
+    while R08TC yields ~88/cm² (a 2.3× gap) because the warmer grains
+    in the sand disappear visually against the warmer paste.  Note
+    that the scan colour rendering can also overstate this effect:
+    sand that appears as a "salt and pepper" mix in the lab can read
+    as predominantly warm-toned under flatbed-scanner illumination,
+    which is what drives the chromatic overlap with terra-cotta
+    matrices.
+
+    Practical implications:
+
+    - Inclusion counts and densities are NOT directly comparable across
+      sherds with substantially different matrix colours, even when the
+      temper is identical.  Reported counts represent an optically-
+      visible lower bound on the true grain population, not a complete
+      census.
+    - Same-coloured temper-in-matrix systems known to be affected
+      include: red-bodied wares with self-temper or iron-rich sand,
+      calcareous (white-firing) clays with calcareous (limestone)
+      temper, and reduced black wares with carbonaceous inclusions.
+    - For cross-fabric comparison, group sherds by matrix colour
+      first (e.g. compare R##G to R##G, R##TC to R##TC), or use
+      petrographic thin-sectioning + polarised-light microscopy when
+      a true grain census is required.
+
+    No parameter adjustment can recover the missing grains — the
+    information is not in the image — so the limitation should be
+    reported alongside any cross-fabric comparison of inclusion
+    metrics.
     """
     from .detection import sherd_mask, apply_mask, sherd_blobs, clahe_enhance
 
@@ -685,11 +730,11 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
     combine_mode : {'union', 'vote'}, optional
         How to combine per-channel detections (default: ``'union'``).
         Pools detections without requiring cross-channel agreement,
-        catching monochromatic features (e.g. red-brown grog only
-        visible in B) that voting would drop.  Noise rejection is
-        handled by ``inclusion_pop_min`` instead.  See
-        ``analyze_single_sherd`` for the full rationale and the
-        precision/recall data.
+        catching monochromatic features (e.g. an iron-bearing sand
+        grain visible only in B against a warm matrix) that voting
+        would drop.  Noise rejection is handled by
+        ``inclusion_pop_min`` instead.  See ``analyze_single_sherd``
+        for the full rationale and the precision/recall data.
     vote_min : int, optional
         Minimum number of channels that must agree under ``combine_mode='vote'``
         (default: 2 of 3 BGR channels).  Ignored under the default
@@ -735,6 +780,18 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
     - Metrics: contour_inclusion_count, contour_inclusion_total_area_cm2, etc.
 
     All area measurements are in cm², densities in features per cm².
+
+    Limitations
+    -----------
+    Inclusion counts and densities are NOT directly comparable across
+    sherds whose matrix colours overlap their temper colours (e.g. an
+    iron-bearing sand temper in a terra-cotta paste vs the same sand
+    in a grey paste).  The detectors can only resolve grains that
+    contrast against the matrix; chromatically camouflaged grains are
+    invisible to optical scanning regardless of detection parameters.
+    See ``analyze_single_sherd`` for the full discussion and the
+    R08G/R08TC calibration data showing the ~2.3× density gap on
+    bars sharing identical sand temper.
     """
     if file_formats is None:
         file_formats = ['jpg', 'jpeg', 'png', 'bmp', 'tiff', 'tif']

@@ -1241,18 +1241,21 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         How to merge per-channel detections when ``len(channels) > 1``.
         Default ``'union'`` pools detections and removes spatial
         duplicates without requiring cross-channel agreement.  This
-        catches monochromatic features that only contrast in one
-        channel — e.g. reddish-brown grog has near-zero contrast in the
-        R channel against a warm cream paste and only "pops" in B, so
-        the prior ``'vote'`` default with ``vote_min=2`` was dropping
-        roughly half of these legitimate inclusions.  Noise rejection
-        is instead handled by ``inclusion_pop_min`` (sampled on raw,
-        pre-CLAHE BGR), which is a stronger discriminator than per-
-        channel agreement: it directly measures whether a candidate
-        carries real intensity contrast on the original pixels.  Use
-        ``'vote'`` only if you have a specific reason to require
-        cross-channel agreement (e.g. very noisy scans where the pop
-        gate alone is insufficient).
+        catches monochromatic features that only contrast strongly in
+        one channel — e.g. an iron-bearing mineral grain in sand
+        temper may register as warm-toned against a cream matrix and
+        thus pop in B (where the warm grain reads dark) while showing
+        near-zero contrast in R (where both grain and matrix read
+        bright).  The prior ``'vote'`` default with ``vote_min=2`` was
+        dropping roughly half of these legitimate single-channel
+        detections.  Noise rejection is instead handled by
+        ``inclusion_pop_min`` (sampled on raw, pre-CLAHE BGR), which
+        is a stronger discriminator than per-channel agreement: it
+        directly measures whether a candidate carries real intensity
+        contrast on the original pixels.  Use ``'vote'`` only if you
+        have a specific reason to require cross-channel agreement
+        (e.g. very noisy scans where the pop gate alone is
+        insufficient).
     vote_min : int, optional
         Minimum number of channels that must agree for a feature to be kept
         when ``combine_mode='vote'`` (default: 2 of 3 BGR channels).
@@ -1298,7 +1301,8 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         This is the primary noise rejection mechanism under the
         default ``combine_mode='union'`` — it replaces the old cross-
         channel voting requirement, which incorrectly punished
-        monochromatic features (e.g. reddish grog visible only in B).
+        monochromatic features (e.g. an iron-bearing sand grain
+        visible only in B against a warm matrix).
         Set to 0 to disable; raise (e.g. 30-35) for very uniform paste
         or to further tighten precision; lower (e.g. 15-20) when
         chasing subtle features in fine-grained fabrics (paired with
