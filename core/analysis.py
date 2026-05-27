@@ -247,28 +247,35 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         detection; raise (e.g. 90) for low-contrast scans where genuine
         pores don't quite reach black.
     inclusion_pop_min : float in 0..255, optional
-        Minimum required absolute difference between an inclusion's core
-        disc mean and its surrounding annulus mean, sampled on the
-        **raw (pre-CLAHE) BGR channels** of the masked input image and
-        taken as the maximum across the three native channels
-        (default: 25).  Applied to both blob and contour detectors as
-        the final inclusion filter.  CLAHE on uniform paste amplifies
-        sub-tile noise into pseudo-inclusions that would otherwise
-        survive detection; sampling raw center-vs-ring intensity
-        reveals these locations carry no real differential, while
-        genuine inclusions pop strongly on at least one channel.
-        Under the default ``combine_mode='union'`` this is the primary
-        noise rejection mechanism, replacing the old cross-channel
-        voting requirement.  Calibrated on AMFOrA_Test_Bars: at the
-        default, ~43% reduction in R01-series (uniform paste, no true
-        inclusions) false positives vs the prior vote=2 + pop=20
-        configuration, with ~27% MORE true positives caught on
-        iron-tempered fabrics (R03G_4 jumps from 37 → 53 detections,
-        matching visual inspection).  Set to 0 to disable; raise
-        (e.g. 30–35) for very uniform paste or to further tighten
-        precision; lower (e.g. 15–20) when chasing subtle features in
-        fine-grained fabrics (pair with ``combine_mode='vote'`` for
-        additional noise control if needed).
+        Minimum "pop" required for a candidate inclusion to be kept
+        (default: 25).  "Pop" here is informal shorthand for **how
+        much the feature visually stands out against its immediate
+        surrounding paste** — concretely, the absolute difference
+        between the candidate's core disc mean intensity and the mean
+        intensity of a surrounding annulus, computed on the **raw
+        (pre-CLAHE) BGR channels** of the masked input image and taken
+        as the maximum across the three native channels:
+
+            pop = max over BGR of |mean(core disc) - mean(annulus)|
+
+        Higher values mean a clearer intensity discontinuity between
+        the inclusion and the paste around it; a low pop value means
+        the "blob" the detector found is actually flat against its
+        surround — almost certainly CLAHE-amplified noise dressed up to
+        look like a feature.  Applied to both blob and contour
+        detectors as the final inclusion filter.  Under the default
+        ``combine_mode='union'`` this is the primary noise rejection
+        mechanism, replacing the old cross-channel voting requirement.
+        Calibrated on AMFOrA_Test_Bars: at the default, ~43% reduction
+        in R01-series (uniform paste, no true inclusions) false
+        positives vs the prior vote=2 + pop=20 configuration, with
+        ~27% MORE true positives caught on iron-tempered fabrics
+        (R03G_4 jumps from 37 → 53 detections, matching visual
+        inspection).  Set to 0 to disable; raise (e.g. 30–35) for very
+        uniform paste or to further tighten precision; lower (e.g.
+        15–20) when chasing subtle features in fine-grained fabrics
+        (pair with ``combine_mode='vote'`` for additional noise control
+        if needed).
 
     Returns
     -------
@@ -692,13 +699,17 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
         See ``analyze_single_sherd`` for the full description; lower this
         for stricter voids, raise for low-contrast scans.
     inclusion_pop_min : float in 0..255, optional
-        Raw center-vs-ring intensity gate applied to inclusions in both
-        detectors (default: 25).  Primary noise rejection mechanism
-        under ``combine_mode='union'``.  See ``analyze_single_sherd``
-        for the full description and the R01-series calibration data;
-        set to 0 to disable, raise (30–35) for very uniform paste or
-        tighter precision, lower (15–20) for subtle features in
-        fine-grained fabrics.
+        Minimum "pop" (how much an inclusion visually stands out
+        against the surrounding paste) for a candidate to be kept,
+        applied to both detectors (default: 25).  Computed as the
+        max-across-BGR absolute difference between the candidate's
+        core disc mean and a surrounding annulus mean on the raw
+        (pre-CLAHE) image — see ``analyze_single_sherd`` for the
+        formal definition and full rationale.  Primary noise rejection
+        mechanism under ``combine_mode='union'``.  Set to 0 to
+        disable, raise (30–35) for very uniform paste or tighter
+        precision, lower (15–20) for subtle features in fine-grained
+        fabrics.
 
     Returns
     -------

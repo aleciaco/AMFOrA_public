@@ -1265,22 +1265,33 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         them from grains.  Lower (e.g. 45) for stricter void detection;
         raise (e.g. 90) for low-contrast scans.
     inclusion_pop_min : float in 0..255, optional
-        Minimum required absolute difference between an inclusion
-        keypoint's core disc mean and its surrounding annulus mean,
-        sampled on the **raw (pre-CLAHE) BGR channels** and taken as the
-        maximum across the three native channels (default: 25).  CLAHE
-        on uniform paste amplifies sub-tile noise into pseudo-blobs that
-        would otherwise survive detection; sampling center-vs-ring
-        intensity on the original pixels reveals that these locations
-        have almost no real intensity differential, while genuine
-        inclusions pop strongly on at least one channel.  This is the
-        primary noise rejection mechanism under the default
-        ``combine_mode='union'`` — it replaces the old cross-channel
-        voting requirement, which incorrectly punished monochromatic
-        features (e.g. reddish grog visible only in B).  Set to 0 to
-        disable; raise (e.g. 30-35) for very uniform paste or to
-        further tighten precision; lower (e.g. 15-20) when chasing
-        subtle features in fine-grained fabrics (paired with
+        Minimum "pop" required for a candidate inclusion to be kept
+        (default: 25).  "Pop" here is informal shorthand for **how
+        much the feature visually stands out against its immediate
+        surrounding paste** — concretely, the absolute difference
+        between the candidate's core disc mean intensity and the mean
+        intensity of a surrounding annulus, computed on the **raw
+        (pre-CLAHE) BGR channels** of the input image and taken as the
+        maximum across the three native channels:
+
+            pop = max over BGR of |mean(core disc) - mean(annulus)|
+
+        Higher values mean a clearer intensity discontinuity between
+        the inclusion and the paste around it; a low pop value means
+        the "blob" the detector found is actually flat against its
+        surround — almost certainly CLAHE-amplified noise dressed up to
+        look like a feature.  CLAHE on uniform paste amplifies
+        sub-tile noise into pseudo-blobs that would otherwise survive
+        detection; sampling center-vs-ring intensity on the original
+        pixels reveals these locations have no real differential,
+        while genuine inclusions pop strongly on at least one channel.
+        This is the primary noise rejection mechanism under the
+        default ``combine_mode='union'`` — it replaces the old cross-
+        channel voting requirement, which incorrectly punished
+        monochromatic features (e.g. reddish grog visible only in B).
+        Set to 0 to disable; raise (e.g. 30-35) for very uniform paste
+        or to further tighten precision; lower (e.g. 15-20) when
+        chasing subtle features in fine-grained fabrics (paired with
         ``combine_mode='vote'`` for noise control if needed).
     blob_params : dict, optional
         Dictionary to override any cv2.SimpleBlobDetector_Params attributes
