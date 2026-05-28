@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 
 __all__ = [
-    'setup_robust_blob_params', 'sherd_mask', 'apply_mask',
+    'setup_robust_blob_params', 'sherd_mask', 'full_image_mask', 'apply_mask',
     'clahe_enhance', 'super_zorro_cv', 'sherd_blobs',
     'detect_multiple_sherds', 'split_multi_sherd_scan',
     'prepare_multi_sherd_directory', 'contour_detection',
@@ -88,12 +88,14 @@ def setup_robust_blob_params(image, scan_dpi, blob_type="light", size_params=Non
         mean_brightness = 127
         std_brightness = 50
         median_brightness = 127
+        brightness_range = 128
+        contrast_factor = std_brightness / mean_brightness
     else:
         auto_threshold, _ = cv2.threshold(non_zero_pixels, 0, 255, cv2.THRESH_BINARY|cv2.THRESH_OTSU)
         mean_brightness = np.mean(non_zero_pixels)
         std_brightness = np.std(non_zero_pixels)
         median_brightness = np.median(non_zero_pixels)
-        
+
         # Additional adaptive measures for robust detection
         brightness_range = np.max(non_zero_pixels) - np.min(non_zero_pixels)
         contrast_factor = std_brightness / mean_brightness if mean_brightness > 0 else 0
@@ -256,11 +258,15 @@ def setup_robust_blob_params(image, scan_dpi, blob_type="light", size_params=Non
         # and concave.  Upper-bound filters reject dark features that are "too
         # perfect" — near-perfect circles or very smooth convex shapes are almost
         # certainly mineral grains, not voids.  This is the inverse of the
-        # dark_inclusion detector's lower-bound filters.
-        params.filterByCircularity = False
+        # dark_inclusion detector's lower-bound filters.  Shape-based void
+        # rejection is safe for the blob detector (unlike contour_detection,
+        # where blur+morph smooths concavities before shape is measured —
+        # SimpleBlobDetector measures shape on its own thresholded keypoints
+        # without that smoothing chain).
+        params.filterByCircularity = True
         params.minCircularity = 0.0         # No lower bound — voids can be very irregular
         params.maxCircularity = 0.85        # Reject near-perfect circles (likely mineral grains)
-        params.filterByConvexity = False
+        params.filterByConvexity = True
         params.minConvexity = 0.0           # No lower bound — allow deep concavities
         params.maxConvexity = 0.85          # Reject very smooth/convex shapes (likely mineral grains)
         params.filterByInertia = False      # No elongation constraint — voids can be any shape
@@ -770,6 +776,44 @@ def sherd_mask(sherd_scan, gray=False, scan_dpi=1200, crop_buffer=125, auto_crop
         return mask_slice, crop, best_contour
     else:
         return color_mask_slice, crop, best_contour
+
+
+def full_image_mask(image, gray=False):
+    """
+    Build a sherd_mask-shaped return for an image that is already pre-masked
+    (i.e. the sherd fills the entire frame and there is no background to
+    segment away).  Use this in place of ``sherd_mask`` when the input is a
+    backgroundless / tight-cropped sherd image so the GrabCut pipeline is
+    skipped entirely.
+
+    Parameters
+    ----------
+    image : numpy.ndarray
+        Image whose full extent is treated as the sherd.
+    gray : bool, optional
+        If True returns a single-channel mask; otherwise a 3-channel mask
+        (matches ``sherd_mask``'s default).  Default: False.
+
+    Returns
+    -------
+    tuple
+        ``(mask, crop, best_contour)`` matching ``sherd_mask``'s signature.
+        ``mask`` is filled with 255 across the full image, ``crop`` is
+        ``(0, H, 0, W, 0, 0, 0, 0)``, and ``best_contour`` is the rectangular
+        contour traced around the image perimeter (image-coordinate space)
+        so downstream geometry (e.g. ``minAreaRect`` orientation) still has
+        a sherd boundary to work from.
+    """
+    h, w = image.shape[:2]
+    mask_2d = np.full((h, w), 255, np.uint8)
+    crop = (0, h, 0, w, 0, 0, 0, 0)
+    best_contour = np.array(
+        [[[0, 0]], [[w - 1, 0]], [[w - 1, h - 1]], [[0, h - 1]]],
+        dtype=np.int32,
+    )
+    if gray:
+        return mask_2d, crop, best_contour
+    return np.dstack((mask_2d, mask_2d, mask_2d)), crop, best_contour
 
 
 def apply_mask(image, mask, crop=None):
@@ -1504,6 +1548,25 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
                 kept.append(kp)
         return kept
 
+    def _disc_mean(kp, gray):
+        """Mean intensity of the unblurred channel inside the keypoint's disc."""
+        h, w = gray.shape[:2]
+        x = int(round(kp.pt[0]))
+        y = int(round(kp.pt[1]))
+        r = max(1, int(round(kp.size / 2)))
+        y0, y1 = max(0, y - r), min(h, y + r + 1)
+        x0, x1 = max(0, x - r), min(w, x + r + 1)
+        patch = gray[y0:y1, x0:x1]
+        if patch.size == 0:
+            return None
+        yy = np.arange(y0 - y, y1 - y).reshape(-1, 1)
+        xx = np.arange(x0 - x, x1 - x).reshape(1, -1)
+        disc = (yy * yy + xx * xx) <= (r * r)
+        vals = patch[disc]
+        if vals.size == 0:
+            return None
+        return float(vals.mean())
+
     def _gate_voids_by_intensity(void_blobs, gray):
         """Drop void keypoints whose disc isn't actually dark.
 
@@ -1515,24 +1578,33 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         """
         if void_intensity_max is None or not void_blobs:
             return void_blobs
-        h, w = gray.shape[:2]
         kept = []
         for kp in void_blobs:
-            x = int(round(kp.pt[0]))
-            y = int(round(kp.pt[1]))
-            r = max(1, int(round(kp.size / 2)))
-            y0, y1 = max(0, y - r), min(h, y + r + 1)
-            x0, x1 = max(0, x - r), min(w, x + r + 1)
-            patch = gray[y0:y1, x0:x1]
-            if patch.size == 0:
+            m = _disc_mean(kp, gray)
+            if m is None:
                 continue
-            yy = np.arange(y0 - y, y1 - y).reshape(-1, 1)
-            xx = np.arange(x0 - x, x1 - x).reshape(1, -1)
-            disc = (yy * yy + xx * xx) <= (r * r)
-            vals = patch[disc]
-            if vals.size == 0:
+            if m < void_intensity_max:
+                kept.append(kp)
+        return kept
+
+    def _exclude_inclusions_by_void_brightness(inc_blobs, gray):
+        """Symmetric counterpart to ``_gate_voids_by_intensity``.
+
+        Drop inclusion keypoints whose disc is dark enough to qualify as a
+        void.  Without this, a void detected on the dark side of the
+        detector lands in both lists.  Per the memory's measured numbers,
+        real dark mineral inclusions have interior >= 73 on light-grey
+        paste, so the default 60 cutoff does not strip legitimate dark
+        inclusions.
+        """
+        if void_intensity_max is None or not inc_blobs:
+            return inc_blobs
+        kept = []
+        for kp in inc_blobs:
+            m = _disc_mean(kp, gray)
+            if m is None:
                 continue
-            if float(vals.mean()) < void_intensity_max:
+            if m >= void_intensity_max:
                 kept.append(kp)
         return kept
 
@@ -1544,9 +1616,12 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
                                 clip_limit=clahe_clip, tile_grid=clahe_grid)
         gray_blur = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
         inc_ch, void_ch = _detect_one_channel(gray_blur)
-        # Brightness gate uses the unblurred channel so the disc-mean
+        # Brightness gates use the unblurred channel so the disc-mean
         # reflects the true interior darkness rather than the blurred halo.
+        # Symmetric application: voids keep dark-disc keypoints; inclusions
+        # drop dark-disc keypoints (those are voids, not inclusions).
         void_ch = _gate_voids_by_intensity(void_ch, gray)
+        inc_ch = _exclude_inclusions_by_void_brightness(inc_ch, gray)
         inc_by_channel[ch] = inc_ch
         void_by_channel[ch] = void_ch
 
@@ -2275,9 +2350,9 @@ def enhanced_contour_detection(image, scan_dpi=1200, size_params=None, shape_par
 
 def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
                       debug_mode=False, blur_scale=1.0,
-                      channels=('B', 'G', 'R'), combine_mode='vote', vote_min=2,
+                      channels=('B', 'G', 'R'), combine_mode='union', vote_min=2,
                       enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
-                      void_intensity_max=60.0, inclusion_pop_min=20.0):
+                      void_intensity_max=60.0, inclusion_pop_min=25.0):
     """
     Contour-based detection using the exact cv2_test.py methodology for individual inclusions.
 
@@ -2421,14 +2496,17 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
         ``sherd_blobs`` for why L\* is excluded by default.
     combine_mode : {'union', 'vote'}, optional
         How to merge per-channel detections when ``len(channels) > 1``.
-        Default ``'vote'`` requires a contour's centroid to fall inside the
-        rasterized contour mask of at least ``vote_min`` channels — the
-        calibrated sweet spot.  ``'union'`` pools detections and removes
-        spatial duplicates via centroid containment without the agreement
-        requirement.
+        Default ``'union'`` (matches ``analyze_single_sherd`` and
+        ``sherd_blobs``) pools detections and removes spatial duplicates via
+        centroid containment without requiring cross-channel agreement —
+        catches monochromatic features that single-channel detection alone
+        would miss.  Use ``'vote'`` to require a contour's centroid to fall
+        inside the rasterized contour mask of at least ``vote_min`` channels
+        for stricter noise rejection on low-contrast scans.
     vote_min : int, optional
         Minimum number of channels that must agree for a contour to be kept
         when ``combine_mode='vote'`` (default: 2 of 3 BGR channels).
+        Ignored under the default ``combine_mode='union'``.
     enhance_contrast : bool, optional
         Apply CLAHE to each requested channel before detection (default:
         True).  Set to False if you've already pre-applied contrast
@@ -2768,6 +2846,36 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
         pre_nested_void = len(void_contours)
         void_contours, void_areas = _drop_nested(void_contours, void_areas)
         debug_info['void_rejected_nested'] = pre_nested_void - len(void_contours)
+
+        # Brightness exclusion: blackhat surfaces dark mineral inclusions AND
+        # dark voids into the same dark-feature candidate pool, and the
+        # downstream blur+morph kernel smooths concavities so shape filters
+        # cannot separate them post-pipeline.  Apply void_intensity_max
+        # symmetrically: any inclusion whose interior is dark enough to count
+        # as a void is reclassified — it stays in the void list and drops
+        # from the inclusion list.  Per real-sherd diagnostics (memory
+        # void-discriminator-brightness), dark mineral inclusions land at
+        # interior >= 73 even on light-grey paste, so the default 60 cutoff
+        # does not strip legitimate dark inclusions.
+        if void_intensity_max is not None and inclusion_contours:
+            kept_inc, kept_inc_areas = [], []
+            dropped = 0
+            for contour, area in zip(inclusion_contours, inclusion_areas):
+                x, y, w, h = cv2.boundingRect(contour)
+                roi = gray[y:y + h, x:x + w]
+                roi_mask = np.zeros((h, w), dtype=np.uint8)
+                shifted = contour - np.array([[x, y]])
+                cv2.drawContours(roi_mask, [shifted], -1, 255, cv2.FILLED)
+                roi_vals = roi[roi_mask > 0]
+                inside_mean = float(roi_vals.mean()) if roi_vals.size > 0 else 255.0
+                if inside_mean < void_intensity_max:
+                    dropped += 1
+                    continue
+                kept_inc.append(contour)
+                kept_inc_areas.append(area)
+            inclusion_contours = kept_inc
+            inclusion_areas = kept_inc_areas
+            debug_info['inclusion_rejected_void_brightness'] = dropped
 
         return inclusion_contours, inclusion_areas, void_contours, void_areas, debug_info
 

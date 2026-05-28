@@ -11,7 +11,7 @@ import pandas as pd
 import math
 from pathlib import Path
 from scipy.stats import skew
-from .detection import setup_robust_blob_params, sherd_mask, apply_mask, sherd_blobs, contour_detection
+from .detection import setup_robust_blob_params, sherd_mask, full_image_mask, apply_mask, sherd_blobs, contour_detection
 
 __all__ = [
     'size_count_summary_single', 'analyze_single_sherd', 'full_analysis',
@@ -171,7 +171,8 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
                          analyze_core_periphery=True, use_blob=True, use_contour=True,
                          enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
                          channels=('B', 'G', 'R'), combine_mode='union', vote_min=2,
-                         void_intensity_max=60.0, inclusion_pop_min=25.0):
+                         void_intensity_max=60.0, inclusion_pop_min=25.0,
+                         pre_masked=False):
     """
     Comprehensive analysis of a single ceramic sherd image.
 
@@ -278,6 +279,11 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         15–20) when chasing subtle features in fine-grained fabrics
         (pair with ``combine_mode='vote'`` for additional noise control
         if needed).
+    pre_masked : bool, optional
+        If True, skip ``sherd_mask`` and treat the entire input image as
+        the sherd (default: False).  Use for backgroundless / tight-cropped
+        images where every pixel is sherd and GrabCut has nothing to
+        segment against.
 
     Returns
     -------
@@ -327,15 +333,19 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
     reported alongside any cross-fabric comparison of inclusion
     metrics.
     """
-    from .detection import sherd_mask, apply_mask, sherd_blobs, clahe_enhance
+    from .detection import sherd_mask, full_image_mask, apply_mask, sherd_blobs, clahe_enhance
 
     results = {}
 
     try:
         # Create sherd mask and apply it (mask is auto-cropped; crop carries the bounds)
         # best_contour is the sherd boundary contour (image_cropped coords) used for masking
-        mask, crop, best_contour = sherd_mask(image, scan_dpi=scan_dpi)
-        masked_image = apply_mask(image, mask, crop)
+        if pre_masked:
+            mask, crop, best_contour = full_image_mask(image)
+            masked_image = image
+        else:
+            mask, crop, best_contour = sherd_mask(image, scan_dpi=scan_dpi)
+            masked_image = apply_mask(image, mask, crop)
 
         # CLAHE strategy:
         #   - Single-channel L* mode keeps the legacy BGR-roundtrip path
@@ -678,7 +688,8 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
                   interleave_columns=False, file_formats=None, save_csv=True, output_filename=None,
                   enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
                   channels=('B', 'G', 'R'), combine_mode='union', vote_min=2,
-                  void_intensity_max=60.0, inclusion_pop_min=25.0):
+                  void_intensity_max=60.0, inclusion_pop_min=25.0,
+                  pre_masked=False):
     """
     Comprehensive analysis of all ceramic sherds in a directory with both blob and contour detection.
 
@@ -755,6 +766,11 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
         disable, raise (30–35) for very uniform paste or tighter
         precision, lower (15–20) for subtle features in fine-grained
         fabrics.
+    pre_masked : bool, optional
+        If True, skip ``sherd_mask`` and treat every input image as
+        already isolated to its sherd (default: False).  Use for
+        backgroundless / tight-cropped directories where GrabCut has
+        nothing to segment against.
 
     Returns
     -------
@@ -847,6 +863,7 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
                 vote_min=vote_min,
                 void_intensity_max=void_intensity_max,
                 inclusion_pop_min=inclusion_pop_min,
+                pre_masked=pre_masked,
             )
             
             # Add filename and path information
@@ -920,7 +937,7 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
 
 
 def size_count_summary(folder_path, fileformat='jpeg', scan_dpi=1200, use_blob=True, use_contour=True,
-                       interleave_columns=False):
+                       interleave_columns=False, pre_masked=False):
     """
     Analysis of inclusions and voids using blob and/or contour detection.
 
@@ -940,6 +957,9 @@ def size_count_summary(folder_path, fileformat='jpeg', scan_dpi=1200, use_blob=T
     interleave_columns : bool, optional
         Whether to reorder columns so blob/contour variants of the same metric
         are placed side-by-side. (default: False)
+    pre_masked : bool, optional
+        If True, skip ``sherd_mask`` and treat every input as already
+        isolated to its sherd (default: False).
 
     Returns
     -------
@@ -948,7 +968,7 @@ def size_count_summary(folder_path, fileformat='jpeg', scan_dpi=1200, use_blob=T
         All area measurements are in cm². Column names are prefixed with
         'blob_' or 'contour_' to indicate detection method.
     """
-    from .detection import sherd_mask, apply_mask, sherd_blobs, contour_detection
+    from .detection import sherd_mask, full_image_mask, apply_mask, sherd_blobs, contour_detection
 
     if scan_dpi < 150 or scan_dpi > 2400:
         print(f"Warning: scan_dpi {scan_dpi} is outside recommended range (150-2400).")
@@ -969,8 +989,12 @@ def size_count_summary(folder_path, fileformat='jpeg', scan_dpi=1200, use_blob=T
 
         # Mask the sherd (auto-cropped)
         try:
-            mask, crop, _bc = sherd_mask(im, scan_dpi=scan_dpi)
-            masked_im = apply_mask(im, mask, crop)
+            if pre_masked:
+                mask, crop, _bc = full_image_mask(im)
+                masked_im = im
+            else:
+                mask, crop, _bc = sherd_mask(im, scan_dpi=scan_dpi)
+                masked_im = apply_mask(im, mask, crop)
             # mask is 3-channel by default; collapse to 2D so we don't count
             # each sherd pixel three times.
             mask_2d = mask[:, :, 0] if mask.ndim == 3 else mask
@@ -1587,7 +1611,7 @@ def inclusion_orientation2(image, scan_dpi, contour_result=None, sherd_contour=N
     return inclusion_angles, void_angles, impangle
 
 
-def sherd_color_analysis(image, mask=None, crop=None):
+def sherd_color_analysis(image, mask=None, crop=None, pre_masked=False):
     """
     Analyze color properties of a single ceramic sherd image using CIELAB.
 
@@ -1598,11 +1622,15 @@ def sherd_color_analysis(image, mask=None, crop=None):
         the function will slice it using ``crop`` when provided.
     mask : numpy.ndarray, optional
         Mask to apply (already cropped to the sherd region when ``crop`` is
-        given).  If None, a mask is generated automatically via ``sherd_mask``.
+        given).  If None, a mask is generated automatically via ``sherd_mask``
+        (or ``full_image_mask`` when ``pre_masked=True``).
     crop : tuple or None, optional
         ``(y1, y2, x1, x2)`` crop rectangle as returned by ``sherd_mask``.
         When provided together with ``mask``, the image is sliced to this
         region so its dimensions match the (already-cropped) mask.
+    pre_masked : bool, optional
+        If True and ``mask`` is None, skip ``sherd_mask`` and treat the entire
+        input as the sherd (default: False).  Ignored when ``mask`` is given.
 
     Returns
     -------
@@ -1613,9 +1641,12 @@ def sherd_color_analysis(image, mask=None, crop=None):
         - mean_b: b* blue-yellow axis (-128 to +127)
     """
     if mask is None:
-        mask, crop, _bc = sherd_mask(image)
-        y1, y2, x1, x2 = crop[:4]
-        image = _pad_crop(image[y1:y2, x1:x2], crop)
+        if pre_masked:
+            mask, crop, _bc = full_image_mask(image)
+        else:
+            mask, crop, _bc = sherd_mask(image)
+            y1, y2, x1, x2 = crop[:4]
+            image = _pad_crop(image[y1:y2, x1:x2], crop)
     elif crop is not None:
         # Caller supplied a mask that is already cropped; slice the image to match
         y1, y2, x1, x2 = crop[:4]
@@ -1653,7 +1684,8 @@ def sherd_color_analysis(image, mask=None, crop=None):
 
 
 def sherd_color_summary(folder_path, scan_dpi=1200, use_blob=True, use_contour=True,
-                        analyze_core_periphery=True, interleave_columns=False):
+                        analyze_core_periphery=True, interleave_columns=False,
+                        pre_masked=False):
     """
     Provide summary of color aspects of sherds in CIELAB colorspace.
 
@@ -1673,6 +1705,9 @@ def sherd_color_summary(folder_path, scan_dpi=1200, use_blob=True, use_contour=T
     interleave_columns : bool, optional
         Whether to reorder columns so blob/contour variants of the same metric
         are placed side-by-side. (default: False)
+    pre_masked : bool, optional
+        If True, skip ``sherd_mask`` and treat every input as already
+        isolated to its sherd (default: False).
 
     Returns
     -------
@@ -1696,10 +1731,15 @@ def sherd_color_summary(folder_path, scan_dpi=1200, use_blob=True, use_contour=T
         row = {'Name': name}
 
         try:
-            mask, crop, _bc = sherd_mask(im, scan_dpi=scan_dpi)
-            y1, y2, x1, x2 = crop[:4]
-            im_crop = _pad_crop(im[y1:y2, x1:x2], crop)
-            masked_im = apply_mask(im, mask, crop)
+            if pre_masked:
+                mask, crop, _bc = full_image_mask(im)
+                im_crop = im
+                masked_im = im
+            else:
+                mask, crop, _bc = sherd_mask(im, scan_dpi=scan_dpi)
+                y1, y2, x1, x2 = crop[:4]
+                im_crop = _pad_crop(im[y1:y2, x1:x2], crop)
+                masked_im = apply_mask(im, mask, crop)
 
             # Sherd average color in CIELAB (im_crop and mask share the same dimensions)
             gray_mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY) if len(mask.shape) == 3 else mask
