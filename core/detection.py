@@ -1104,7 +1104,30 @@ def _combine_contour_lists(contour_lists_by_channel, image_shape,
     if not all_contours:
         return []
     areas = [cv2.contourArea(c) for c in all_contours]
-    kept_contours, _ = _drop_nested(all_contours, areas)
+    kept_contours, kept_areas = _drop_nested(all_contours, areas)
+
+    # Cross-channel near-duplicate cleanup via bbox-IoU.  ``_drop_nested``
+    # uses centroid-in-polygon, which is robust for round shapes but
+    # fragile for thin elongated ones (e.g. organic-burnout traces): a
+    # small lateral shift between per-channel detections of the same trace
+    # can put each contour's centroid outside the others' narrow stripe,
+    # leaving all three kept.  Same-feature contours across channels have
+    # near-identical bboxes (IoU > ~0.5); distinct adjacent features have
+    # low bbox IoU and stay separate.  This is within-list dedup (void vs
+    # void, or inclusion vs inclusion), not the cross-list void-vs-inclusion
+    # pattern that the memory void-discriminator-brightness rules out.
+    if len(kept_contours) > 1:
+        bboxes = [cv2.boundingRect(c) for c in kept_contours]
+        order = sorted(range(len(kept_contours)),
+                       key=lambda i: kept_areas[i], reverse=True)
+        deduped_idx = []
+        for i in order:
+            if any(_bbox_iou(bboxes[i], bboxes[j]) > 0.5 for j in deduped_idx):
+                continue
+            deduped_idx.append(i)
+        deduped_idx.sort()
+        kept_contours = [kept_contours[i] for i in deduped_idx]
+        kept_areas = [kept_areas[i] for i in deduped_idx]
 
     if combine_mode != 'vote':
         return kept_contours
@@ -1548,8 +1571,16 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
                 kept.append(kp)
         return kept
 
-    def _disc_mean(kp, gray):
-        """Mean intensity of the unblurred channel inside the keypoint's disc."""
+    def _disc_intensity(kp, gray):
+        """Median intensity of the unblurred channel inside the keypoint's disc.
+
+        Median (not mean) so the brightness gate is robust to keypoint discs
+        that overshoot the actual feature edge — when the disc captures a
+        few paste pixels around a dark feature, mean is pulled toward the
+        paste while median stays at the feature's interior value.  For
+        fully-captured uniform features (real-sherd inclusions and voids)
+        median equals mean, so real-sherd behavior is unchanged.
+        """
         h, w = gray.shape[:2]
         x = int(round(kp.pt[0]))
         y = int(round(kp.pt[1]))
@@ -1565,7 +1596,7 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         vals = patch[disc]
         if vals.size == 0:
             return None
-        return float(vals.mean())
+        return float(np.median(vals))
 
     def _gate_voids_by_intensity(void_blobs, gray):
         """Drop void keypoints whose disc isn't actually dark.
@@ -1580,7 +1611,7 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
             return void_blobs
         kept = []
         for kp in void_blobs:
-            m = _disc_mean(kp, gray)
+            m = _disc_intensity(kp, gray)
             if m is None:
                 continue
             if m < void_intensity_max:
@@ -1601,7 +1632,7 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
             return inc_blobs
         kept = []
         for kp in inc_blobs:
-            m = _disc_mean(kp, gray)
+            m = _disc_intensity(kp, gray)
             if m is None:
                 continue
             if m >= void_intensity_max:
@@ -2802,19 +2833,26 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
                 aspect_ratio = (max(rw, rh) / max(min(rw, rh), 1e-6))
 
                 # Brightness gate is the primary inclusion-vs-void
-                # discriminator.  Compute the mean pixel intensity inside the
-                # contour from the (pre-blur) channel; a true pore reads
-                # near-black there, while a dark mineral inclusion is just
-                # darker paste and stays well above black.  Use a per-contour
-                # bbox + filled mask so this stays O(contour_area), not
-                # O(image_area).
+                # discriminator.  Use median (not mean) pixel intensity
+                # inside the contour from the (pre-blur) channel: a true
+                # pore reads near-black there, while a dark mineral
+                # inclusion is just darker paste and stays well above
+                # black.  Median is robust to contour overshoot — when
+                # blackhat morphology with the ~24 px kernel inflates a
+                # thin feature's contour past the actual feature edge,
+                # mean is pulled toward paste while median stays at the
+                # feature's interior value.  For fully-captured uniform
+                # features (real-sherd inclusions and voids) median
+                # equals mean, so real-sherd behavior is unchanged.  Use
+                # a per-contour bbox + filled mask so this stays
+                # O(contour_area), not O(image_area).
                 x, y, w, h = cv2.boundingRect(contour)
                 roi = gray[y:y + h, x:x + w]
                 roi_mask = np.zeros((h, w), dtype=np.uint8)
                 shifted = contour - np.array([[x, y]])
                 cv2.drawContours(roi_mask, [shifted], -1, 255, cv2.FILLED)
                 roi_vals = roi[roi_mask > 0]
-                inside_mean = float(roi_vals.mean()) if roi_vals.size > 0 else 0.0
+                inside_med = float(np.median(roi_vals)) if roi_vals.size > 0 else 0.0
 
                 shape_ok = (aspect_ratio <= void_max_aspect_ratio
                             and void_solidity_min < solidity < void_solidity_max
@@ -2822,7 +2860,7 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
                 # ``void_intensity_max=None`` disables the brightness gate
                 # (matches the convention in ``sherd_blobs``).
                 bright_ok = (void_intensity_max is None
-                             or inside_mean < void_intensity_max)
+                             or inside_med < void_intensity_max)
 
                 if shape_ok and bright_ok:
                     void_contours.append(contour)
@@ -2853,10 +2891,11 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
         # cannot separate them post-pipeline.  Apply void_intensity_max
         # symmetrically: any inclusion whose interior is dark enough to count
         # as a void is reclassified — it stays in the void list and drops
-        # from the inclusion list.  Per real-sherd diagnostics (memory
-        # void-discriminator-brightness), dark mineral inclusions land at
-        # interior >= 73 even on light-grey paste, so the default 60 cutoff
-        # does not strip legitimate dark inclusions.
+        # from the inclusion list.  Uses median (not mean) for the same
+        # contour-overshoot robustness reason as the void gate above; per
+        # real-sherd diagnostics (memory void-discriminator-brightness), dark
+        # mineral inclusions land at interior >= 73 even on light-grey paste,
+        # so the default 60 cutoff does not strip legitimate dark inclusions.
         if void_intensity_max is not None and inclusion_contours:
             kept_inc, kept_inc_areas = [], []
             dropped = 0
@@ -2867,8 +2906,8 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
                 shifted = contour - np.array([[x, y]])
                 cv2.drawContours(roi_mask, [shifted], -1, 255, cv2.FILLED)
                 roi_vals = roi[roi_mask > 0]
-                inside_mean = float(roi_vals.mean()) if roi_vals.size > 0 else 255.0
-                if inside_mean < void_intensity_max:
+                inside_med = float(np.median(roi_vals)) if roi_vals.size > 0 else 255.0
+                if inside_med < void_intensity_max:
                     dropped += 1
                     continue
                 kept_inc.append(contour)
