@@ -171,7 +171,9 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
                          analyze_core_periphery=True, use_blob=True, use_contour=True,
                          enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
                          channels=('B', 'G', 'R'), combine_mode='union', vote_min=2,
-                         void_intensity_max=60.0, inclusion_pop_min=25.0,
+                         void_intensity_max=60.0,
+                         paste_pop_k=None, paste_pop_floor=8.0,
+                         watershed_enabled=True, multigrain_split_enabled=True,
                          pre_masked=False):
     """
     Comprehensive analysis of a single ceramic sherd image.
@@ -225,10 +227,12 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         — that the old ``'vote'`` default with ``vote_min=2`` dropped:
         roughly half of legitimate single-channel detections were lost
         to the agreement requirement on sand-tempered fabrics.  Noise
-        rejection is instead handled by ``inclusion_pop_min``, which
-        directly measures true intensity contrast on the raw (pre-
-        CLAHE) pixels and is a stronger discriminator than per-channel
-        voting.  Both detectors accept this parameter; the contour
+        rejection is instead handled by the paste-anchored pop gate
+        (``paste_pop_k`` / ``paste_pop_floor``), which directly measures
+        whether a candidate's interior is statistically distinct from the
+        sherd's paste on the raw (pre-CLAHE) pixels and is a stronger
+        discriminator than per-channel voting.  Both detectors accept
+        this parameter; the contour
         detector's noise rejection is less voting-dependent (shape
         filters do more of the work), so the ``'union'`` default
         trades a small contour-recall hit (~5%) for a large blob-
@@ -249,36 +253,58 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         grain (just darker paste).  Lower (e.g. 45) for stricter void
         detection; raise (e.g. 90) for low-contrast scans where genuine
         pores don't quite reach black.
-    inclusion_pop_min : float in 0..255, optional
-        Minimum "pop" required for a candidate inclusion to be kept
-        (default: 25).  "Pop" here is informal shorthand for **how
-        much the feature visually stands out against its immediate
-        surrounding paste** — concretely, the absolute difference
-        between the candidate's core disc mean intensity and the mean
-        intensity of a surrounding annulus, computed on the **raw
-        (pre-CLAHE) BGR channels** of the masked input image and taken
-        as the maximum across the three native channels:
+    paste_pop_k : float or None, optional
+        Minimum "pop" required for a candidate inclusion to be kept,
+        expressed as a multiple of the paste's per-channel Median
+        Absolute Deviation.  Default ``None`` lets each detector use
+        its own calibrated default — ``sherd_blobs`` defaults to 2.0
+        (looser, since SimpleBlobDetector's own shape filters already
+        cull most noise) and ``contour_detection`` defaults to 2.5
+        (tighter, since contour candidates pass fewer prior gates).
+        Setting an explicit value overrides BOTH detectors with the
+        same K.  "Pop" here is informal shorthand for **how much the
+        feature stands out against the sherd's paste** — concretely,
+        on the **raw (pre-CLAHE) BGR channels** of the masked input
+        image:
 
-            pop = max over BGR of |mean(core disc) - mean(annulus)|
+            paste_ref = per-channel median of non-zero pixels
+            paste_MAD = per-channel median(|pixel - paste_ref|)
+            keep iff  |median(interior) - paste_ref|  >=  max(K * MAD, floor)
+                      on at least one BGR channel
 
-        Higher values mean a clearer intensity discontinuity between
-        the inclusion and the paste around it; a low pop value means
-        the "blob" the detector found is actually flat against its
-        surround — almost certainly CLAHE-amplified noise dressed up to
-        look like a feature.  Applied to both blob and contour
-        detectors as the final inclusion filter.  Under the default
-        ``combine_mode='union'`` this is the primary noise rejection
-        mechanism, replacing the old cross-channel voting requirement.
-        Calibrated on AMFOrA_Test_Bars: at the default, ~43% reduction
-        in R01-series (uniform paste, no true inclusions) false
-        positives vs the prior vote=2 + pop=20 configuration, with
-        ~27% MORE true positives caught on sand-tempered fabrics
-        (R03G_4 jumps from 37 → 53 detections, matching visual
-        inspection).  Set to 0 to disable; raise (e.g. 30–35) for very
-        uniform paste or to further tighten precision; lower (e.g.
-        15–20) when chasing subtle features in fine-grained fabrics
-        (pair with ``combine_mode='vote'`` for additional noise control
-        if needed).
+        The MAD scaling makes the same K work across paste types —
+        smooth cream paste (MAD ~5) gets a tight absolute threshold,
+        mottled grog-tempered paste (MAD ~18) gets a loose one.
+        K=2.0 is roughly a 3σ detection threshold, K=2.5 ~3.7σ
+        (σ ≈ 1.4826 · MAD for normal data).  Anchoring on the global
+        paste reference instead of the local ring used by earlier
+        versions is what fixed the dense-cluster failure mode where
+        bright paste pockets between dark grains were detected as
+        light inclusions and dark cluster grains were rejected for
+        having dark neighbors.
+        Set to 0 to disable; raise (e.g. 3.0+) for tighter precision;
+        lower (e.g. 1.5) when chasing very subtle features.
+    paste_pop_floor : float in 0..255, optional
+        Absolute brightness floor under the MAD-scaled threshold
+        (default: 8.0).  Effective threshold per channel is
+        ``max(paste_pop_k * MAD, paste_pop_floor)``.  Inactive on every
+        real flatbed scan (MAD ≥ ~7 across our calibration set), but
+        protects against pathological near-zero-MAD inputs (synthetic
+        test images, heavily slipped pieces) where a tiny MAD would
+        otherwise collapse the gate.
+    watershed_enabled : bool, optional
+        Enable distance-transform watershed recovery of dark cluster
+        contours the size cap would otherwise drop (default: True).
+        Contour detection only.  Disable for legacy behavior or to
+        save ~10-30 % runtime on cluster-dense scans.
+    multigrain_split_enabled : bool, optional
+        Enable a second watershed pass that breaks already-accepted
+        lumpy contours into individual grain sub-contours (default:
+        True).  Contour detection only.  Splitting triggers only when
+        a contour exceeds both an area threshold (default 0.005 cm²)
+        and a solidity ceiling (default 0.75) — single big convex
+        grains (large grog fragments, quartz pebbles) pass through
+        untouched.
     pre_masked : bool, optional
         If True, skip ``sherd_mask`` and treat the entire input image as
         the sherd (default: False).  Use for backgroundless / tight-cropped
@@ -333,7 +359,9 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
     reported alongside any cross-fabric comparison of inclusion
     metrics.
     """
-    from .detection import sherd_mask, full_image_mask, apply_mask, sherd_blobs, clahe_enhance
+    from .detection import (sherd_mask, full_image_mask, apply_mask,
+                             sherd_blobs, clahe_enhance,
+                             _default_edge_band_px, _eroded_mask_area_cm2)
 
     results = {}
 
@@ -359,24 +387,45 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
                                          tile_grid=clahe_grid)
         detector_enhance = bool(enhance_contrast and multi_channel)
 
-        # Calculate sherd area for density calculations (pixel count is unaffected by crop).
+        # Sherd area (full mask, no edge erosion) — reported for reference.
         # sherd_mask returns a 3-channel mask by default, so collapse to 2D before
         # counting — otherwise each pixel is counted once per channel (3x inflation).
         mask_2d = mask[:, :, 0] if mask.ndim == 3 else mask
         sherd_area_cm2 = np.sum(mask_2d > 0) / ((scan_dpi * 0.3937) ** 2)
         results['sherd_area_cm2'] = sherd_area_cm2
 
+        # Effective detection area: the sherd area minus the edge band the
+        # detectors actually exclude (CLAHE tile-boundary + unmasked-overhang
+        # artifacts).  Used as the denominator for density / area-percentage
+        # so those metrics reflect the area actually searched — using the
+        # full sherd area would systematically understate density because
+        # the numerator can only count features inside the eroded interior.
+        edge_band_px = _default_edge_band_px(mask_2d.shape, fraction=0.04)
+        effective_detection_area_cm2 = _eroded_mask_area_cm2(
+            mask, scan_dpi, edge_band_px)
+        results['effective_detection_area_cm2'] = effective_detection_area_cm2
+        # Denominator used by every density / percentage downstream.
+        denom_area = (effective_detection_area_cm2
+                      if effective_detection_area_cm2 > 0
+                      else sherd_area_cm2)
+
         # BLOB DETECTION - Better for round, circular inclusions and voids
         # Good for: quartz grains, rounded temper, spherical voids
         # Less good for: angular fragments, elongated inclusions, irregular shapes
         if use_blob:
-            light_blobs, dark_blobs = sherd_blobs(
-                masked_image, scan_dpi=scan_dpi,
+            # paste_pop_k=None lets sherd_blobs use its own default (2.0);
+            # an explicit override propagates to both detectors equally.
+            blob_kwargs = dict(
+                masked_image=masked_image, scan_dpi=scan_dpi,
                 channels=channels, combine_mode=combine_mode, vote_min=vote_min,
                 enhance_contrast=detector_enhance,
                 clahe_clip=clahe_clip, clahe_grid=clahe_grid,
                 void_intensity_max=void_intensity_max,
-                inclusion_pop_min=inclusion_pop_min)
+                paste_pop_floor=paste_pop_floor)
+            if paste_pop_k is not None:
+                blob_kwargs['paste_pop_k'] = paste_pop_k
+            light_blobs, dark_blobs = sherd_blobs(
+                blob_kwargs.pop('masked_image'), **blob_kwargs)
 
             # Size analysis for BLOB detection
             blob_stats = size_count_summary_single(light_blobs, dark_blobs, scan_dpi)
@@ -392,13 +441,18 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         if use_contour:
             from .detection import contour_detection
             try:
-                contour_results = contour_detection(
-                    masked_image, scan_dpi=scan_dpi, debug_mode=False,
+                contour_kwargs = dict(
+                    scan_dpi=scan_dpi, debug_mode=False,
                     channels=channels, combine_mode=combine_mode, vote_min=vote_min,
                     enhance_contrast=detector_enhance,
                     clahe_clip=clahe_clip, clahe_grid=clahe_grid,
                     void_intensity_max=void_intensity_max,
-                    inclusion_pop_min=inclusion_pop_min)
+                    paste_pop_floor=paste_pop_floor,
+                    watershed_enabled=watershed_enabled,
+                    multigrain_split_enabled=multigrain_split_enabled)
+                if paste_pop_k is not None:
+                    contour_kwargs['paste_pop_k'] = paste_pop_k
+                contour_results = contour_detection(masked_image, **contour_kwargs)
                 contour_inclusions = contour_results.get('inclusions', [])
                 contour_voids = contour_results.get('voids', [])
 
@@ -465,13 +519,16 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
             for key, value in contour_stats.items():
                 results[f'contour_{key}'] = value
 
-        # Density calculations
+        # Density / area-percentage calculations.  Denominator is the
+        # effective detection area (sherd minus edge band) so the metrics
+        # reflect the area the detectors actually searched.  Falls back to
+        # the full sherd area only if edge erosion left nothing.
         if use_blob:
-            if sherd_area_cm2 > 0:
-                results['blob_inclusion_density_per_cm2'] = results['blob_inclusion_count'] / sherd_area_cm2
-                results['blob_void_density_per_cm2'] = results['blob_void_count'] / sherd_area_cm2
-                results['blob_inclusion_area_percentage'] = (results['blob_inclusion_total_area_cm2'] / sherd_area_cm2) * 100
-                results['blob_void_area_percentage'] = (results['blob_void_total_area_cm2'] / sherd_area_cm2) * 100
+            if denom_area > 0:
+                results['blob_inclusion_density_per_cm2'] = results['blob_inclusion_count'] / denom_area
+                results['blob_void_density_per_cm2'] = results['blob_void_count'] / denom_area
+                results['blob_inclusion_area_percentage'] = (results['blob_inclusion_total_area_cm2'] / denom_area) * 100
+                results['blob_void_area_percentage'] = (results['blob_void_total_area_cm2'] / denom_area) * 100
             else:
                 results['blob_inclusion_density_per_cm2'] = 0
                 results['blob_void_density_per_cm2'] = 0
@@ -479,11 +536,11 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
                 results['blob_void_area_percentage'] = 0
 
         if use_contour:
-            if sherd_area_cm2 > 0:
-                results['contour_inclusion_density_per_cm2'] = results['contour_inclusion_count'] / sherd_area_cm2
-                results['contour_void_density_per_cm2'] = results['contour_void_count'] / sherd_area_cm2
-                results['contour_inclusion_area_percentage'] = (results['contour_inclusion_total_area_cm2'] / sherd_area_cm2) * 100
-                results['contour_void_area_percentage'] = (results['contour_void_total_area_cm2'] / sherd_area_cm2) * 100
+            if denom_area > 0:
+                results['contour_inclusion_density_per_cm2'] = results['contour_inclusion_count'] / denom_area
+                results['contour_void_density_per_cm2'] = results['contour_void_count'] / denom_area
+                results['contour_inclusion_area_percentage'] = (results['contour_inclusion_total_area_cm2'] / denom_area) * 100
+                results['contour_void_area_percentage'] = (results['contour_void_total_area_cm2'] / denom_area) * 100
             else:
                 results['contour_inclusion_density_per_cm2'] = 0
                 results['contour_void_density_per_cm2'] = 0
@@ -669,7 +726,7 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
             methods.append('blob')
         if use_contour:
             methods.append('contour')
-        for key in ['sherd_area_cm2'] + \
+        for key in ['sherd_area_cm2', 'effective_detection_area_cm2'] + \
                    [f'{method}_{feature}_{stat}' for method in methods
                     for feature in ['inclusion', 'void']
                     for stat in ['count', 'total_area_cm2', 'mean_area_cm2', 'std_area_cm2',
@@ -688,7 +745,9 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
                   interleave_columns=False, file_formats=None, save_csv=True, output_filename=None,
                   enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
                   channels=('B', 'G', 'R'), combine_mode='union', vote_min=2,
-                  void_intensity_max=60.0, inclusion_pop_min=25.0,
+                  void_intensity_max=60.0,
+                  paste_pop_k=None, paste_pop_floor=8.0,
+                  watershed_enabled=True, multigrain_split_enabled=True,
                   pre_masked=False):
     """
     Comprehensive analysis of all ceramic sherds in a directory with both blob and contour detection.
@@ -744,8 +803,8 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
         catching monochromatic features (e.g. an iron-bearing sand
         grain visible only in B against a warm matrix) that voting
         would drop.  Noise rejection is handled by
-        ``inclusion_pop_min`` instead.  See ``analyze_single_sherd``
-        for the full rationale and the precision/recall data.
+        the paste-anchored pop gate (``paste_pop_k`` / ``paste_pop_floor``)
+        instead.  See ``analyze_single_sherd`` for the full rationale.
     vote_min : int, optional
         Minimum number of channels that must agree under ``combine_mode='vote'``
         (default: 2 of 3 BGR channels).  Ignored under the default
@@ -754,18 +813,26 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
         Brightness gate for void detection in both detectors (default: 60).
         See ``analyze_single_sherd`` for the full description; lower this
         for stricter voids, raise for low-contrast scans.
-    inclusion_pop_min : float in 0..255, optional
-        Minimum "pop" (how much an inclusion visually stands out
-        against the surrounding paste) for a candidate to be kept,
-        applied to both detectors (default: 25).  Computed as the
-        max-across-BGR absolute difference between the candidate's
-        core disc mean and a surrounding annulus mean on the raw
-        (pre-CLAHE) image — see ``analyze_single_sherd`` for the
-        formal definition and full rationale.  Primary noise rejection
-        mechanism under ``combine_mode='union'``.  Set to 0 to
-        disable, raise (30–35) for very uniform paste or tighter
-        precision, lower (15–20) for subtle features in fine-grained
-        fabrics.
+    paste_pop_k : float or None, optional
+        Minimum paste-pop required for a candidate inclusion to be kept,
+        expressed as a multiple of the paste's per-channel Median
+        Absolute Deviation.  Default ``None`` lets each detector use
+        its own calibrated default (``sherd_blobs`` = 2.0, looser;
+        ``contour_detection`` = 2.5, tighter).  Setting an explicit
+        value overrides BOTH detectors.  See ``analyze_single_sherd``
+        for the formal definition and full rationale.
+    paste_pop_floor : float in 0..255, optional
+        Absolute brightness floor under the MAD-scaled threshold
+        (default: 8.0).  Effective threshold per channel is
+        ``max(paste_pop_k * MAD, paste_pop_floor)``.
+    watershed_enabled : bool, optional
+        Enable distance-transform watershed recovery of dark cluster
+        contours the size cap would otherwise drop (default: True).
+        Contour detection only.
+    multigrain_split_enabled : bool, optional
+        Enable a second watershed pass that breaks already-accepted
+        lumpy contours into individual grain sub-contours (default:
+        True).  Contour detection only.
     pre_masked : bool, optional
         If True, skip ``sherd_mask`` and treat every input image as
         already isolated to its sherd (default: False).  Use for
@@ -862,7 +929,10 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
                 combine_mode=combine_mode,
                 vote_min=vote_min,
                 void_intensity_max=void_intensity_max,
-                inclusion_pop_min=inclusion_pop_min,
+                paste_pop_k=paste_pop_k,
+                paste_pop_floor=paste_pop_floor,
+                watershed_enabled=watershed_enabled,
+                multigrain_split_enabled=multigrain_split_enabled,
                 pre_masked=pre_masked,
             )
             
@@ -904,7 +974,8 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
     df = pd.DataFrame(results_list)
     
     # Column ordering: always put metadata first; optionally interleave blob/contour
-    primary_cols = ['filename', 'file_path', 'scan_dpi', 'analysis_status', 'sherd_area_cm2']
+    primary_cols = ['filename', 'file_path', 'scan_dpi', 'analysis_status',
+                    'sherd_area_cm2', 'effective_detection_area_cm2']
     if interleave_columns:
         df = _interleave_method_columns(df, primary_cols)
     else:
@@ -1000,6 +1071,16 @@ def size_count_summary(folder_path, fileformat='jpeg', scan_dpi=1200, use_blob=T
             mask_2d = mask[:, :, 0] if mask.ndim == 3 else mask
             sherd_area_cm2 = np.sum(mask_2d > 0) / (dpcm ** 2)
             row['sherd_area_cm2'] = sherd_area_cm2
+            # Match analyze_single_sherd: divide densities by the area the
+            # detectors actually search (sherd minus edge band).
+            from .detection import _default_edge_band_px, _eroded_mask_area_cm2
+            edge_band_px = _default_edge_band_px(mask_2d.shape, fraction=0.04)
+            effective_detection_area_cm2 = _eroded_mask_area_cm2(
+                mask, scan_dpi, edge_band_px)
+            row['effective_detection_area_cm2'] = effective_detection_area_cm2
+            denom_area = (effective_detection_area_cm2
+                          if effective_detection_area_cm2 > 0
+                          else sherd_area_cm2)
         except Exception as e:
             print(f"Warning: Could not mask {name}: {e}")
             continue
@@ -1050,9 +1131,9 @@ def size_count_summary(folder_path, fileformat='jpeg', scan_dpi=1200, use_blob=T
                     row['blob_void_cv'] = 0
 
                 # Density
-                if sherd_area_cm2 > 0:
-                    row['blob_inclusion_density_per_cm2'] = row['blob_inclusion_count'] / sherd_area_cm2
-                    row['blob_void_density_per_cm2'] = row['blob_void_count'] / sherd_area_cm2
+                if denom_area > 0:
+                    row['blob_inclusion_density_per_cm2'] = row['blob_inclusion_count'] / denom_area
+                    row['blob_void_density_per_cm2'] = row['blob_void_count'] / denom_area
                 else:
                     row['blob_inclusion_density_per_cm2'] = 0
                     row['blob_void_density_per_cm2'] = 0
@@ -1108,9 +1189,9 @@ def size_count_summary(folder_path, fileformat='jpeg', scan_dpi=1200, use_blob=T
                     row['contour_void_cv'] = 0
 
                 # Density
-                if sherd_area_cm2 > 0:
-                    row['contour_inclusion_density_per_cm2'] = row['contour_inclusion_count'] / sherd_area_cm2
-                    row['contour_void_density_per_cm2'] = row['contour_void_count'] / sherd_area_cm2
+                if denom_area > 0:
+                    row['contour_inclusion_density_per_cm2'] = row['contour_inclusion_count'] / denom_area
+                    row['contour_void_density_per_cm2'] = row['contour_void_count'] / denom_area
                 else:
                     row['contour_inclusion_density_per_cm2'] = 0
                     row['contour_void_density_per_cm2'] = 0

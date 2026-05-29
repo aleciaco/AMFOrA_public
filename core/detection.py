@@ -963,56 +963,495 @@ def _extract_channel(image, channel, enhance_contrast=False,
     return gray
 
 
-def _gate_contours_by_pop(contours, raw_bgr, pop_min):
-    """Drop contours whose center-vs-ring intensity on raw BGR is below ``pop_min``.
+def _default_edge_band_px(image_shape, fraction=0.04):
+    """Default edge-band width for boundary-artifact rejection.
 
-    For each contour: derive an equivalent-circle radius from the contour
-    area, sample the core disc and a surrounding annulus on each native
-    BGR channel of the **unmodified input image**, take the maximum
-    absolute (core_mean - ring_mean) across channels, and keep only
-    contours whose max-pop is >= ``pop_min``.  Background pixels (== 0)
-    are excluded from both regions.  Mirrors the inclusion gate in
-    ``sherd_blobs`` so blob and contour pipelines share the same logic.
+    Returns the number of pixels to erode the sherd mask from its outer
+    boundary before allowing detections inside.  The band covers two
+    failure modes:
+
+    1. CLAHE tile-boundary leakage — the mask edge sits at a bright/dark
+       discontinuity that CLAHE amplifies into apparent inclusions /
+       voids on the inner side of the boundary.  CLAHE tile size scales
+       as ``image_dim / 8``; a ~4 % half-tile band is enough to bury
+       the boundary inside an excluded region.
+    2. Unmasked-overhang artifacts — when the GrabCut mask leaves a
+       sliver of broken sherd edge that reads as a dark splotch, the
+       4 % band typically covers it too.
+
+    Returns at least 5 px so the band is meaningful on tiny crops.
+    Centralized so contour_detection, sherd_blobs, and
+    ``analyze_single_sherd``'s effective-area calculation all agree.
+    """
+    return max(5, int(min(image_shape[:2]) * fraction))
+
+
+def _eroded_mask_area_cm2(mask, scan_dpi, edge_band_px):
+    """Sherd mask area in cm² after eroding by ``edge_band_px``.
+
+    Used as the denominator for inclusion / void density and
+    area-percentage metrics so they reflect the area the detectors
+    actually searched (interior of the sherd minus the edge band),
+    not the full mask.  Without this correction the percentages would
+    be biased low — counts are taken from the eroded interior but
+    divided by the full sherd, understating real density.
+    """
+    if mask is None:
+        return 0.0
+    m2d = mask[:, :, 0] if mask.ndim == 3 else mask
+    if edge_band_px > 0:
+        m2d = cv2.erode(m2d.astype(np.uint8) if m2d.dtype != np.uint8 else m2d,
+                         np.ones((3, 3), np.uint8),
+                         iterations=int(edge_band_px))
+    dpcm = scan_dpi * 0.3937
+    return float(np.sum(m2d > 0)) / (dpcm ** 2)
+
+
+def _paste_reference(image):
+    """Per-channel median of non-zero (sherd) pixels.
+
+    Inclusions and voids are a minority of sherd pixels, so the median is
+    dominated by paste — no chicken-and-egg exclusion mask is needed.
+    Returns a length-3 list of floats (B, G, R) for color input, or a
+    single float for grayscale.
+    """
+    if image.ndim != 3:
+        nz = image[image > 0]
+        return float(np.median(nz)) if nz.size else 127.0
+    refs = []
+    for c in range(3):
+        ch = image[:, :, c]
+        nz = ch[ch > 0]
+        refs.append(float(np.median(nz)) if nz.size else 127.0)
+    return refs
+
+
+def _paste_mad(image, paste_ref=None):
+    """Per-channel Median Absolute Deviation of non-zero (sherd) pixels.
+
+    MAD = median(|x_i - median(x)|).  Outlier-resistant scale estimator —
+    inclusions and voids inflate the standard deviation but barely move
+    the MAD because they're a minority of paste pixels.  Used to express
+    the paste-pop threshold in **noise-floor units** rather than absolute
+    brightness, so the same `K` multiplier works across smooth cream
+    pastes (MAD ~5) and mottled grog-tempered pastes (MAD ~18).
+
+    `paste_ref` is optional; if not supplied it's computed from `image`.
+    For normal data, σ ≈ 1.4826 · MAD — so K=2.5 corresponds to roughly
+    a 3.7σ detection threshold.  Clamped to a minimum of 1.0 so a
+    perfectly-uniform synthetic paste doesn't collapse the threshold.
+    """
+    if paste_ref is None:
+        paste_ref = _paste_reference(image)
+    if image.ndim != 3:
+        nz = image[image > 0]
+        if nz.size == 0:
+            return 1.0
+        return max(1.0, float(np.median(np.abs(nz.astype(np.int32) - paste_ref))))
+    out = []
+    for c in range(3):
+        ch = image[:, :, c]
+        nz = ch[ch > 0]
+        if nz.size == 0:
+            out.append(1.0)
+            continue
+        out.append(float(np.median(np.abs(nz.astype(np.int32) - paste_ref[c]))))
+    return [max(1.0, v) for v in out]
+
+
+def _interior_median_bgr(contour, raw_bgr):
+    """Per-channel median of pixels inside `contour` on `raw_bgr`."""
+    h_img, w_img = raw_bgr.shape[:2]
+    x, y, w, h = cv2.boundingRect(contour)
+    x = max(0, x); y = max(0, y)
+    w = min(w_img - x, w); h = min(h_img - y, h)
+    if w <= 0 or h <= 0:
+        return None
+    roi = raw_bgr[y:y + h, x:x + w]
+    mask = np.zeros((h, w), dtype=np.uint8)
+    shifted = contour - np.array([[x, y]])
+    cv2.drawContours(mask, [shifted], -1, 255, cv2.FILLED)
+    out = []
+    for c in range(3):
+        vals = roi[:, :, c][mask > 0]
+        if vals.size == 0:
+            return None
+        out.append(float(np.median(vals)))
+    return out
+
+
+def _gate_contours_by_paste_pop(contours, raw_bgr, paste_ref, paste_mad,
+                                 k, floor):
+    """Drop contours that don't pop against the per-sherd paste reference.
+
+    For each contour: compute |median(interior_ch) - paste_ref[ch]| /
+    paste_mad[ch] on each native BGR channel of the **unmodified input
+    image**, take the max over channels, and keep only contours whose
+    score is >= K.  An absolute brightness floor is applied too:
+    effective threshold = max(K * MAD, floor).  The MAD scaling makes
+    the same K work across paste types; the floor catches pathological
+    near-zero-MAD inputs (synthetic test images, heavily slipped pieces).
+    Mirrors the inclusion gate in ``sherd_blobs`` so blob and contour
+    pipelines share the same logic.
     """
     if not contours or raw_bgr.ndim != 3 or raw_bgr.shape[2] < 3:
         return contours
-    h, w = raw_bgr.shape[:2]
+    thresholds = [max(k * paste_mad[ch], floor) for ch in range(3)]
     kept = []
     for c in contours:
-        area = cv2.contourArea(c)
-        if area <= 0:
+        med = _interior_median_bgr(c, raw_bgr)
+        if med is None:
             continue
-        M = cv2.moments(c)
-        if M['m00'] <= 0:
-            continue
-        cx = int(round(M['m10'] / M['m00']))
-        cy = int(round(M['m01'] / M['m00']))
-        r = max(2, int(round(np.sqrt(area / np.pi))))
-        R = int(round(r * 2.0))
-        y0, y1 = max(0, cy - R), min(h, cy + R + 1)
-        x0, x1 = max(0, cx - R), min(w, cx + R + 1)
-        yy = np.arange(y0 - cy, y1 - cy).reshape(-1, 1)
-        xx = np.arange(x0 - cx, x1 - cx).reshape(1, -1)
-        d2 = yy * yy + xx * xx
-        core_mask = d2 <= (r * r)
-        ring_mask = (d2 > r * r) & (d2 <= R * R)
-        best = 0.0
-        for ch in range(3):
-            patch = raw_bgr[y0:y1, x0:x1, ch]
-            if patch.size == 0:
-                continue
-            valid = patch > 0
-            core_sel = core_mask & valid
-            ring_sel = ring_mask & valid
-            if core_sel.sum() < 3 or ring_sel.sum() < 3:
-                continue
-            delta = abs(float(patch[core_sel].mean())
-                        - float(patch[ring_sel].mean()))
-            if delta > best:
-                best = delta
-        if best >= pop_min:
+        if any(abs(med[ch] - paste_ref[ch]) >= thresholds[ch]
+                for ch in range(3)):
             kept.append(c)
     return kept
+
+
+def _gate_blobs_by_paste_pop(blobs, raw_bgr, paste_ref, paste_mad,
+                              k, floor):
+    """Drop blob keypoints that don't pop against the per-sherd paste reference.
+
+    Disc-median version of ``_gate_contours_by_paste_pop`` for blob
+    keypoints.  Threshold per channel = max(K * MAD, floor).
+    """
+    if not blobs or raw_bgr.ndim != 3 or raw_bgr.shape[2] < 3:
+        return blobs
+    h, w = raw_bgr.shape[:2]
+    thresholds = [max(k * paste_mad[ch], floor) for ch in range(3)]
+    kept = []
+    for kp in blobs:
+        cx = int(round(kp.pt[0]))
+        cy = int(round(kp.pt[1]))
+        r = max(2, int(round(kp.size / 2)))
+        y0, y1 = max(0, cy - r), min(h, cy + r + 1)
+        x0, x1 = max(0, cx - r), min(w, cx + r + 1)
+        if y1 <= y0 or x1 <= x0:
+            continue
+        yy = np.arange(y0 - cy, y1 - cy).reshape(-1, 1)
+        xx = np.arange(x0 - cx, x1 - cx).reshape(1, -1)
+        disc = (yy * yy + xx * xx) <= r * r
+        keep = False
+        for ch in range(3):
+            patch = raw_bgr[y0:y1, x0:x1, ch]
+            vals = patch[disc & (patch > 0)]
+            if vals.size < 3:
+                continue
+            if abs(float(np.median(vals)) - paste_ref[ch]) >= thresholds[ch]:
+                keep = True
+                break
+        if keep:
+            kept.append(kp)
+    return kept
+
+
+def _local_max_peak_mask(dist, min_distance=5, abs_threshold=2.0):
+    """Find local maxima in a distance-transform image.
+
+    A pixel is a local max if it equals the max in a `min_distance` ×
+    `min_distance` neighborhood AND its value exceeds `abs_threshold`.
+    Resolves individual peaks separately even when they sit on a shared
+    plateau — adjacent grains with similar distance-transform heights
+    produce two markers, not one merged blob.  Beats the older
+    ``dist > peak_frac * dist.max()`` thresholding approach, which
+    collapses near-equal peaks into a single connected region.
+    """
+    if dist.max() < abs_threshold:
+        return np.zeros_like(dist, dtype=np.uint8)
+    kernel = np.ones((min_distance, min_distance), np.uint8)
+    dilated = cv2.dilate(dist, kernel)
+    peak_mask = ((dist == dilated) & (dist > abs_threshold)).astype(np.uint8) * 255
+    return peak_mask
+
+
+def _split_blob_watershed(component_mask, image_roi_bgr, x_off, y_off,
+                           peak_min_distance=5, peak_abs_threshold=2.0,
+                           opening_iters=0):
+    """Watershed-split one large dark component into sub-grain contours.
+
+    Local-maxima of the distance transform seed the watershed markers;
+    the BGR ROI is used as the topology, so internal grain edges guide
+    the split even when the binary mask is one fat blob.  Returns
+    sub-contours translated back to full-image coordinates.  If no real
+    split is possible (single peak, blob too thin) returns the blob's
+    own outer contour(s).
+
+    `peak_min_distance` is the side of the neighborhood used for local-max
+    suppression — two peaks closer than this collapse to one marker, so
+    it sets the minimum grain spacing the splitter resolves.  Default
+    5 px is ~0.1 mm at 1200 DPI, well below typical sand-grain spacing.
+    """
+    h, w = component_mask.shape[:2]
+    if h < 5 or w < 5:
+        cs, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL,
+                                  cv2.CHAIN_APPROX_SIMPLE)
+        return [c + np.array([[x_off, y_off]]) for c in cs]
+
+    work_mask = component_mask
+    if opening_iters > 0:
+        work_mask = cv2.morphologyEx(
+            component_mask, cv2.MORPH_OPEN,
+            np.ones((3, 3), np.uint8), iterations=opening_iters)
+        if work_mask.sum() == 0:
+            work_mask = component_mask
+
+    dist = cv2.distanceTransform(work_mask, cv2.DIST_L2, 5)
+    if dist.max() < peak_abs_threshold:
+        cs, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL,
+                                  cv2.CHAIN_APPROX_SIMPLE)
+        return [c + np.array([[x_off, y_off]]) for c in cs]
+
+    peak_mask = _local_max_peak_mask(
+        dist, min_distance=peak_min_distance,
+        abs_threshold=peak_abs_threshold)
+    n_peaks, peak_labels = cv2.connectedComponents(peak_mask)
+    if n_peaks <= 2:
+        cs, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL,
+                                  cv2.CHAIN_APPROX_SIMPLE)
+        return [c + np.array([[x_off, y_off]]) for c in cs]
+
+    sure_bg = cv2.dilate(component_mask, np.ones((3, 3), np.uint8),
+                         iterations=2)
+    unknown = cv2.subtract(sure_bg, peak_mask)
+    markers = peak_labels + 1
+    markers[unknown == 255] = 0
+
+    ws_in = image_roi_bgr
+    if ws_in.ndim != 3:
+        ws_in = cv2.cvtColor(ws_in, cv2.COLOR_GRAY2BGR)
+    ws_in = ws_in.copy()
+    cv2.watershed(ws_in, markers)
+
+    sub_contours = []
+    for label in range(2, n_peaks + 1):
+        region = ((markers == label) & (component_mask > 0)).astype(np.uint8) * 255
+        cs, _ = cv2.findContours(region, cv2.RETR_EXTERNAL,
+                                  cv2.CHAIN_APPROX_SIMPLE)
+        for sc in cs:
+            if cv2.contourArea(sc) > 0:
+                sub_contours.append(sc + np.array([[x_off, y_off]]))
+    if not sub_contours:
+        cs, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL,
+                                  cv2.CHAIN_APPROX_SIMPLE)
+        return [c + np.array([[x_off, y_off]]) for c in cs]
+    return sub_contours
+
+
+def _recover_clustered_dark_contours(
+        image, scan_dpi, paste_ref, paste_mad, k, floor,
+        channels=('B', 'G', 'R'),
+        enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
+        blur_scale=1.0,
+        min_grain_cm2=0.0001, max_grain_cm2=1.5,
+        cluster_size_factor=1.5,
+        inclusion_max_aspect_ratio=4.0,
+        inclusion_solidity_min=0.45,
+        inclusion_compactness_min=0.125,
+        opening_iters=1):
+    """Find dark connected components too big for a single grain and watershed them.
+
+    The size cap in ``contour_detection`` drops oversized merged-cluster
+    components before shape filtering ever sees them, so any real grains
+    they contain are lost.  This pass re-thresholds the dark channel(s),
+    selects connected components whose area exceeds `cluster_size_factor
+    * max_grain_area_px` and stays under 30 % of the sherd, watershed-
+    splits each, and re-tests every sub-region through inclusion size /
+    aspect / shape / paste-pop gates.
+    """
+    dpcm = scan_dpi * 0.3937
+    blur_k = int(round(scan_dpi / 600.0 * 5 * blur_scale))
+    blur_k = blur_k if blur_k % 2 == 1 else blur_k + 1
+    blur_k = max(3, blur_k)
+
+    min_area = int(min_grain_cm2 * dpcm ** 2)
+    max_area = int(max_grain_cm2 * dpcm ** 2)
+    cluster_min = int(cluster_size_factor * max_area)
+
+    sherd_pixels = (image.any(axis=2) if image.ndim == 3 else image > 0)
+    sherd_area = int(np.count_nonzero(sherd_pixels))
+    cluster_max = int(0.30 * sherd_area) if sherd_area > 0 else max_area * 20
+
+    thresholds = [max(k * paste_mad[ch], floor) for ch in range(3)]
+
+    recovered = []
+    for ch in channels:
+        gray = _extract_channel(image, ch,
+                                 enhance_contrast=enhance_contrast,
+                                 clip_limit=clahe_clip, tile_grid=clahe_grid)
+        nz = gray[gray > 0]
+        if nz.size == 0:
+            continue
+        mean_b = float(np.mean(nz))
+        std_b = float(np.std(nz))
+        gray_blur = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
+        dark_thresh = max(30, int(mean_b - std_b))
+        _, th_dark = cv2.threshold(gray_blur, dark_thresh, 255,
+                                    cv2.THRESH_BINARY_INV)
+
+        n_cc, labels, stats, _ = cv2.connectedComponentsWithStats(th_dark)
+        for lab in range(1, n_cc):
+            area = int(stats[lab, cv2.CC_STAT_AREA])
+            if area < cluster_min or area > cluster_max:
+                continue
+            x = int(stats[lab, cv2.CC_STAT_LEFT])
+            y = int(stats[lab, cv2.CC_STAT_TOP])
+            w = int(stats[lab, cv2.CC_STAT_WIDTH])
+            h = int(stats[lab, cv2.CC_STAT_HEIGHT])
+            cc_mask = (labels[y:y + h, x:x + w] == lab).astype(np.uint8) * 255
+
+            sub_contours = _split_blob_watershed(
+                cc_mask, image[y:y + h, x:x + w], x, y,
+                opening_iters=opening_iters)
+
+            for sc in sub_contours:
+                sa = cv2.contourArea(sc)
+                if sa < min_area or sa > max_area:
+                    continue
+                hull = cv2.convexHull(sc)
+                ha = cv2.contourArea(hull)
+                if ha <= 0:
+                    continue
+                solidity = sa / ha
+                perim = cv2.arcLength(sc, True)
+                compact = (4 * np.pi * sa) / (perim ** 2) if perim > 0 else 0
+                _, (rw, rh), _ = cv2.minAreaRect(sc)
+                ar = max(rw, rh) / max(min(rw, rh), 1e-6)
+                if (ar > inclusion_max_aspect_ratio
+                        or solidity <= inclusion_solidity_min
+                        or compact <= inclusion_compactness_min):
+                    continue
+                med = _interior_median_bgr(sc, image)
+                if med is None:
+                    continue
+                if not any(abs(med[c] - paste_ref[c]) >= thresholds[c]
+                            for c in range(3)):
+                    continue
+                recovered.append(sc)
+    return recovered
+
+
+def _split_multigrain_contours(
+        contours, image_bgr, scan_dpi,
+        paste_ref, paste_mad, k, floor,
+        inclusion_max_aspect_ratio=4.0,
+        inclusion_solidity_min=0.45,
+        inclusion_compactness_min=0.125,
+        cluster_solidity_max=0.75,
+        cluster_area_cm2_min=0.005,
+        opening_iters=1):
+    """Re-split already-accepted contours that look like merged-grain clusters.
+
+    The cluster-recovery pass only operates on dark connected components
+    *too big for the size cap* — anything below the cap flows through the
+    main pipeline and is returned as a single contour even if it's
+    visibly a cluster of touching grains.  This pass revisits each kept
+    contour and, when it looks multi-grain (area >= `cluster_area_cm2_min`
+    AND solidity <= `cluster_solidity_max`), runs distance-transform
+    watershed to break it into individual grain sub-contours.  Sub-pieces
+    pass through the same shape / paste-pop gates the main pipeline uses.
+
+    Single big convex grains (large grog fragments, quartz pebbles) have
+    high solidity and pass through untouched.  Sub-pieces are disjoint by
+    construction within a single cluster, so the caller should skip bbox-
+    IOU dedup and contour-containment dedup on the returned list.
+    """
+    if not contours:
+        return contours
+    dpcm = scan_dpi * 0.3937
+    cluster_trigger_px = int(cluster_area_cm2_min * dpcm ** 2)
+    min_grain_area_px = int(0.0001 * dpcm ** 2)
+    h_img, w_img = image_bgr.shape[:2]
+    thresholds = [max(k * paste_mad[ch], floor) for ch in range(3)]
+
+    out = []
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area < cluster_trigger_px:
+            out.append(contour)
+            continue
+        hull = cv2.convexHull(contour)
+        ha = cv2.contourArea(hull)
+        sld = (area / ha) if ha > 0 else 1.0
+        if sld > cluster_solidity_max:
+            out.append(contour)
+            continue
+
+        x, y, w, h = cv2.boundingRect(contour)
+        x = max(0, x); y = max(0, y)
+        w = min(w_img - x, w); h = min(h_img - y, h)
+        if w < 5 or h < 5:
+            out.append(contour)
+            continue
+        mask = np.zeros((h, w), dtype=np.uint8)
+        shifted = contour - np.array([[x, y]])
+        cv2.drawContours(mask, [shifted], -1, 255, cv2.FILLED)
+
+        sub_contours = _split_blob_watershed(
+            mask, image_bgr[y:y + h, x:x + w], x, y,
+            opening_iters=opening_iters)
+
+        if len(sub_contours) <= 1:
+            out.append(contour)
+            continue
+
+        kept_subs = []
+        for sc in sub_contours:
+            sa = cv2.contourArea(sc)
+            if sa < min_grain_area_px:
+                continue
+            hull = cv2.convexHull(sc)
+            ha = cv2.contourArea(hull)
+            if ha <= 0:
+                continue
+            s = sa / ha
+            perim = cv2.arcLength(sc, True)
+            cp = (4 * np.pi * sa) / (perim ** 2) if perim > 0 else 0
+            _, (rw, rh), _ = cv2.minAreaRect(sc)
+            ar = max(rw, rh) / max(min(rw, rh), 1e-6)
+            if (ar > inclusion_max_aspect_ratio
+                    or s <= inclusion_solidity_min
+                    or cp <= inclusion_compactness_min):
+                continue
+            med = _interior_median_bgr(sc, image_bgr)
+            if med is None:
+                continue
+            if not any(abs(med[c] - paste_ref[c]) >= thresholds[c]
+                        for c in range(3)):
+                continue
+            kept_subs.append(sc)
+
+        if kept_subs:
+            out.extend(kept_subs)
+        else:
+            out.append(contour)
+    return out
+
+
+def _dedup_contours_by_bbox(contours, iou_min=0.4):
+    """Greedy spatial dedup by bbox IOU.  Larger contours kept first."""
+    if not contours:
+        return contours
+    indexed = sorted(enumerate(contours),
+                      key=lambda kc: -cv2.contourArea(kc[1]))
+    bboxes = [cv2.boundingRect(c) for _, c in indexed]
+
+    def _iou(b1, b2):
+        x1, y1, w1, h1 = b1; x2, y2, w2, h2 = b2
+        xa = max(x1, x2); ya = max(y1, y2)
+        xb = min(x1 + w1, x2 + w2); yb = min(y1 + h1, y2 + h2)
+        if xb <= xa or yb <= ya:
+            return 0.0
+        inter = (xb - xa) * (yb - ya)
+        union = w1 * h1 + w2 * h2 - inter
+        return inter / union if union > 0 else 0.0
+
+    chosen = []
+    for k_idx in range(len(indexed)):
+        b = bboxes[k_idx]
+        if any(_iou(b, bboxes[j]) >= iou_min for j in chosen):
+            continue
+        chosen.append(k_idx)
+    return [indexed[k_idx][1] for k_idx in chosen]
 
 
 def _combine_blob_lists(blob_lists_by_channel, combine_mode='union', vote_min=2,
@@ -1277,7 +1716,8 @@ def super_zorro_cv(folder_read, folder_write, fileformat='jpeg', gray=False, sca
 def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_scale=1.0,
                 channels=('B', 'G', 'R'), combine_mode='union', vote_min=2,
                 enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
-                void_intensity_max=60.0, inclusion_pop_min=25.0):
+                void_intensity_max=60.0, paste_pop_k=2.0, paste_pop_floor=8.0,
+                edge_band_px=None):
     """
     Enhanced blob detection with robust, adaptive parameters and customizable size filtering.
 
@@ -1316,10 +1756,11 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         bright).  The prior ``'vote'`` default with ``vote_min=2`` was
         dropping roughly half of these legitimate single-channel
         detections.  Noise rejection is instead handled by
-        ``inclusion_pop_min`` (sampled on raw, pre-CLAHE BGR), which
-        is a stronger discriminator than per-channel agreement: it
-        directly measures whether a candidate carries real intensity
-        contrast on the original pixels.  Use ``'vote'`` only if you
+        the paste-anchored pop gate (``paste_pop_k`` / ``paste_pop_floor``,
+        sampled on raw, pre-CLAHE BGR), which is a stronger discriminator
+        than per-channel agreement: it directly measures whether a
+        candidate's interior is statistically distinct from the sherd's
+        paste in noise-floor units.  Use ``'vote'`` only if you
         have a specific reason to require cross-channel agreement
         (e.g. very noisy scans where the pop gate alone is
         insufficient).
@@ -1344,37 +1785,52 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         blob detector's upper-bound shape filters alone can't separate
         them from grains.  Lower (e.g. 45) for stricter void detection;
         raise (e.g. 90) for low-contrast scans.
-    inclusion_pop_min : float in 0..255, optional
-        Minimum "pop" required for a candidate inclusion to be kept
-        (default: 25).  "Pop" here is informal shorthand for **how
-        much the feature visually stands out against its immediate
-        surrounding paste** — concretely, the absolute difference
-        between the candidate's core disc mean intensity and the mean
-        intensity of a surrounding annulus, computed on the **raw
-        (pre-CLAHE) BGR channels** of the input image and taken as the
-        maximum across the three native channels:
+    paste_pop_k : float, optional
+        Minimum "pop" required for a candidate inclusion to be kept,
+        expressed as a multiple of the paste's per-channel Median
+        Absolute Deviation (default: 2.0 for blobs — looser than the
+        contour detector's 2.5 default because SimpleBlobDetector's
+        own shape filters already cull most noise, so the pop gate
+        can afford to be more permissive without losing precision).
+        "Pop" here is informal shorthand for **how much the feature
+        stands out against the sherd's paste** — concretely, on the
+        **raw (pre-CLAHE) BGR channels** of the masked input image:
 
-            pop = max over BGR of |mean(core disc) - mean(annulus)|
+            paste_ref = per-channel median of non-zero pixels
+            paste_MAD = per-channel median(|pixel - paste_ref|)
+            keep iff  |median(disc) - paste_ref|  >=  max(K * MAD, floor)
+                      on at least one BGR channel
 
-        Higher values mean a clearer intensity discontinuity between
-        the inclusion and the paste around it; a low pop value means
-        the "blob" the detector found is actually flat against its
-        surround — almost certainly CLAHE-amplified noise dressed up to
-        look like a feature.  CLAHE on uniform paste amplifies
-        sub-tile noise into pseudo-blobs that would otherwise survive
-        detection; sampling center-vs-ring intensity on the original
-        pixels reveals these locations have no real differential,
-        while genuine inclusions pop strongly on at least one channel.
-        This is the primary noise rejection mechanism under the
-        default ``combine_mode='union'`` — it replaces the old cross-
-        channel voting requirement, which incorrectly punished
-        monochromatic features (e.g. an iron-bearing sand grain
-        visible only in B against a warm matrix).
-        Set to 0 to disable; raise (e.g. 30-35) for very uniform paste
-        or to further tighten precision; lower (e.g. 15-20) when
-        chasing subtle features in fine-grained fabrics (paired with
-        ``combine_mode='vote'`` for noise control if needed).
-    blob_params : dict, optional
+        The MAD scaling makes the same K work across paste types —
+        smooth cream paste (MAD ~5) gets a tight absolute threshold,
+        mottled grog-tempered paste (MAD ~18) gets a loose one.  For
+        normal data σ ≈ 1.4826 · MAD, so K=2.0 corresponds to roughly
+        a 3σ detection threshold.  Comparing against the global paste
+        reference (instead of the local ring used by earlier versions)
+        is what fixes the dense-cluster failure mode where bright
+        paste pockets between dark grains were detected as light
+        inclusions and dark cluster grains were rejected for having
+        dark neighbors.
+        Set to 0 to disable; raise (e.g. 2.5-3.0) to tighten precision
+        on fine-grained fabrics; lower (e.g. 1.5) when chasing very
+        subtle features.
+    paste_pop_floor : float in 0..255, optional
+        Absolute brightness floor under the MAD-scaled threshold
+        (default: 8.0).  Effective threshold per channel is
+        ``max(paste_pop_k * MAD, paste_pop_floor)``.  Inactive on every
+        real flatbed scan (where MAD ≥ ~7 across our calibration set),
+        but protects against pathological near-zero-MAD inputs
+        (synthetic test images, heavily slipped pieces) where a tiny
+        MAD would otherwise collapse the gate.
+    edge_band_px : int or None, optional
+        Width of the band inside the sherd mask boundary that is treated
+        as "edge"; any blob whose center falls in this band is rejected
+        as a CLAHE tile-boundary artifact or unmasked-overhang splotch.
+        Default ``None`` uses the same value as ``contour_detection``
+        (``max(5, 4 % of shorter image dimension)``), so both detectors
+        share an effective search area and ``analyze_single_sherd``'s
+        ``effective_detection_area_cm2`` denominator stays consistent
+        with both.  Set to 0 to disable.
         Dictionary to override any cv2.SimpleBlobDetector_Params attributes
         after the adaptive defaults are calculated by setup_robust_blob_params.
         Applies to all three internal detectors (light-inclusion,
@@ -1521,56 +1977,6 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         # discriminators, so overlap is minimal).
         return light_inc + dark_inc, dark_void
 
-    def _gate_inclusions_by_pop(inclusion_blobs, raw_bgr):
-        """Drop inclusion keypoints with no real center-vs-ring contrast.
-
-        Sampled on the **raw (pre-CLAHE) BGR channels** of the input image
-        and taken as the max absolute (core_mean - annulus_mean) across
-        the three channels.  CLAHE on uniform paste manufactures pseudo-
-        blobs whose intensity is locally correlated across channels and
-        therefore survives the BGR voting step, but on the original
-        pixels those locations have almost no actual differential
-        between center and surround.  Real inclusions pop on at least
-        one channel.
-        """
-        if (inclusion_pop_min is None or inclusion_pop_min <= 0
-                or not inclusion_blobs):
-            return inclusion_blobs
-        if raw_bgr.ndim != 3 or raw_bgr.shape[2] < 3:
-            return inclusion_blobs
-        h, w = raw_bgr.shape[:2]
-        kept = []
-        for kp in inclusion_blobs:
-            x = int(round(kp.pt[0]))
-            y = int(round(kp.pt[1]))
-            r = max(2, int(round(kp.size / 2)))
-            R = int(round(r * 2.0))
-            y0, y1 = max(0, y - R), min(h, y + R + 1)
-            x0, x1 = max(0, x - R), min(w, x + R + 1)
-            yy = np.arange(y0 - y, y1 - y).reshape(-1, 1)
-            xx = np.arange(x0 - x, x1 - x).reshape(1, -1)
-            d2 = yy * yy + xx * xx
-            core_mask = d2 <= (r * r)
-            ring_mask = (d2 > r * r) & (d2 <= R * R)
-            best = 0.0
-            for c in range(3):
-                patch = raw_bgr[y0:y1, x0:x1, c]
-                if patch.size == 0:
-                    continue
-                # Exclude masked-out background (zero) from both regions.
-                valid = patch > 0
-                core_sel = core_mask & valid
-                ring_sel = ring_mask & valid
-                if core_sel.sum() < 3 or ring_sel.sum() < 3:
-                    continue
-                delta = abs(float(patch[core_sel].mean())
-                            - float(patch[ring_sel].mean()))
-                if delta > best:
-                    best = delta
-            if best >= inclusion_pop_min:
-                kept.append(kp)
-        return kept
-
     def _disc_intensity(kp, gray):
         """Median intensity of the unblurred channel inside the keypoint's disc.
 
@@ -1656,14 +2062,61 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         inc_by_channel[ch] = inc_ch
         void_by_channel[ch] = void_ch
 
+    # Paste-anchored pop gate: reject candidate inclusions whose disc-median
+    # doesn't stand out from the per-sherd paste reference by at least
+    # max(paste_pop_k * MAD, paste_pop_floor) on any BGR channel.  Computed
+    # once per sherd off the raw (pre-CLAHE) input image.
+    if paste_pop_k is not None and paste_pop_k > 0:
+        paste_ref = _paste_reference(im)
+        paste_mad = _paste_mad(im, paste_ref)
+
+        def _apply_paste_pop(blobs):
+            return _gate_blobs_by_paste_pop(
+                blobs, im, paste_ref, paste_mad,
+                paste_pop_k, paste_pop_floor)
+    else:
+        def _apply_paste_pop(blobs):
+            return blobs
+
+    # Edge-band gate: drop blobs whose center sits inside the mask boundary
+    # band (CLAHE tile-boundary artifacts + unmasked-overhang splotches).
+    # Default width matches contour_detection so both detectors share an
+    # effective search area; ``analyze_single_sherd`` uses the same band
+    # for its ``effective_detection_area_cm2`` denominator.  Pass 0 to
+    # disable.
+    ebp = (_default_edge_band_px(im.shape, fraction=0.04)
+           if edge_band_px is None else int(edge_band_px))
+    if ebp > 0:
+        if im.ndim == 3:
+            sherd_pixels = np.any(im > 0, axis=2)
+        else:
+            sherd_pixels = (im > 0)
+        interior_mask = sherd_pixels.astype(np.uint8) * 255
+        interior_mask = cv2.erode(interior_mask, np.ones((3, 3), np.uint8),
+                                   iterations=ebp)
+        ih, iw = interior_mask.shape
+
+        def _apply_edge_band(blobs):
+            kept = []
+            for kp in blobs:
+                x = int(round(kp.pt[0]))
+                y = int(round(kp.pt[1]))
+                if 0 <= y < ih and 0 <= x < iw and interior_mask[y, x] > 0:
+                    kept.append(kp)
+            return kept
+    else:
+        def _apply_edge_band(blobs):
+            return blobs
+
     if len(channels) == 1:
         only = channels[0]
-        return (_gate_inclusions_by_pop(inc_by_channel[only], im),
-                void_by_channel[only])
+        return (_apply_paste_pop(_apply_edge_band(inc_by_channel[only])),
+                _apply_edge_band(void_by_channel[only]))
 
     blobs_inclusions = _combine_blob_lists(inc_by_channel, combine_mode, vote_min)
     blobs_voids = _combine_blob_lists(void_by_channel, combine_mode, vote_min)
-    blobs_inclusions = _gate_inclusions_by_pop(blobs_inclusions, im)
+    blobs_inclusions = _apply_paste_pop(_apply_edge_band(blobs_inclusions))
+    blobs_voids = _apply_edge_band(blobs_voids)
     return blobs_inclusions, blobs_voids
 
 
@@ -2383,7 +2836,10 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
                       debug_mode=False, blur_scale=1.0,
                       channels=('B', 'G', 'R'), combine_mode='union', vote_min=2,
                       enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
-                      void_intensity_max=60.0, inclusion_pop_min=25.0):
+                      void_intensity_max=60.0,
+                      paste_pop_k=2.5, paste_pop_floor=8.0,
+                      watershed_enabled=True, multigrain_split_enabled=True,
+                      cluster_solidity_max=0.75, cluster_area_cm2_min=0.005):
     """
     Contour-based detection using the exact cv2_test.py methodology for individual inclusions.
 
@@ -2487,14 +2943,20 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
         - void_max_aspect_ratio (float, default 5.0)
             Maximum aspect ratio for void contours.  Voids can be more elongated
             but still filter out wire-thin artifacts.
-        - edge_band_px (int, default max(5, 1.5% of shorter image dimension))
+        - edge_band_px (int, default max(5, 4% of shorter image dimension))
             Width of the band inside the sherd mask boundary that is treated
             as "edge."  Any candidate contour with a vertex inside this band
-            is rejected as a CLAHE tile-boundary artifact or sherd-outline
-            leak.  Scales with image size because CLAHE artifact band width
-            tracks tile size (= image_dim / 8) rather than scan DPI; e.g.
-            ~15 px on a 1000×1000 crop, ~85 px on a 5669×5669 scan.
-            Set to 0 to disable.
+            is rejected.  Covers two failure modes: CLAHE tile-boundary
+            leakage (the mask edge sits at a brightness discontinuity that
+            CLAHE amplifies into apparent inclusions on the inner side),
+            and unmasked-overhang artifacts (broken sherd-edge slivers
+            that GrabCut leaves attached and read as dark splotches).
+            ~4 % covers about half a CLAHE tile and most overhangs;
+            e.g. ~40 px on a 1000×1000 crop, ~225 px on a 5669×5669 scan.
+            ``analyze_single_sherd`` mirrors this band into the
+            ``effective_detection_area_cm2`` it uses as the denominator
+            for density / area-percentage metrics, so they reflect the
+            area actually searched.  Set to 0 to disable.
 
         Example — strict detection, convex grains only::
 
@@ -2666,7 +3128,7 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
     # Width scales with image size because CLAHE tile size = image_dim / 8,
     # so artifact bands on larger images are proportionally thicker.  1.5%
     # of the shorter dimension stays well under one tile width (12.5%).
-    edge_band_px = max(5, int(min(image.shape[:2]) * 0.015))
+    edge_band_px = _default_edge_band_px(image.shape, fraction=0.04)
     if shape_params:
         # Primary filter first
         inclusion_max_aspect_ratio          = shape_params.get('inclusion_max_aspect_ratio',          inclusion_max_aspect_ratio)
@@ -2960,14 +3422,65 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
         debug_info['vote_min'] = vote_min if combine_mode == 'vote' else None
         debug_info['channels'] = list(channels)
 
-    # Drop low-pop inclusions: CLAHE-amplified noise on uniform paste
-    # produces contours that lack real center-vs-ring intensity differential
-    # on the raw BGR channels.  Mirrors ``sherd_blobs._gate_inclusions_by_pop``.
-    if inclusion_pop_min is not None and inclusion_pop_min > 0 and inclusion_contours:
+    # Paste-anchored pop gate + cluster-recovery + multigrain split.
+    # The paste reference (per-channel median of non-zero pixels) and MAD
+    # are computed once per sherd off the raw (pre-CLAHE) input image; the
+    # subsequent passes all share them so dark-cluster recovery and
+    # multi-grain splitting apply the same statistical criterion as the
+    # primary gate.
+    paste_ref = _paste_reference(image)
+    paste_mad = _paste_mad(image, paste_ref)
+    debug_info['paste_reference_bgr'] = paste_ref
+    debug_info['paste_mad_bgr'] = paste_mad
+
+    if paste_pop_k is not None and paste_pop_k > 0 and inclusion_contours:
         pre_pop = len(inclusion_contours)
-        inclusion_contours = _gate_contours_by_pop(
-            inclusion_contours, image, inclusion_pop_min)
+        inclusion_contours = _gate_contours_by_paste_pop(
+            inclusion_contours, image, paste_ref, paste_mad,
+            paste_pop_k, paste_pop_floor)
         debug_info['inclusion_rejected_low_pop'] = pre_pop - len(inclusion_contours)
+
+    # Cluster recovery: salvage merged dark blobs the size cap dropped.
+    if watershed_enabled and paste_pop_k is not None and paste_pop_k > 0:
+        recovered = _recover_clustered_dark_contours(
+            image, scan_dpi, paste_ref, paste_mad,
+            paste_pop_k, paste_pop_floor,
+            channels=channels,
+            enhance_contrast=enhance_contrast,
+            clahe_clip=clahe_clip, clahe_grid=clahe_grid,
+            blur_scale=blur_scale,
+            inclusion_max_aspect_ratio=inclusion_max_aspect_ratio,
+            inclusion_solidity_min=inclusion_solidity_min,
+            inclusion_compactness_min=inclusion_compactness_min,
+        )
+        if recovered:
+            pre_recover = len(inclusion_contours)
+            inclusion_contours = inclusion_contours + recovered
+            inclusion_contours = _dedup_contours_by_bbox(
+                inclusion_contours, iou_min=0.4)
+            inclusion_contours, _ = _drop_nested(
+                inclusion_contours,
+                [cv2.contourArea(c) for c in inclusion_contours])
+            debug_info['inclusion_recovered_cluster'] = (
+                len(inclusion_contours) - pre_recover)
+
+    # Multigrain split: break lumpy accepted contours that look like merged
+    # cluster of touching grains.  Sub-pieces are disjoint by construction
+    # within a single cluster, so the post-split list is NOT re-deduped.
+    if (multigrain_split_enabled and paste_pop_k is not None
+            and paste_pop_k > 0 and inclusion_contours):
+        pre_split = len(inclusion_contours)
+        inclusion_contours = _split_multigrain_contours(
+            inclusion_contours, image, scan_dpi,
+            paste_ref, paste_mad, paste_pop_k, paste_pop_floor,
+            inclusion_max_aspect_ratio=inclusion_max_aspect_ratio,
+            inclusion_solidity_min=inclusion_solidity_min,
+            inclusion_compactness_min=inclusion_compactness_min,
+            cluster_solidity_max=cluster_solidity_max,
+            cluster_area_cm2_min=cluster_area_cm2_min,
+        )
+        debug_info['inclusion_added_by_multigrain_split'] = (
+            len(inclusion_contours) - pre_split)
 
     # Recompute areas from the final (possibly cross-channel-combined) contours.
     inclusion_areas = [cv2.contourArea(c) / (dpcm ** 2) for c in inclusion_contours]
