@@ -146,7 +146,12 @@ def setup_robust_blob_params(image, scan_dpi, blob_type="light", size_params=Non
 
         adaptive_range = max(15, min(40, int(brightness_range * 0.15)))
         min_thresh = max(0, int(base_thresh - adaptive_range * 1.5))
-        max_thresh = min(200, int(base_thresh + adaptive_range))
+        # Cap at 255 (the natural max); enforce min < max so a very bright
+        # paste (e.g. cream paste with R channel ≈ 250) doesn't push minThresh
+        # past the cap and break OpenCV 4.10+'s 0 <= min <= max validation.
+        max_thresh = min(255, int(base_thresh + adaptive_range))
+        if max_thresh <= min_thresh:
+            max_thresh = min(255, min_thresh + max(15, int(adaptive_range)))
         step = max(5, min(15, int((max_thresh - min_thresh) / 8)))
         blob_color = 0  # detect dark blobs
 
@@ -174,7 +179,11 @@ def setup_robust_blob_params(image, scan_dpi, blob_type="light", size_params=Non
         # Adaptive threshold range for voids
         adaptive_range = max(15, min(40, int(brightness_range * 0.15)))
         min_thresh = max(0, int(base_thresh - adaptive_range * 1.5))
-        max_thresh = min(200, int(base_thresh + adaptive_range))
+        # Cap at 255; enforce min < max so very bright pastes don't push
+        # minThresh past maxThresh and break OpenCV 4.10+ parameter validation.
+        max_thresh = min(255, int(base_thresh + adaptive_range))
+        if max_thresh <= min_thresh:
+            max_thresh = min(255, min_thresh + max(15, int(adaptive_range)))
         step = max(5, min(15, int((max_thresh - min_thresh) / 8)))
         blob_color = 0
 
@@ -1003,9 +1012,17 @@ def _eroded_mask_area_cm2(mask, scan_dpi, edge_band_px):
         return 0.0
     m2d = mask[:, :, 0] if mask.ndim == 3 else mask
     if edge_band_px > 0:
+        # borderValue=0 is required: cv2.erode's default border behavior on
+        # an all-foreground mask leaves image-edge pixels unchanged, so the
+        # erosion becomes a no-op on pre-masked / synthetic inputs.  Forcing
+        # the border to 0 (background) makes erosion shrink from the image
+        # frame inward, matching the real-sherd case where the mask boundary
+        # provides the same shrink-from-zero anchor.
         m2d = cv2.erode(m2d.astype(np.uint8) if m2d.dtype != np.uint8 else m2d,
                          np.ones((3, 3), np.uint8),
-                         iterations=int(edge_band_px))
+                         iterations=int(edge_band_px),
+                         borderType=cv2.BORDER_CONSTANT,
+                         borderValue=0)
     dpcm = scan_dpi * 0.3937
     return float(np.sum(m2d > 0)) / (dpcm ** 2)
 
@@ -1545,26 +1562,45 @@ def _combine_contour_lists(contour_lists_by_channel, image_shape,
     all_contours = [c for cs in contour_lists_by_channel.values() for c in cs]
     if not all_contours:
         return []
-    areas = [cv2.contourArea(c) for c in all_contours]
-    kept_contours, kept_areas = _drop_nested(all_contours, areas)
+    kept_contours = list(all_contours)
+    kept_areas = [cv2.contourArea(c) for c in kept_contours]
 
-    # Cross-channel near-duplicate cleanup via bbox-IoU.  ``_drop_nested``
-    # uses centroid-in-polygon, which is robust for round shapes but
-    # fragile for thin elongated ones (e.g. organic-burnout traces): a
-    # small lateral shift between per-channel detections of the same trace
-    # can put each contour's centroid outside the others' narrow stripe,
-    # leaving all three kept.  Same-feature contours across channels have
-    # near-identical bboxes (IoU > ~0.5); distinct adjacent features have
-    # low bbox IoU and stay separate.  This is within-list dedup (void vs
-    # void, or inclusion vs inclusion), not the cross-list void-vs-inclusion
-    # pattern that the memory void-discriminator-brightness rules out.
+    # Cross-channel dedup is done with bbox-IoU only.  We deliberately do NOT
+    # run ``_drop_nested`` here: per-channel pipelines have already removed
+    # genuinely nested (parent-inside-child) contours, and applying centroid-
+    # in-polygon dedup to the cross-channel pool over-fires whenever a
+    # slightly-shifted same-feature contour from one channel happens to
+    # contain an adjacent feature's centroid from another channel — that
+    # second feature then gets dropped as "nested" even though the two are
+    # distinct physical objects.  Bbox-IoU at > 0.5 is the right cross-
+    # channel "same-feature" check: same-feature contours have near-identical
+    # bboxes (IoU > ~0.5); distinct adjacent features have low bbox IoU and
+    # stay separate.  This is within-list dedup (void vs void, or inclusion
+    # vs inclusion), not the cross-list void-vs-inclusion pattern that the
+    # memory void-discriminator-brightness rules out.
     if len(kept_contours) > 1:
         bboxes = [cv2.boundingRect(c) for c in kept_contours]
         order = sorted(range(len(kept_contours)),
                        key=lambda i: kept_areas[i], reverse=True)
         deduped_idx = []
         for i in order:
-            if any(_bbox_iou(bboxes[i], bboxes[j]) > 0.5 for j in deduped_idx):
+            # Same-feature heuristic, two complementary checks:
+            #   1. Symmetric bbox-IoU > 0.5 — catches duplicates of similarly-
+            #      sized features (e.g. the same grain detected at the same
+            #      size in two channels).
+            #   2. Asymmetric containment > 0.7 — catches duplicates where the
+            #      same feature shows up at slightly different sizes in two
+            #      channels (small bbox mostly inside large bbox).  This is
+            #      common on small grains whose channel-shift exceeds the IoU
+            #      threshold but whose smaller version still sits within the
+            #      larger.  Distinct adjacent features have low containment
+            #      (their bboxes overlap only at the edges).
+            is_dup = any(
+                _bbox_iou(bboxes[i], bboxes[j]) > 0.5
+                or _bbox_containment(bboxes[i], bboxes[j]) > 0.7
+                for j in deduped_idx
+            )
+            if is_dup:
                 continue
             deduped_idx.append(i)
         deduped_idx.sort()
@@ -2096,7 +2132,9 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
             sherd_pixels = (im > 0)
         interior_mask = sherd_pixels.astype(np.uint8) * 255
         interior_mask = cv2.erode(interior_mask, np.ones((3, 3), np.uint8),
-                                   iterations=ebp)
+                                   iterations=ebp,
+                                   borderType=cv2.BORDER_CONSTANT,
+                                   borderValue=0)
         ih, iw = interior_mask.shape
 
         def _apply_edge_band(blobs):
@@ -3152,7 +3190,9 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
     interior_mask = sherd_pixels.astype(np.uint8) * 255
     if edge_band_px > 0:
         interior_mask = cv2.erode(interior_mask, np.ones((3, 3), np.uint8),
-                                  iterations=int(edge_band_px))
+                                  iterations=int(edge_band_px),
+                                  borderType=cv2.BORDER_CONSTANT,
+                                  borderValue=0)
 
     def _touches_boundary(contour):
         """True if any contour vertex lies in the eroded mask boundary band."""
