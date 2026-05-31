@@ -1,5 +1,5 @@
 """
-Analysis functions for AMACFA+ ceramic fabric analysis.
+Analysis functions for AMFOrA ceramic fabric analysis.
 
 This module contains functions for analyzing inclusions, voids, orientations,
 and colors in ceramic sherds with enhanced accuracy and robustness.
@@ -44,8 +44,8 @@ def _prioritize_columns(df, primary_cols):
 def _interleave_method_columns(df, primary_cols):
     """Reorder DataFrame so blob/contour columns are interleaved by metric.
 
-    For every metric suffix (e.g. ``inclusion_count``), the blob\_ and
-    contour\_ variants are placed side-by-side. Metric order follows
+    For every metric suffix (e.g. ``inclusion_count``), the blob_ and
+    contour_ variants are placed side-by-side. Metric order follows
     first-seen insertion order. Columns without a method prefix are
     appended at the end.
     """
@@ -211,9 +211,9 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         ``('B', 'G', 'R')`` runs detection independently on each of OpenCV's
         native BGR channels (not RGB) and combines the results, so inclusions
         that only contrast strongly in one channel (e.g. iron-rich grains in
-        R, organic dark cores in B) are still picked up.  L\* is excluded
+        R, organic dark cores in B) are still picked up.  L* is excluded
         from the default because it is a perceptually-weighted blend of B,
-        G, and R, so including it gives features visible in L\* an extra
+        G, and R, so including it gives features visible in L* an extra
         redundant vote in the combination step.  Set ``channels=('L',)`` to
         recover the pre-multi-channel behavior.
     combine_mode : {'union', 'vote'}, optional
@@ -785,7 +785,7 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
         If True (default), apply CLAHE before running blob/contour detection.
         With the default multi-channel ``channels`` setting, CLAHE is applied
         to each channel independently inside the detectors; with
-        ``channels=('L',)`` it falls back to the legacy single-pass L\* CLAHE
+        ``channels=('L',)`` it falls back to the legacy single-pass L* CLAHE
         on the masked image.  Set to False to disable entirely.
     clahe_clip : float, optional
         CLAHE clip limit when ``enhance_contrast=True`` (default: 2.0).
@@ -795,7 +795,7 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
         Image channels passed to both detectors.  Default ``('B', 'G', 'R')``
         runs detection on each BGR channel and combines the results so
         inclusions that only contrast in one channel are still picked up.
-        Set ``channels=('L',)`` to recover the pre-multi-channel L\*-only
+        Set ``channels=('L',)`` to recover the pre-multi-channel L*-only
         behavior.  See ``analyze_single_sherd`` for the full description.
     combine_mode : {'union', 'vote'}, optional
         How to combine per-channel detections (default: ``'union'``).

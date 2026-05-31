@@ -33,13 +33,13 @@ Python 3.10+, OpenCV, NumPy, pandas, matplotlib, SciPy, scikit-image, Pillow. Al
 
 ```python
 import cv2
-import AMFOrA_public
+import amfora
 
 # Load a raw scanned sherd image (background still present)
 image = cv2.imread('sherd.jpg')
 
 # One-call analysis: masking, blob + contour detection, color, orientation
-results = AMFOrA_public.analyze_single_sherd(image, scan_dpi=1200)
+results = amfora.analyze_single_sherd(image, scan_dpi=1200)
 
 print(f"Blob inclusions: {results['blob_inclusion_count']}")
 print(f"Contour inclusions: {results['contour_inclusion_count']}")
@@ -49,7 +49,7 @@ print(f"Inclusion density: {results['contour_inclusion_density_per_cm2']:.1f} pe
 For a batch of sherds in a folder:
 
 ```python
-df = AMFOrA_public.full_analysis('path/to/sherd_scans/', scan_dpi=1200)
+df = amfora.full_analysis('path/to/sherd_scans/', scan_dpi=1200)
 df.to_csv('results.csv')
 ```
 

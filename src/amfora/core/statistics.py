@@ -1,5 +1,5 @@
 """
-Multivariate Statistical Analysis Module for AMACFA+ Ceramic Analysis.
+Multivariate Statistical Analysis Module for AMFOrA Ceramic Analysis.
 
 This module provides comprehensive statistical analysis capabilities for ceramic
 fabric analysis, including Principal Component Analysis (PCA), clustering,
@@ -14,7 +14,7 @@ Features:
 - Manufacturing technique identification
 - Assemblage comparison tools
 
-Author: Enhanced AMACFA+ Statistical Suite
+Author: Enhanced AMFOrA Statistical Suite
 """
 
 import numpy as np
@@ -118,7 +118,7 @@ class CeramicStatisticalAnalyzer:
 
         Notes
         -----
-        **Feature selection tips** — AMACFA+ ``full_analysis()`` can
+        **Feature selection tips** — AMFOrA ``full_analysis()`` can
         produce ~80+ columns per sherd, many of which are redundant
         (e.g. ``blob_mean_diameter_mm`` and ``blob_mean_area_mm2``
         measure essentially the same thing). Trimming redundant features

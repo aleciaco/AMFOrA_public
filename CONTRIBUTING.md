@@ -36,7 +36,7 @@ pip install -e ".[dev]"
 ### 3. Verify the install
 
 ```python
-python -c "import AMFOrA_public; print(AMFOrA_public.__version__)"
+python -c "import amfora; print(amfora.__version__)"
 ```
 
 ## Running tests
@@ -68,7 +68,7 @@ Tests live under `tests/` and use small fixture images checked into `tests/fixtu
 
 Good bug reports include:
 
-- The version of AMFOrA you're running (`AMFOrA_public.__version__`)
+- The version of AMFOrA you're running (`amfora.__version__`)
 - The Python version (`python --version`) and OS
 - A minimal sherd image that reproduces the issue (if image-dependent)
 - The exact code you ran

@@ -1,5 +1,5 @@
 """
-Visualization functions for AMACFA+ ceramic analysis.
+Visualization functions for AMFOrA ceramic analysis.
 
 This module contains functions for visualizing inclusions, creating color
 palettes, and interactive exploration of ceramic fabric features.

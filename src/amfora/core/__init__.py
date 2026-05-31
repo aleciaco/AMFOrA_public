@@ -1,5 +1,5 @@
 """
-Core AMACFA+ modules for ceramic analysis.
+Core AMFOrA modules for ceramic analysis.
 """
 
 from .detection import *

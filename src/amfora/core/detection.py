@@ -1,5 +1,5 @@
 """
-Detection functions for AMACFA+ ceramic analysis.
+Detection functions for AMFOrA ceramic analysis.
 
 This module contains functions for detecting sherds, inclusions, and voids
 in ceramic scans with enhanced edge detection and blob detection capabilities.
@@ -264,10 +264,13 @@ def setup_robust_blob_params(image, scan_dpi, blob_type="light", size_params=Non
         # SimpleBlobDetector measures shape on its own thresholded keypoints
         # without that smoothing chain).
         params.filterByCircularity = True
-        params.minCircularity = 0.0         # No lower bound — voids can be very irregular
+        # OpenCV 4.10+ requires 0 < minCircularity <= maxCircularity, so we
+        # use a tiny positive floor instead of 0 — effectively the same "no
+        # lower bound" behavior since no real feature has circularity < 0.001.
+        params.minCircularity = 0.001       # Effectively no lower bound — voids can be very irregular
         params.maxCircularity = 0.85        # Reject near-perfect circles (likely mineral grains)
         params.filterByConvexity = True
-        params.minConvexity = 0.0           # No lower bound — allow deep concavities
+        params.minConvexity = 0.001         # Effectively no lower bound — allow deep concavities
         params.maxConvexity = 0.85          # Reject very smooth/convex shapes (likely mineral grains)
         params.filterByInertia = False      # No elongation constraint — voids can be any shape
     
@@ -1740,10 +1743,10 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         combines the results, so inclusions that only contrast strongly in
         one channel (e.g. iron-rich grains in R, organic dark cores in B)
         get picked up.  Valid entries also include ``'L'`` (CIELAB lightness)
-        — pass ``channels=('L',)`` to recover the pre-multi-channel L\*-only
-        behavior.  L\* is excluded from the default because it's a
+        — pass ``channels=('L',)`` to recover the pre-multi-channel L*-only
+        behavior.  L* is excluded from the default because it's a
         perceptually-weighted blend of B/G/R, so including it gives features
-        visible in L\* an extra redundant vote in the combination step.
+        visible in L* an extra redundant vote in the combination step.
     combine_mode : {'union', 'vote'}, optional
         How to merge per-channel detections when ``len(channels) > 1``.
         Default ``'union'`` pools detections and removes spatial
@@ -1868,14 +1871,14 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
 
         Example — restrict to near-circular grains (quartz, oolites)::
 
-            inclusions, voids = amacfa_plus.sherd_blobs(
+            inclusions, voids = amfora.sherd_blobs(
                 masked_img, scan_dpi=SCAN_DPI,
                 blob_params={'filterByCircularity': True, 'minCircularity': 0.7}
             )
 
         Example — accept highly elongated blobs (same as setting max_aspect_ratio=10 in contour_detection)::
 
-            inclusions, _ = amacfa_plus.sherd_blobs(
+            inclusions, _ = amfora.sherd_blobs(
                 masked_img, scan_dpi=SCAN_DPI,
                 blob_params={'filterByInertia': True, 'minInertiaRatio': 0.1}
             )
@@ -2554,7 +2557,7 @@ def enhanced_contour_detection(image, scan_dpi=1200, size_params=None, shape_par
 
         Example — strict detection, convex grains only::
 
-            cr = amacfa_plus.contour_detection(
+            cr = amfora.contour_detection(
                 masked_img, scan_dpi=SCAN_DPI,
                 shape_params={
                     'inclusion_solidity_min': 0.85,
@@ -2564,7 +2567,7 @@ def enhanced_contour_detection(image, scan_dpi=1200, size_params=None, shape_par
 
         Example — permissive detection, captures angular / irregular grains::
 
-            cr = amacfa_plus.contour_detection(
+            cr = amfora.contour_detection(
                 masked_img, scan_dpi=SCAN_DPI,
                 shape_params={
                     'inclusion_solidity_min': 0.3,
@@ -2960,7 +2963,7 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
 
         Example — strict detection, convex grains only::
 
-            cr = amacfa_plus.contour_detection(
+            cr = amfora.contour_detection(
                 masked_img, scan_dpi=SCAN_DPI,
                 shape_params={
                     'inclusion_solidity_min': 0.85,
@@ -2970,7 +2973,7 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
 
         Example — permissive detection, captures angular / irregular grains::
 
-            cr = amacfa_plus.contour_detection(
+            cr = amfora.contour_detection(
                 masked_img, scan_dpi=SCAN_DPI,
                 shape_params={
                     'inclusion_solidity_min': 0.3,
@@ -2986,7 +2989,7 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
         inclusions that only contrast strongly in one channel get picked up.
         Valid entries also include ``'L'`` (CIELAB lightness) — pass
         ``channels=('L',)`` to recover the pre-multi-channel behavior.  See
-        ``sherd_blobs`` for why L\* is excluded by default.
+        ``sherd_blobs`` for why L* is excluded by default.
     combine_mode : {'union', 'vote'}, optional
         How to merge per-channel detections when ``len(channels) > 1``.
         Default ``'union'`` (matches ``analyze_single_sherd`` and
