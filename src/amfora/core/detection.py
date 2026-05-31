@@ -5,16 +5,24 @@ This module contains functions for detecting sherds, inclusions, and voids
 in ceramic scans with enhanced edge detection and blob detection capabilities.
 """
 
-import cv2
-import numpy as np
 import os
 from pathlib import Path
 
+import cv2
+import numpy as np
+
 __all__ = [
-    'setup_robust_blob_params', 'sherd_mask', 'full_image_mask', 'apply_mask',
-    'clahe_enhance', 'super_zorro_cv', 'sherd_blobs',
-    'detect_multiple_sherds', 'split_multi_sherd_scan',
-    'prepare_multi_sherd_directory', 'contour_detection',
+    "setup_robust_blob_params",
+    "sherd_mask",
+    "full_image_mask",
+    "apply_mask",
+    "clahe_enhance",
+    "super_zorro_cv",
+    "sherd_blobs",
+    "detect_multiple_sherds",
+    "split_multi_sherd_scan",
+    "prepare_multi_sherd_directory",
+    "contour_detection",
 ]
 
 
@@ -79,7 +87,7 @@ def setup_robust_blob_params(image, scan_dpi, blob_type="light", size_params=Non
         Optimized parameters for blob detection with adaptive thresholding
     """
     params = cv2.SimpleBlobDetector_Params()
-    
+
     # Calculate comprehensive image statistics for adaptive thresholding
     non_zero_pixels = image[image != 0]
     if len(non_zero_pixels) == 0:
@@ -91,7 +99,9 @@ def setup_robust_blob_params(image, scan_dpi, blob_type="light", size_params=Non
         brightness_range = 128
         contrast_factor = std_brightness / mean_brightness
     else:
-        auto_threshold, _ = cv2.threshold(non_zero_pixels, 0, 255, cv2.THRESH_BINARY|cv2.THRESH_OTSU)
+        auto_threshold, _ = cv2.threshold(
+            non_zero_pixels, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU
+        )
         mean_brightness = np.mean(non_zero_pixels)
         std_brightness = np.std(non_zero_pixels)
         median_brightness = np.median(non_zero_pixels)
@@ -99,37 +109,39 @@ def setup_robust_blob_params(image, scan_dpi, blob_type="light", size_params=Non
         # Additional adaptive measures for robust detection
         brightness_range = np.max(non_zero_pixels) - np.min(non_zero_pixels)
         contrast_factor = std_brightness / mean_brightness if mean_brightness > 0 else 0
-    
+
     # Adaptive thresholding based on image characteristics and blob type
     if blob_type == "light":
         # For light blobs (inclusions) - adaptive to image contrast and brightness
         if contrast_factor > 0.3:  # High contrast image
             base_thresh = max(auto_threshold * 0.8, mean_brightness + 0.5 * std_brightness)
         elif contrast_factor < 0.15:  # Low contrast image
-            base_thresh = max(median_brightness + std_brightness, mean_brightness + 0.8 * std_brightness)
+            base_thresh = max(
+                median_brightness + std_brightness, mean_brightness + 0.8 * std_brightness
+            )
         else:  # Medium contrast
             base_thresh = mean_brightness + 0.7 * std_brightness
-            
+
         # Adaptive threshold range based on image characteristics
         adaptive_range = max(20, min(50, int(brightness_range * 0.2)))
         min_thresh = max(30, int(base_thresh - adaptive_range))
         max_thresh = min(255, int(base_thresh + adaptive_range * 1.5))
         step = max(5, min(15, int((max_thresh - min_thresh) / 8)))
         blob_color = 255
-        
+
         # Area limits for inclusions: Adaptive defaults with user override capability
         dpcm = scan_dpi * 0.3937
-        
-        if size_params and 'min_inclusion_area_px' in size_params:
+
+        if size_params and "min_inclusion_area_px" in size_params:
             # User has specified custom size filtering - use their values
-            min_area = size_params['min_inclusion_area_px']
-            max_area = size_params['max_inclusion_area_px']
+            min_area = size_params["min_inclusion_area_px"]
+            max_area = size_params["max_inclusion_area_px"]
         else:
             # Size filtering for inclusions
             # Min: 0.1mm (fine silt boundary, Wentworth scale adjusted for elbow in chart at 0.1mm)
             # Max: 20mm (elongated inclusions may appear larger to blob detector)
             min_diameter_cm = 0.01  # 0.1 mm
-            max_diameter_cm = 2.0   # 20 mm
+            max_diameter_cm = 2.0  # 20 mm
 
             min_area = int(np.pi * ((min_diameter_cm * dpcm / 2) ** 2))
             max_area = int(np.pi * ((max_diameter_cm * dpcm / 2) ** 2))
@@ -140,7 +152,9 @@ def setup_robust_blob_params(image, scan_dpi, blob_type="light", size_params=Non
         if contrast_factor > 0.3:  # High contrast image
             base_thresh = min(auto_threshold * 0.6, mean_brightness - 0.5 * std_brightness)
         elif contrast_factor < 0.15:  # Low contrast image
-            base_thresh = min(median_brightness - std_brightness, mean_brightness - 0.8 * std_brightness)
+            base_thresh = min(
+                median_brightness - std_brightness, mean_brightness - 0.8 * std_brightness
+            )
         else:  # Medium contrast
             base_thresh = mean_brightness - 0.7 * std_brightness
 
@@ -158,12 +172,12 @@ def setup_robust_blob_params(image, scan_dpi, blob_type="light", size_params=Non
         # Area limits: use *inclusion* sizes (same as "light" branch)
         dpcm = scan_dpi * 0.3937
 
-        if size_params and 'min_inclusion_area_px' in size_params:
-            min_area = size_params['min_inclusion_area_px']
-            max_area = size_params['max_inclusion_area_px']
+        if size_params and "min_inclusion_area_px" in size_params:
+            min_area = size_params["min_inclusion_area_px"]
+            max_area = size_params["max_inclusion_area_px"]
         else:
             min_diameter_cm = 0.01  # 0.1 mm
-            max_diameter_cm = 2.0   # 20 mm
+            max_diameter_cm = 2.0  # 20 mm
             min_area = int(np.pi * ((min_diameter_cm * dpcm / 2) ** 2))
             max_area = int(np.pi * ((max_diameter_cm * dpcm / 2) ** 2))
 
@@ -172,7 +186,9 @@ def setup_robust_blob_params(image, scan_dpi, blob_type="light", size_params=Non
         if contrast_factor > 0.3:  # High contrast image
             base_thresh = min(auto_threshold * 0.6, mean_brightness - 0.5 * std_brightness)
         elif contrast_factor < 0.15:  # Low contrast image
-            base_thresh = min(median_brightness - std_brightness, mean_brightness - 0.8 * std_brightness)
+            base_thresh = min(
+                median_brightness - std_brightness, mean_brightness - 0.8 * std_brightness
+            )
         else:  # Medium contrast
             base_thresh = mean_brightness - 0.7 * std_brightness
 
@@ -190,41 +206,41 @@ def setup_robust_blob_params(image, scan_dpi, blob_type="light", size_params=Non
         # Area limits for voids: Adaptive defaults with user override capability
         dpcm = scan_dpi * 0.3937
 
-        if size_params and 'min_void_area_px' in size_params:
+        if size_params and "min_void_area_px" in size_params:
             # User has specified custom size filtering - use their values
-            min_area = size_params['min_void_area_px']
-            max_area = size_params['max_void_area_px']
+            min_area = size_params["min_void_area_px"]
+            max_area = size_params["max_void_area_px"]
         else:
             # Size filtering consistent with contour_detection
             # Min: 0.25mm (macroscopic voids from organic burnout)
             # Max: 15mm (voids larger than this are likely artifacts)
             min_diameter_cm = 0.025  # 0.25 mm
-            max_diameter_cm = 1.5    # 15 mm
+            max_diameter_cm = 1.5  # 15 mm
 
             min_area = int(np.pi * ((min_diameter_cm * dpcm / 2) ** 2))
             max_area = int(np.pi * ((max_diameter_cm * dpcm / 2) ** 2))
-    
+
     # Set threshold parameters
     params.thresholdStep = step
     params.minThreshold = min_thresh
     params.maxThreshold = max_thresh
-    
+
     # Area filtering (min_area and max_area are set above based on size_params or defaults)
     params.filterByArea = True
     params.minArea = min_area
     params.maxArea = max_area
-    
+
     # Color filtering
     params.filterByColor = True
     params.blobColor = blob_color
-    
+
     # Adaptive distance filtering based on expected blob size and contrast
     base_distance = max(3, int(np.sqrt(min_area) * 1.2))
     # In low contrast images, increase distance to reduce false positives
-    if 'contrast_factor' in locals() and contrast_factor < 0.15:
+    if "contrast_factor" in locals() and contrast_factor < 0.15:
         base_distance = int(base_distance * 1.5)
     params.minDistBetweenBlobs = base_distance
-    
+
     # Shape filtering to reject artifacts while preserving ceramic features
     #
     # EQUIVALENCE WITH CONTOUR DETECTION:
@@ -248,20 +264,20 @@ def setup_robust_blob_params(image, scan_dpi, blob_type="light", size_params=Non
     # contour_detection's overlap behavior.
     if blob_type == "light":  # Light inclusions — moderately selective
         params.filterByCircularity = False  # Disabled: elongated inclusions have low circularity
-        params.filterByConvexity = False    # Allow concave features (common in ceramics)
-        params.filterByInertia = True       # Reject wire-thin scan artifacts (elongation filter)
-        params.minInertiaRatio = 0.2        # Allow elongation up to ~5:1  (= 1 / max_aspect_ratio)
-                                            # Matches contour_detection default max_aspect_ratio = 5.0
+        params.filterByConvexity = False  # Allow concave features (common in ceramics)
+        params.filterByInertia = True  # Reject wire-thin scan artifacts (elongation filter)
+        params.minInertiaRatio = 0.2  # Allow elongation up to ~5:1  (= 1 / max_aspect_ratio)
+        # Matches contour_detection default max_aspect_ratio = 5.0
     elif blob_type == "dark_inclusion":  # Dark mineral grains — strict shape filters
         # Stricter than light inclusions — dark mineral grains (ferruginous,
         # magnetite, biotite) are typically compact and convex.  Stricter
         # filters avoid capturing irregular voids as false-positive inclusions.
         params.filterByCircularity = True
-        params.minCircularity = 0.2         # Rejects very irregular outlines
+        params.minCircularity = 0.2  # Rejects very irregular outlines
         params.filterByConvexity = True
-        params.minConvexity = 0.5           # Rejects concave/sinuous shapes (voids)
+        params.minConvexity = 0.5  # Rejects concave/sinuous shapes (voids)
         params.filterByInertia = True
-        params.minInertiaRatio = 0.35       # ~3:1 max aspect ratio (stricter than 0.2/5:1)
+        params.minInertiaRatio = 0.35  # ~3:1 max aspect ratio (stricter than 0.2/5:1)
     else:  # Voids — permissive lower bounds, upper bounds reject mineral-grain-like features
         # Voids (pores, organic burnout, shrinkage cracks) are typically irregular
         # and concave.  Upper-bound filters reject dark features that are "too
@@ -276,13 +292,13 @@ def setup_robust_blob_params(image, scan_dpi, blob_type="light", size_params=Non
         # OpenCV 4.10+ requires 0 < minCircularity <= maxCircularity, so we
         # use a tiny positive floor instead of 0 — effectively the same "no
         # lower bound" behavior since no real feature has circularity < 0.001.
-        params.minCircularity = 0.001       # Effectively no lower bound — voids can be very irregular
-        params.maxCircularity = 0.85        # Reject near-perfect circles (likely mineral grains)
+        params.minCircularity = 0.001  # Effectively no lower bound — voids can be very irregular
+        params.maxCircularity = 0.85  # Reject near-perfect circles (likely mineral grains)
         params.filterByConvexity = True
-        params.minConvexity = 0.001         # Effectively no lower bound — allow deep concavities
-        params.maxConvexity = 0.85          # Reject very smooth/convex shapes (likely mineral grains)
-        params.filterByInertia = False      # No elongation constraint — voids can be any shape
-    
+        params.minConvexity = 0.001  # Effectively no lower bound — allow deep concavities
+        params.maxConvexity = 0.85  # Reject very smooth/convex shapes (likely mineral grains)
+        params.filterByInertia = False  # No elongation constraint — voids can be any shape
+
     return params
 
 
@@ -295,7 +311,7 @@ def _optimal_canny_thresholds(image, sigma=0.33):
     median_val = np.median(image)
     sobel_x = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=3)
     sobel_y = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=3)
-    gradient_magnitude = np.sqrt(sobel_x ** 2 + sobel_y ** 2)
+    gradient_magnitude = np.sqrt(sobel_x**2 + sobel_y**2)
     gradient_mean = np.mean(gradient_magnitude)
     base_thresh = min(otsu_thresh * 0.5, median_val, gradient_mean)
     lower_thresh = max(10, int((1.0 - sigma) * base_thresh))
@@ -314,8 +330,7 @@ def _detect_background_statistics(image, border_size=0.05):
     bottom = image[-border_pixels:, :]
     left = image[:, :border_pixels]
     right = image[:, -border_pixels:]
-    all_border = np.concatenate([top.flatten(), bottom.flatten(),
-                                 left.flatten(), right.flatten()])
+    all_border = np.concatenate([top.flatten(), bottom.flatten(), left.flatten(), right.flatten()])
     return np.median(all_border), np.std(all_border)
 
 
@@ -328,13 +343,20 @@ def _adaptive_morphology_kernel(scan_dpi, target_size_mm=0.5):
     if kernel_size_pixels % 2 == 0:
         kernel_size_pixels += 1
     kernel_size_pixels = min(kernel_size_pixels, 21)
-    return cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
-                                     (kernel_size_pixels, kernel_size_pixels))
+    return cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size_pixels, kernel_size_pixels))
 
 
-def _grabcut_mask(image, scan_dpi, clahe_clip=2.0, clahe_grid=(8, 8),
-                  loose_thresh_fraction=0.6, fg_erode_iter=2,
-                  bg_dilate_iter=5, iterations=5, max_dim=1500):
+def _grabcut_mask(
+    image,
+    scan_dpi,
+    clahe_clip=2.0,
+    clahe_grid=(8, 8),
+    loose_thresh_fraction=0.6,
+    fg_erode_iter=2,
+    bg_dilate_iter=5,
+    iterations=5,
+    max_dim=1500,
+):
     """
     Foreground extraction via CLAHE-enhanced V-channel + dual-Otsu trimap
     + ``cv2.grabCut``.
@@ -382,29 +404,23 @@ def _grabcut_mask(image, scan_dpi, clahe_clip=2.0, clahe_grid=(8, 8),
         scale = max_dim / max(H_in, W_in)
         new_w = max(8, int(W_in * scale))
         new_h = max(8, int(H_in * scale))
-        work_image = cv2.resize(image, (new_w, new_h),
-                                interpolation=cv2.INTER_AREA)
+        work_image = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
     else:
         work_image = image
 
     hsv = cv2.cvtColor(work_image, cv2.COLOR_BGR2HSV)
     v = hsv[:, :, 2]
 
-    clahe = cv2.createCLAHE(clipLimit=float(clahe_clip),
-                            tileGridSize=tuple(clahe_grid))
+    clahe = cv2.createCLAHE(clipLimit=float(clahe_clip), tileGridSize=tuple(clahe_grid))
     v_eq = clahe.apply(v)
 
-    otsu_thresh, tight_mask = cv2.threshold(
-        v_eq, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU
-    )
+    otsu_thresh, tight_mask = cv2.threshold(v_eq, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
     _, loose_mask = cv2.threshold(
         v_eq, int(loose_thresh_fraction * otsu_thresh), 255, cv2.THRESH_BINARY
     )
 
-    fg_core = cv2.erode(tight_mask, np.ones((3, 3), np.uint8),
-                        iterations=fg_erode_iter)
-    bg_far = cv2.dilate(loose_mask, np.ones((5, 5), np.uint8),
-                        iterations=bg_dilate_iter)
+    fg_core = cv2.erode(tight_mask, np.ones((3, 3), np.uint8), iterations=fg_erode_iter)
+    bg_far = cv2.dilate(loose_mask, np.ones((5, 5), np.uint8), iterations=bg_dilate_iter)
 
     trimap = np.full(v.shape, cv2.GC_PR_BGD, dtype=np.uint8)
     trimap[bg_far == 0] = cv2.GC_BGD
@@ -415,8 +431,7 @@ def _grabcut_mask(image, scan_dpi, clahe_clip=2.0, clahe_grid=(8, 8),
         # No core to seed the FG GMM — fall back to the tight mask
         # (resized back to input dimensions if we downsampled).
         if scale != 1.0:
-            return cv2.resize(tight_mask, (W_in, H_in),
-                              interpolation=cv2.INTER_NEAREST)
+            return cv2.resize(tight_mask, (W_in, H_in), interpolation=cv2.INTER_NEAREST)
         return tight_mask
 
     bg_model = np.zeros((1, 65), dtype=np.float64)
@@ -426,21 +441,16 @@ def _grabcut_mask(image, scan_dpi, clahe_clip=2.0, clahe_grid=(8, 8),
     # so the mask (and every downstream detection) is bit-reproducible.
     cv2.setRNGSeed(0)
     try:
-        cv2.grabCut(work_image, trimap, None, bg_model, fg_model,
-                    iterations, cv2.GC_INIT_WITH_MASK)
+        cv2.grabCut(work_image, trimap, None, bg_model, fg_model, iterations, cv2.GC_INIT_WITH_MASK)
     except cv2.error:
         if scale != 1.0:
-            return cv2.resize(tight_mask, (W_in, H_in),
-                              interpolation=cv2.INTER_NEAREST)
+            return cv2.resize(tight_mask, (W_in, H_in), interpolation=cv2.INTER_NEAREST)
         return tight_mask
 
-    fg_mask = np.where(
-        (trimap == cv2.GC_FGD) | (trimap == cv2.GC_PR_FGD), 255, 0
-    ).astype(np.uint8)
+    fg_mask = np.where((trimap == cv2.GC_FGD) | (trimap == cv2.GC_PR_FGD), 255, 0).astype(np.uint8)
 
     # Fill holes (background-coloured inclusions inside the sherd).
-    contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL,
-                                   cv2.CHAIN_APPROX_NONE)
+    contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     if contours:
         filled = np.zeros_like(fg_mask)
         cv2.drawContours(filled, contours, -1, 255, cv2.FILLED)
@@ -453,8 +463,7 @@ def _grabcut_mask(image, scan_dpi, clahe_clip=2.0, clahe_grid=(8, 8),
 
     # Upsample mask back to the original input size if we downsampled.
     if scale != 1.0:
-        fg_mask = cv2.resize(fg_mask, (W_in, H_in),
-                             interpolation=cv2.INTER_NEAREST)
+        fg_mask = cv2.resize(fg_mask, (W_in, H_in), interpolation=cv2.INTER_NEAREST)
 
     return fg_mask
 
@@ -492,24 +501,21 @@ def _drop_nested(contours, areas):
     kept_idx = []
     for i in order:
         M = cv2.moments(contours[i])
-        if M['m00'] == 0:
+        if M["m00"] == 0:
             kept_idx.append(i)
             continue
-        cx = float(M['m10'] / M['m00'])
-        cy = float(M['m01'] / M['m00'])
-        nested = any(
-            cv2.pointPolygonTest(contours[j], (cx, cy), False) >= 0
-            for j in kept_idx
-        )
+        cx = float(M["m10"] / M["m00"])
+        cy = float(M["m01"] / M["m00"])
+        nested = any(cv2.pointPolygonTest(contours[j], (cx, cy), False) >= 0 for j in kept_idx)
         if not nested:
             kept_idx.append(i)
     kept_idx.sort()  # preserve original input order
     return [contours[i] for i in kept_idx], [areas[i] for i in kept_idx]
 
 
-def _select_best_contour(fg_mask, image_area, scan_dpi,
-                         min_area_cm2=0.25, max_area_ratio=0.9,
-                         solidity_floor=0.75):
+def _select_best_contour(
+    fg_mask, image_area, scan_dpi, min_area_cm2=0.25, max_area_ratio=0.9, solidity_floor=0.75
+):
     """
     Pick the single best sherd contour from ``fg_mask``.
 
@@ -523,8 +529,7 @@ def _select_best_contour(fg_mask, image_area, scan_dpi,
     min_area_px = min_area_cm2 * dpcm2
     max_area_px = max_area_ratio * image_area
 
-    contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL,
-                                   cv2.CHAIN_APPROX_NONE)
+    contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     if not contours:
         return None
 
@@ -565,11 +570,18 @@ def _bbox_containment(inner, outer):
     return inter / inner_area if inner_area > 0 else 0
 
 
-def _select_multiple_contours(fg_mask, image_area, scan_dpi,
-                              n_sherds=None, min_area_cm2=0.25,
-                              max_area_ratio=0.9, solidity_floor=0.75,
-                              envelope_containment=0.8, envelope_min_children=2,
-                              gap_ratio_threshold=0.4):
+def _select_multiple_contours(
+    fg_mask,
+    image_area,
+    scan_dpi,
+    n_sherds=None,
+    min_area_cm2=0.25,
+    max_area_ratio=0.9,
+    solidity_floor=0.75,
+    envelope_containment=0.8,
+    envelope_min_children=2,
+    gap_ratio_threshold=0.4,
+):
     """
     Pick sherd contours from an HSV foreground mask using shape filters,
     envelope-contour elimination, and a gap-based stopping rule.
@@ -599,8 +611,7 @@ def _select_multiple_contours(fg_mask, image_area, scan_dpi,
     min_area_px = min_area_cm2 * dpcm2
     max_area_px = max_area_ratio * image_area
 
-    raw_contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL,
-                                       cv2.CHAIN_APPROX_NONE)
+    raw_contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     if not raw_contours:
         return []
 
@@ -637,7 +648,7 @@ def _select_multiple_contours(fg_mask, image_area, scan_dpi,
         return []
 
     if n_sherds is not None:
-        chosen = [c for _, _, c in pool[:int(n_sherds)]]
+        chosen = [c for _, _, c in pool[: int(n_sherds)]]
     elif len(pool) == 1:
         chosen = [pool[0][2]]
     else:
@@ -652,8 +663,7 @@ def _select_multiple_contours(fg_mask, image_area, scan_dpi,
     return [_smooth_contour(c) for c in chosen]
 
 
-def _contour_to_crop_and_mask(contour, orig_h, orig_w, border_crop,
-                              crop_buffer, auto_crop):
+def _contour_to_crop_and_mask(contour, orig_h, orig_w, border_crop, crop_buffer, auto_crop):
     """
     Convert a sherd contour (in ``image_cropped`` coords) into a
     full-size binary mask, a cropped+padded ``mask_slice``, and the
@@ -676,7 +686,7 @@ def _contour_to_crop_and_mask(contour, orig_h, orig_w, border_crop,
         mask_cropped = blackbox
 
     mask = np.zeros((orig_h, orig_w), np.uint8)
-    mask[border_crop:orig_h - border_crop, border_crop:orig_w - border_crop] = mask_cropped
+    mask[border_crop : orig_h - border_crop, border_crop : orig_w - border_crop] = mask_cropped
 
     if contour is not None and auto_crop:
         x_br, y_br, w_br, h_br = cv2.boundingRect(contour)
@@ -703,9 +713,12 @@ def _contour_to_crop_and_mask(contour, orig_h, orig_w, border_crop,
 
     mask_slice = mask[y1:y2, x1:x2]
     if pad_top or pad_bottom or pad_left or pad_right:
-        mask_slice = np.pad(mask_slice,
-                            ((pad_top, pad_bottom), (pad_left, pad_right)),
-                            mode='constant', constant_values=0)
+        mask_slice = np.pad(
+            mask_slice,
+            ((pad_top, pad_bottom), (pad_left, pad_right)),
+            mode="constant",
+            constant_values=0,
+        )
 
     return mask_slice, crop
 
@@ -768,7 +781,7 @@ def sherd_mask(sherd_scan, gray=False, scan_dpi=1200, crop_buffer=125, auto_crop
         border_crop = desired_border
     else:
         border_crop = 0
-    image_cropped = image[border_crop:orig_h - border_crop, border_crop:orig_w - border_crop]
+    image_cropped = image[border_crop : orig_h - border_crop, border_crop : orig_w - border_crop]
 
     # CLAHE-enhanced V channel + dual Otsu thresholds → GrabCut trimap.
     fg_mask = _grabcut_mask(image_cropped, scan_dpi)
@@ -781,9 +794,9 @@ def sherd_mask(sherd_scan, gray=False, scan_dpi=1200, crop_buffer=125, auto_crop
 
     color_mask_slice = np.dstack((mask_slice, mask_slice, mask_slice))
 
-    #return the mask (cropped when auto_crop=True), the crop rectangle, and the
-    #best_contour (in image_cropped coordinates) so callers can use its geometry
-    #(e.g. minAreaRect angle) without needing to re-derive the sherd boundary.
+    # return the mask (cropped when auto_crop=True), the crop rectangle, and the
+    # best_contour (in image_cropped coordinates) so callers can use its geometry
+    # (e.g. minAreaRect angle) without needing to re-derive the sherd boundary.
     if gray == True:
         return mask_slice, crop, best_contour
     else:
@@ -860,8 +873,9 @@ def apply_mask(image, mask, crop=None):
         if len(crop) == 8:
             pt, pb, pl, pr = crop[4:]
             if pt or pb or pl or pr:
-                image = np.pad(image, ((pt, pb), (pl, pr), (0, 0)),
-                               mode='constant', constant_values=0)
+                image = np.pad(
+                    image, ((pt, pb), (pl, pr), (0, 0)), mode="constant", constant_values=0
+                )
     masked_image = cv2.bitwise_and(image, mask)
     return masked_image
 
@@ -912,13 +926,12 @@ def clahe_enhance(masked_image, clip_limit=2.0, tile_grid=(8, 8)):
     if masked_image.ndim == 3:
         bg = np.all(masked_image == 0, axis=2)
     else:
-        bg = (masked_image == 0)
+        bg = masked_image == 0
 
     lab = cv2.cvtColor(masked_image, cv2.COLOR_BGR2Lab)
     l_channel = lab[:, :, 0]
 
-    clahe = cv2.createCLAHE(clipLimit=float(clip_limit),
-                            tileGridSize=tuple(tile_grid))
+    clahe = cv2.createCLAHE(clipLimit=float(clip_limit), tileGridSize=tuple(tile_grid))
     lab[:, :, 0] = clahe.apply(l_channel)
 
     enhanced = cv2.cvtColor(lab, cv2.COLOR_Lab2BGR)
@@ -926,11 +939,10 @@ def clahe_enhance(masked_image, clip_limit=2.0, tile_grid=(8, 8)):
     return enhanced
 
 
-_VALID_CHANNELS = ('L', 'B', 'G', 'R')
+_VALID_CHANNELS = ("L", "B", "G", "R")
 
 
-def _extract_channel(image, channel, enhance_contrast=False,
-                     clip_limit=2.0, tile_grid=(8, 8)):
+def _extract_channel(image, channel, enhance_contrast=False, clip_limit=2.0, tile_grid=(8, 8)):
     """Extract a single-channel uint8 image, optionally CLAHE-enhanced.
 
     Parameters
@@ -951,25 +963,23 @@ def _extract_channel(image, channel, enhance_contrast=False,
     if image is None or image.size == 0:
         return image
     if channel not in _VALID_CHANNELS:
-        raise ValueError(
-            f"Unknown channel {channel!r}; expected one of {_VALID_CHANNELS}")
+        raise ValueError(f"Unknown channel {channel!r}; expected one of {_VALID_CHANNELS}")
 
     if image.ndim == 2:
         gray = image.copy()
-    elif channel == 'L':
+    elif channel == "L":
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2Lab)[:, :, 0]
     else:
         # cv2 stores images in BGR order, so index 0=B, 1=G, 2=R.
-        bgr_idx = {'B': 0, 'G': 1, 'R': 2}[channel]
+        bgr_idx = {"B": 0, "G": 1, "R": 2}[channel]
         gray = image[:, :, bgr_idx].copy()
 
     if enhance_contrast:
         if image.ndim == 3:
             bg = np.all(image == 0, axis=2)
         else:
-            bg = (image == 0)
-        clahe = cv2.createCLAHE(clipLimit=float(clip_limit),
-                                tileGridSize=tuple(tile_grid))
+            bg = image == 0
+        clahe = cv2.createCLAHE(clipLimit=float(clip_limit), tileGridSize=tuple(tile_grid))
         gray = clahe.apply(gray)
         gray[bg] = 0
     return gray
@@ -1018,13 +1028,15 @@ def _eroded_mask_area_cm2(mask, scan_dpi, edge_band_px):
         # the border to 0 (background) makes erosion shrink from the image
         # frame inward, matching the real-sherd case where the mask boundary
         # provides the same shrink-from-zero anchor.
-        m2d = cv2.erode(m2d.astype(np.uint8) if m2d.dtype != np.uint8 else m2d,
-                         np.ones((3, 3), np.uint8),
-                         iterations=int(edge_band_px),
-                         borderType=cv2.BORDER_CONSTANT,
-                         borderValue=0)
+        m2d = cv2.erode(
+            m2d.astype(np.uint8) if m2d.dtype != np.uint8 else m2d,
+            np.ones((3, 3), np.uint8),
+            iterations=int(edge_band_px),
+            borderType=cv2.BORDER_CONSTANT,
+            borderValue=0,
+        )
     dpcm = scan_dpi * 0.3937
-    return float(np.sum(m2d > 0)) / (dpcm ** 2)
+    return float(np.sum(m2d > 0)) / (dpcm**2)
 
 
 def _paste_reference(image):
@@ -1083,11 +1095,13 @@ def _interior_median_bgr(contour, raw_bgr):
     """Per-channel median of pixels inside `contour` on `raw_bgr`."""
     h_img, w_img = raw_bgr.shape[:2]
     x, y, w, h = cv2.boundingRect(contour)
-    x = max(0, x); y = max(0, y)
-    w = min(w_img - x, w); h = min(h_img - y, h)
+    x = max(0, x)
+    y = max(0, y)
+    w = min(w_img - x, w)
+    h = min(h_img - y, h)
     if w <= 0 or h <= 0:
         return None
-    roi = raw_bgr[y:y + h, x:x + w]
+    roi = raw_bgr[y : y + h, x : x + w]
     mask = np.zeros((h, w), dtype=np.uint8)
     shifted = contour - np.array([[x, y]])
     cv2.drawContours(mask, [shifted], -1, 255, cv2.FILLED)
@@ -1100,8 +1114,7 @@ def _interior_median_bgr(contour, raw_bgr):
     return out
 
 
-def _gate_contours_by_paste_pop(contours, raw_bgr, paste_ref, paste_mad,
-                                 k, floor):
+def _gate_contours_by_paste_pop(contours, raw_bgr, paste_ref, paste_mad, k, floor):
     """Drop contours that don't pop against the per-sherd paste reference.
 
     For each contour: compute |median(interior_ch) - paste_ref[ch]| /
@@ -1122,14 +1135,12 @@ def _gate_contours_by_paste_pop(contours, raw_bgr, paste_ref, paste_mad,
         med = _interior_median_bgr(c, raw_bgr)
         if med is None:
             continue
-        if any(abs(med[ch] - paste_ref[ch]) >= thresholds[ch]
-                for ch in range(3)):
+        if any(abs(med[ch] - paste_ref[ch]) >= thresholds[ch] for ch in range(3)):
             kept.append(c)
     return kept
 
 
-def _gate_blobs_by_paste_pop(blobs, raw_bgr, paste_ref, paste_mad,
-                              k, floor):
+def _gate_blobs_by_paste_pop(blobs, raw_bgr, paste_ref, paste_mad, k, floor):
     """Drop blob keypoints that don't pop against the per-sherd paste reference.
 
     Disc-median version of ``_gate_contours_by_paste_pop`` for blob
@@ -1184,9 +1195,15 @@ def _local_max_peak_mask(dist, min_distance=5, abs_threshold=2.0):
     return peak_mask
 
 
-def _split_blob_watershed(component_mask, image_roi_bgr, x_off, y_off,
-                           peak_min_distance=5, peak_abs_threshold=2.0,
-                           opening_iters=0):
+def _split_blob_watershed(
+    component_mask,
+    image_roi_bgr,
+    x_off,
+    y_off,
+    peak_min_distance=5,
+    peak_abs_threshold=2.0,
+    opening_iters=0,
+):
     """Watershed-split one large dark component into sub-grain contours.
 
     Local-maxima of the distance transform seed the watershed markers;
@@ -1203,35 +1220,31 @@ def _split_blob_watershed(component_mask, image_roi_bgr, x_off, y_off,
     """
     h, w = component_mask.shape[:2]
     if h < 5 or w < 5:
-        cs, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL,
-                                  cv2.CHAIN_APPROX_SIMPLE)
+        cs, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         return [c + np.array([[x_off, y_off]]) for c in cs]
 
     work_mask = component_mask
     if opening_iters > 0:
         work_mask = cv2.morphologyEx(
-            component_mask, cv2.MORPH_OPEN,
-            np.ones((3, 3), np.uint8), iterations=opening_iters)
+            component_mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8), iterations=opening_iters
+        )
         if work_mask.sum() == 0:
             work_mask = component_mask
 
     dist = cv2.distanceTransform(work_mask, cv2.DIST_L2, 5)
     if dist.max() < peak_abs_threshold:
-        cs, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL,
-                                  cv2.CHAIN_APPROX_SIMPLE)
+        cs, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         return [c + np.array([[x_off, y_off]]) for c in cs]
 
     peak_mask = _local_max_peak_mask(
-        dist, min_distance=peak_min_distance,
-        abs_threshold=peak_abs_threshold)
+        dist, min_distance=peak_min_distance, abs_threshold=peak_abs_threshold
+    )
     n_peaks, peak_labels = cv2.connectedComponents(peak_mask)
     if n_peaks <= 2:
-        cs, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL,
-                                  cv2.CHAIN_APPROX_SIMPLE)
+        cs, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         return [c + np.array([[x_off, y_off]]) for c in cs]
 
-    sure_bg = cv2.dilate(component_mask, np.ones((3, 3), np.uint8),
-                         iterations=2)
+    sure_bg = cv2.dilate(component_mask, np.ones((3, 3), np.uint8), iterations=2)
     unknown = cv2.subtract(sure_bg, peak_mask)
     markers = peak_labels + 1
     markers[unknown == 255] = 0
@@ -1245,29 +1258,36 @@ def _split_blob_watershed(component_mask, image_roi_bgr, x_off, y_off,
     sub_contours = []
     for label in range(2, n_peaks + 1):
         region = ((markers == label) & (component_mask > 0)).astype(np.uint8) * 255
-        cs, _ = cv2.findContours(region, cv2.RETR_EXTERNAL,
-                                  cv2.CHAIN_APPROX_SIMPLE)
+        cs, _ = cv2.findContours(region, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for sc in cs:
             if cv2.contourArea(sc) > 0:
                 sub_contours.append(sc + np.array([[x_off, y_off]]))
     if not sub_contours:
-        cs, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL,
-                                  cv2.CHAIN_APPROX_SIMPLE)
+        cs, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         return [c + np.array([[x_off, y_off]]) for c in cs]
     return sub_contours
 
 
 def _recover_clustered_dark_contours(
-        image, scan_dpi, paste_ref, paste_mad, k, floor,
-        channels=('B', 'G', 'R'),
-        enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
-        blur_scale=1.0,
-        min_grain_cm2=0.0001, max_grain_cm2=1.5,
-        cluster_size_factor=1.5,
-        inclusion_max_aspect_ratio=4.0,
-        inclusion_solidity_min=0.45,
-        inclusion_compactness_min=0.125,
-        opening_iters=1):
+    image,
+    scan_dpi,
+    paste_ref,
+    paste_mad,
+    k,
+    floor,
+    channels=("B", "G", "R"),
+    enhance_contrast=True,
+    clahe_clip=2.0,
+    clahe_grid=(8, 8),
+    blur_scale=1.0,
+    min_grain_cm2=0.0001,
+    max_grain_cm2=1.5,
+    cluster_size_factor=1.5,
+    inclusion_max_aspect_ratio=4.0,
+    inclusion_solidity_min=0.45,
+    inclusion_compactness_min=0.125,
+    opening_iters=1,
+):
     """Find dark connected components too big for a single grain and watershed them.
 
     The size cap in ``contour_detection`` drops oversized merged-cluster
@@ -1283,11 +1303,11 @@ def _recover_clustered_dark_contours(
     blur_k = blur_k if blur_k % 2 == 1 else blur_k + 1
     blur_k = max(3, blur_k)
 
-    min_area = int(min_grain_cm2 * dpcm ** 2)
-    max_area = int(max_grain_cm2 * dpcm ** 2)
+    min_area = int(min_grain_cm2 * dpcm**2)
+    max_area = int(max_grain_cm2 * dpcm**2)
     cluster_min = int(cluster_size_factor * max_area)
 
-    sherd_pixels = (image.any(axis=2) if image.ndim == 3 else image > 0)
+    sherd_pixels = image.any(axis=2) if image.ndim == 3 else image > 0
     sherd_area = int(np.count_nonzero(sherd_pixels))
     cluster_max = int(0.30 * sherd_area) if sherd_area > 0 else max_area * 20
 
@@ -1295,9 +1315,13 @@ def _recover_clustered_dark_contours(
 
     recovered = []
     for ch in channels:
-        gray = _extract_channel(image, ch,
-                                 enhance_contrast=enhance_contrast,
-                                 clip_limit=clahe_clip, tile_grid=clahe_grid)
+        gray = _extract_channel(
+            image,
+            ch,
+            enhance_contrast=enhance_contrast,
+            clip_limit=clahe_clip,
+            tile_grid=clahe_grid,
+        )
         nz = gray[gray > 0]
         if nz.size == 0:
             continue
@@ -1305,8 +1329,7 @@ def _recover_clustered_dark_contours(
         std_b = float(np.std(nz))
         gray_blur = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
         dark_thresh = max(30, int(mean_b - std_b))
-        _, th_dark = cv2.threshold(gray_blur, dark_thresh, 255,
-                                    cv2.THRESH_BINARY_INV)
+        _, th_dark = cv2.threshold(gray_blur, dark_thresh, 255, cv2.THRESH_BINARY_INV)
 
         n_cc, labels, stats, _ = cv2.connectedComponentsWithStats(th_dark)
         for lab in range(1, n_cc):
@@ -1317,11 +1340,11 @@ def _recover_clustered_dark_contours(
             y = int(stats[lab, cv2.CC_STAT_TOP])
             w = int(stats[lab, cv2.CC_STAT_WIDTH])
             h = int(stats[lab, cv2.CC_STAT_HEIGHT])
-            cc_mask = (labels[y:y + h, x:x + w] == lab).astype(np.uint8) * 255
+            cc_mask = (labels[y : y + h, x : x + w] == lab).astype(np.uint8) * 255
 
             sub_contours = _split_blob_watershed(
-                cc_mask, image[y:y + h, x:x + w], x, y,
-                opening_iters=opening_iters)
+                cc_mask, image[y : y + h, x : x + w], x, y, opening_iters=opening_iters
+            )
 
             for sc in sub_contours:
                 sa = cv2.contourArea(sc)
@@ -1333,32 +1356,39 @@ def _recover_clustered_dark_contours(
                     continue
                 solidity = sa / ha
                 perim = cv2.arcLength(sc, True)
-                compact = (4 * np.pi * sa) / (perim ** 2) if perim > 0 else 0
+                compact = (4 * np.pi * sa) / (perim**2) if perim > 0 else 0
                 _, (rw, rh), _ = cv2.minAreaRect(sc)
                 ar = max(rw, rh) / max(min(rw, rh), 1e-6)
-                if (ar > inclusion_max_aspect_ratio
-                        or solidity <= inclusion_solidity_min
-                        or compact <= inclusion_compactness_min):
+                if (
+                    ar > inclusion_max_aspect_ratio
+                    or solidity <= inclusion_solidity_min
+                    or compact <= inclusion_compactness_min
+                ):
                     continue
                 med = _interior_median_bgr(sc, image)
                 if med is None:
                     continue
-                if not any(abs(med[c] - paste_ref[c]) >= thresholds[c]
-                            for c in range(3)):
+                if not any(abs(med[c] - paste_ref[c]) >= thresholds[c] for c in range(3)):
                     continue
                 recovered.append(sc)
     return recovered
 
 
 def _split_multigrain_contours(
-        contours, image_bgr, scan_dpi,
-        paste_ref, paste_mad, k, floor,
-        inclusion_max_aspect_ratio=4.0,
-        inclusion_solidity_min=0.45,
-        inclusion_compactness_min=0.125,
-        cluster_solidity_max=0.75,
-        cluster_area_cm2_min=0.005,
-        opening_iters=1):
+    contours,
+    image_bgr,
+    scan_dpi,
+    paste_ref,
+    paste_mad,
+    k,
+    floor,
+    inclusion_max_aspect_ratio=4.0,
+    inclusion_solidity_min=0.45,
+    inclusion_compactness_min=0.125,
+    cluster_solidity_max=0.75,
+    cluster_area_cm2_min=0.005,
+    opening_iters=1,
+):
     """Re-split already-accepted contours that look like merged-grain clusters.
 
     The cluster-recovery pass only operates on dark connected components
@@ -1378,8 +1408,8 @@ def _split_multigrain_contours(
     if not contours:
         return contours
     dpcm = scan_dpi * 0.3937
-    cluster_trigger_px = int(cluster_area_cm2_min * dpcm ** 2)
-    min_grain_area_px = int(0.0001 * dpcm ** 2)
+    cluster_trigger_px = int(cluster_area_cm2_min * dpcm**2)
+    min_grain_area_px = int(0.0001 * dpcm**2)
     h_img, w_img = image_bgr.shape[:2]
     thresholds = [max(k * paste_mad[ch], floor) for ch in range(3)]
 
@@ -1397,8 +1427,10 @@ def _split_multigrain_contours(
             continue
 
         x, y, w, h = cv2.boundingRect(contour)
-        x = max(0, x); y = max(0, y)
-        w = min(w_img - x, w); h = min(h_img - y, h)
+        x = max(0, x)
+        y = max(0, y)
+        w = min(w_img - x, w)
+        h = min(h_img - y, h)
         if w < 5 or h < 5:
             out.append(contour)
             continue
@@ -1407,8 +1439,8 @@ def _split_multigrain_contours(
         cv2.drawContours(mask, [shifted], -1, 255, cv2.FILLED)
 
         sub_contours = _split_blob_watershed(
-            mask, image_bgr[y:y + h, x:x + w], x, y,
-            opening_iters=opening_iters)
+            mask, image_bgr[y : y + h, x : x + w], x, y, opening_iters=opening_iters
+        )
 
         if len(sub_contours) <= 1:
             out.append(contour)
@@ -1425,18 +1457,19 @@ def _split_multigrain_contours(
                 continue
             s = sa / ha
             perim = cv2.arcLength(sc, True)
-            cp = (4 * np.pi * sa) / (perim ** 2) if perim > 0 else 0
+            cp = (4 * np.pi * sa) / (perim**2) if perim > 0 else 0
             _, (rw, rh), _ = cv2.minAreaRect(sc)
             ar = max(rw, rh) / max(min(rw, rh), 1e-6)
-            if (ar > inclusion_max_aspect_ratio
-                    or s <= inclusion_solidity_min
-                    or cp <= inclusion_compactness_min):
+            if (
+                ar > inclusion_max_aspect_ratio
+                or s <= inclusion_solidity_min
+                or cp <= inclusion_compactness_min
+            ):
                 continue
             med = _interior_median_bgr(sc, image_bgr)
             if med is None:
                 continue
-            if not any(abs(med[c] - paste_ref[c]) >= thresholds[c]
-                        for c in range(3)):
+            if not any(abs(med[c] - paste_ref[c]) >= thresholds[c] for c in range(3)):
                 continue
             kept_subs.append(sc)
 
@@ -1451,14 +1484,16 @@ def _dedup_contours_by_bbox(contours, iou_min=0.4):
     """Greedy spatial dedup by bbox IOU.  Larger contours kept first."""
     if not contours:
         return contours
-    indexed = sorted(enumerate(contours),
-                      key=lambda kc: -cv2.contourArea(kc[1]))
+    indexed = sorted(enumerate(contours), key=lambda kc: -cv2.contourArea(kc[1]))
     bboxes = [cv2.boundingRect(c) for _, c in indexed]
 
     def _iou(b1, b2):
-        x1, y1, w1, h1 = b1; x2, y2, w2, h2 = b2
-        xa = max(x1, x2); ya = max(y1, y2)
-        xb = min(x1 + w1, x2 + w2); yb = min(y1 + h1, y2 + h2)
+        x1, y1, w1, h1 = b1
+        x2, y2, w2, h2 = b2
+        xa = max(x1, x2)
+        ya = max(y1, y2)
+        xb = min(x1 + w1, x2 + w2)
+        yb = min(y1 + h1, y2 + h2)
         if xb <= xa or yb <= ya:
             return 0.0
         inter = (xb - xa) * (yb - ya)
@@ -1474,8 +1509,9 @@ def _dedup_contours_by_bbox(contours, iou_min=0.4):
     return [indexed[k_idx][1] for k_idx in chosen]
 
 
-def _combine_blob_lists(blob_lists_by_channel, combine_mode='union', vote_min=2,
-                        distance_factor=0.5):
+def _combine_blob_lists(
+    blob_lists_by_channel, combine_mode="union", vote_min=2, distance_factor=0.5
+):
     """Pool blob keypoints across channels with NMS-based dedup and optional voting.
 
     Parameters
@@ -1528,13 +1564,12 @@ def _combine_blob_lists(blob_lists_by_channel, combine_mode='union', vote_min=2,
         else:
             matched[0].add(ch)
 
-    if combine_mode == 'vote':
+    if combine_mode == "vote":
         return [rb for chs, rb in clusters if len(chs) >= vote_min]
     return [rb for _, rb in clusters]
 
 
-def _combine_contour_lists(contour_lists_by_channel, image_shape,
-                           combine_mode='union', vote_min=2):
+def _combine_contour_lists(contour_lists_by_channel, image_shape, combine_mode="union", vote_min=2):
     """Pool contour lists across channels with centroid-containment dedup and optional voting.
 
     Parameters
@@ -1580,8 +1615,7 @@ def _combine_contour_lists(contour_lists_by_channel, image_shape,
     # memory void-discriminator-brightness rules out.
     if len(kept_contours) > 1:
         bboxes = [cv2.boundingRect(c) for c in kept_contours]
-        order = sorted(range(len(kept_contours)),
-                       key=lambda i: kept_areas[i], reverse=True)
+        order = sorted(range(len(kept_contours)), key=lambda i: kept_areas[i], reverse=True)
         deduped_idx = []
         for i in order:
             # Same-feature heuristic, two complementary checks:
@@ -1607,7 +1641,7 @@ def _combine_contour_lists(contour_lists_by_channel, image_shape,
         kept_contours = [kept_contours[i] for i in deduped_idx]
         kept_areas = [kept_areas[i] for i in deduped_idx]
 
-    if combine_mode != 'vote':
+    if combine_mode != "vote":
         return kept_contours
 
     h, w = image_shape[:2]
@@ -1621,10 +1655,10 @@ def _combine_contour_lists(contour_lists_by_channel, image_shape,
     filtered = []
     for c in kept_contours:
         M = cv2.moments(c)
-        if M['m00'] == 0:
+        if M["m00"] == 0:
             continue
-        cx = int(M['m10'] / M['m00'])
-        cy = int(M['m01'] / M['m00'])
+        cx = int(M["m10"] / M["m00"])
+        cy = int(M["m01"] / M["m00"])
         cx = max(0, min(w - 1, cx))
         cy = max(0, min(h - 1, cy))
         votes = sum(1 for ch in channels if channel_masks[ch][cy, cx] > 0)
@@ -1633,10 +1667,10 @@ def _combine_contour_lists(contour_lists_by_channel, image_shape,
     return filtered
 
 
-def super_zorro_cv(folder_read, folder_write, fileformat='jpeg', gray=False, scan_dpi=1200):
+def super_zorro_cv(folder_read, folder_write, fileformat="jpeg", gray=False, scan_dpi=1200):
     """
     Enhanced batch sherd masking with optimal edge detection and adaptive parameters.
-    
+
     Parameters
     ----------
     folder_read : str
@@ -1646,32 +1680,32 @@ def super_zorro_cv(folder_read, folder_write, fileformat='jpeg', gray=False, sca
     fileformat : str, optional
         File format to process (default: 'jpeg')
     gray : bool, optional
-        If True saves single channel masked grayscale images; 
+        If True saves single channel masked grayscale images;
         if False saves color masks (default: False)
     scan_dpi : int, optional
         Scan resolution for adaptive parameter scaling (default: 1200)
         Valid range: 150-2400 DPI
-        
+
     Returns
     -------
     None
         Saves processed images to folder_write
     """
     os.makedirs(folder_write, exist_ok=True)
-    
-    pathstr = [str(path) for path in (Path(folder_read).rglob(f'*.{fileformat}'))]
-    folder_len = len(folder_read) 
-    
+
+    pathstr = [str(path) for path in (Path(folder_read).rglob(f"*.{fileformat}"))]
+    folder_len = len(folder_read)
+
     for path in pathstr:
-        #read image
+        # read image
         image = cv2.imread(path)
         if image is None:
             print(f"Warning: Could not load image {path}")
             continue
-            
-        #cvt to L* channel (CIELAB lightness)
+
+        # cvt to L* channel (CIELAB lightness)
         im_gray = cv2.cvtColor(image, cv2.COLOR_BGR2Lab)[:, :, 0]
-        
+
         # Enhanced edge detection with optimal thresholds
         # Use same robust approach as sherd_mask
         otsu_thresh, _ = cv2.threshold(im_gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
@@ -1687,7 +1721,7 @@ def super_zorro_cv(folder_read, folder_write, fileformat='jpeg', gray=False, sca
         upper_thresh = min(upper_thresh, 255)
         upper_thresh = max(upper_thresh, lower_thresh * 2)
         edges = cv2.Canny(im_gray, lower_thresh, upper_thresh)
-        
+
         # DPI-aware morphological kernel
         dpcm = scan_dpi * 0.3937
         target_size_cm = 0.05  # 0.5mm target size
@@ -1696,29 +1730,37 @@ def super_zorro_cv(folder_read, folder_write, fileformat='jpeg', gray=False, sca
         if kernel_size_pixels % 2 == 0:
             kernel_size_pixels += 1
         kernel_size_pixels = min(kernel_size_pixels, 21)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size_pixels, kernel_size_pixels))
-        
-        res = cv2.morphologyEx(edges,cv2.MORPH_CLOSE,kernel)
+        kernel = cv2.getStructuringElement(
+            cv2.MORPH_ELLIPSE, (kernel_size_pixels, kernel_size_pixels)
+        )
+
+        res = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
         res2 = cv2.morphologyEx(res, cv2.MORPH_OPEN, kernel)
-        
-        #find the contours of the almost fully binarized mask
+
+        # find the contours of the almost fully binarized mask
         contours_canny, _ = cv2.findContours(res2, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-        importantcontour_canny = max(contours_canny, key = cv2.contourArea) if len(contours_canny) > 0 else None
-        
-        #run a blur on the grayscale image
-        blur = cv2.GaussianBlur(im_gray,(5,5),0)
-        #threshold the blurred image to get foreground background elements
-        ret,thresh = cv2.threshold(blur,0,255,cv2.THRESH_BINARY|cv2.THRESH_OTSU)
-        #find the contours of the fore from the back
+        importantcontour_canny = (
+            max(contours_canny, key=cv2.contourArea) if len(contours_canny) > 0 else None
+        )
+
+        # run a blur on the grayscale image
+        blur = cv2.GaussianBlur(im_gray, (5, 5), 0)
+        # threshold the blurred image to get foreground background elements
+        ret, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        # find the contours of the fore from the back
         contours_thresh, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-        
+
         # this grabs the largest contour which in this case is the one we want for the whole sherd
-        importantcontour_thresh = max(contours_thresh, key = cv2.contourArea) if len(contours_thresh) > 0 else None
-        
+        importantcontour_thresh = (
+            max(contours_thresh, key=cv2.contourArea) if len(contours_thresh) > 0 else None
+        )
+
         # Select best contour
         if importantcontour_canny is not None and importantcontour_thresh is not None:
-            #Need the smaller of the two masks depending on the method because dusty scans will make the edges all come together
-            if cv2.contourArea(importantcontour_canny) > 1.1*cv2.contourArea(importantcontour_thresh):
+            # Need the smaller of the two masks depending on the method because dusty scans will make the edges all come together
+            if cv2.contourArea(importantcontour_canny) > 1.1 * cv2.contourArea(
+                importantcontour_thresh
+            ):
                 importantcontour = importantcontour_thresh
             elif cv2.contourArea(importantcontour_canny) < cv2.contourArea(importantcontour_thresh):
                 importantcontour = importantcontour_thresh
@@ -1731,32 +1773,44 @@ def super_zorro_cv(folder_read, folder_write, fileformat='jpeg', gray=False, sca
         else:
             print(f"Warning: No contours found for {path}")
             continue
-            
-        #multiplying the image by the 3Dmask to basically create a large 0,0,0 area for the background
-        #create a mask that is all zeros the same shape as the og image;
-        #take that big ole contour and try to fill it in with ones (this never fucking works)
-        #(I'm putting this bastard in brackets now to pass it an array of arrays; hopefully results in something)
+
+        # multiplying the image by the 3Dmask to basically create a large 0,0,0 area for the background
+        # create a mask that is all zeros the same shape as the og image;
+        # take that big ole contour and try to fill it in with ones (this never fucking works)
+        # (I'm putting this bastard in brackets now to pass it an array of arrays; hopefully results in something)
         blackbox = np.zeros(im_gray.shape, np.uint8)
-        mask = cv2.drawContours(blackbox.copy(), [importantcontour], -1, 255,cv2.FILLED, 1)
-        #Need to 'stack' the image to create a 3D array, because RGB images are 3D arrays
+        mask = cv2.drawContours(blackbox.copy(), [importantcontour], -1, 255, cv2.FILLED, 1)
+        # Need to 'stack' the image to create a 3D array, because RGB images are 3D arrays
         color_mask = np.dstack((mask, mask, mask))
-        
+
         masked_image = cv2.bitwise_and(color_mask, image)
         masked_image_gray = cv2.bitwise_and(mask, im_gray)
-        
-        #save the image in the specified folder
+
+        # save the image in the specified folder
         if gray == False:
-            cv2.imwrite(f'{folder_write}/{path[folder_len:]}', masked_image)
+            cv2.imwrite(f"{folder_write}/{path[folder_len:]}", masked_image)
         else:
-            cv2.imwrite(f'{folder_write}/{path[folder_len:]}', masked_image_gray)
-    print('Done!')
+            cv2.imwrite(f"{folder_write}/{path[folder_len:]}", masked_image_gray)
+    print("Done!")
 
 
-def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_scale=1.0,
-                channels=('B', 'G', 'R'), combine_mode='union', vote_min=2,
-                enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
-                void_intensity_max=60.0, paste_pop_k=2.0, paste_pop_floor=8.0,
-                edge_band_px=None):
+def sherd_blobs(
+    image,
+    scan_dpi=1200,
+    size_params=None,
+    blob_params=None,
+    blur_scale=1.0,
+    channels=("B", "G", "R"),
+    combine_mode="union",
+    vote_min=2,
+    enhance_contrast=True,
+    clahe_clip=2.0,
+    clahe_grid=(8, 8),
+    void_intensity_max=60.0,
+    paste_pop_k=2.0,
+    paste_pop_floor=8.0,
+    edge_band_px=None,
+):
     """
     Enhanced blob detection with robust, adaptive parameters and customizable size filtering.
 
@@ -1955,11 +2009,13 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
     """
     # Validate DPI input
     if scan_dpi < 150 or scan_dpi > 2400:
-        print(f"Warning: scan_dpi {scan_dpi} is outside recommended range (150-2400). Results may be unreliable.")
+        print(
+            f"Warning: scan_dpi {scan_dpi} is outside recommended range (150-2400). Results may be unreliable."
+        )
 
     # Input validation for numpy array
     if image is None or image.size == 0:
-        print(f"Warning: Invalid image data provided")
+        print("Warning: Invalid image data provided")
         return [], []
 
     im = image.copy()
@@ -1968,8 +2024,7 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         raise ValueError("`channels` must contain at least one entry")
     for ch in channels:
         if ch not in _VALID_CHANNELS:
-            raise ValueError(
-                f"Unknown channel {ch!r}; expected one of {_VALID_CHANNELS}")
+            raise ValueError(f"Unknown channel {ch!r}; expected one of {_VALID_CHANNELS}")
 
     # DPI-scaled Gaussian blur to reduce noise before thresholding.
     # Base: 5×5 @ 600 DPI, 11×11 @ 1200 DPI, 21×21 @ 2400 DPI.
@@ -1994,21 +2049,21 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
         """Run the three blob detectors on a single blurred channel."""
         # 1. Light inclusions (bright features on darker background)
         light_params = _apply_overrides(
-            setup_robust_blob_params(gray_blur, scan_dpi, "light", size_params))
-        light_inc = list(
-            cv2.SimpleBlobDetector_create(light_params).detect(gray_blur))
+            setup_robust_blob_params(gray_blur, scan_dpi, "light", size_params)
+        )
+        light_inc = list(cv2.SimpleBlobDetector_create(light_params).detect(gray_blur))
 
         # 2. Dark inclusions (dark minerals: ferruginous grains, magnetite, biotite, dark grog)
         dark_inc_params = _apply_overrides(
-            setup_robust_blob_params(gray_blur, scan_dpi, "dark_inclusion", size_params))
-        dark_inc = list(
-            cv2.SimpleBlobDetector_create(dark_inc_params).detect(gray_blur))
+            setup_robust_blob_params(gray_blur, scan_dpi, "dark_inclusion", size_params)
+        )
+        dark_inc = list(cv2.SimpleBlobDetector_create(dark_inc_params).detect(gray_blur))
 
         # 3. Dark voids (pores, organic burnout channels)
         dark_void_params = _apply_overrides(
-            setup_robust_blob_params(gray_blur, scan_dpi, "dark", size_params))
-        dark_void = list(
-            cv2.SimpleBlobDetector_create(dark_void_params).detect(gray_blur))
+            setup_robust_blob_params(gray_blur, scan_dpi, "dark", size_params)
+        )
+        dark_void = list(cv2.SimpleBlobDetector_create(dark_void_params).detect(gray_blur))
 
         # Light + dark inclusions are pooled per channel.  Voids are kept
         # independent (dark_inclusion's strict shape filters and the void
@@ -2087,9 +2142,9 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
     inc_by_channel = {}
     void_by_channel = {}
     for ch in channels:
-        gray = _extract_channel(im, ch,
-                                enhance_contrast=enhance_contrast,
-                                clip_limit=clahe_clip, tile_grid=clahe_grid)
+        gray = _extract_channel(
+            im, ch, enhance_contrast=enhance_contrast, clip_limit=clahe_clip, tile_grid=clahe_grid
+        )
         gray_blur = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
         inc_ch, void_ch = _detect_one_channel(gray_blur)
         # Brightness gates use the unblurred channel so the disc-mean
@@ -2111,9 +2166,10 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
 
         def _apply_paste_pop(blobs):
             return _gate_blobs_by_paste_pop(
-                blobs, im, paste_ref, paste_mad,
-                paste_pop_k, paste_pop_floor)
+                blobs, im, paste_ref, paste_mad, paste_pop_k, paste_pop_floor
+            )
     else:
+
         def _apply_paste_pop(blobs):
             return blobs
 
@@ -2123,18 +2179,24 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
     # effective search area; ``analyze_single_sherd`` uses the same band
     # for its ``effective_detection_area_cm2`` denominator.  Pass 0 to
     # disable.
-    ebp = (_default_edge_band_px(im.shape, fraction=0.04)
-           if edge_band_px is None else int(edge_band_px))
+    ebp = (
+        _default_edge_band_px(im.shape, fraction=0.04)
+        if edge_band_px is None
+        else int(edge_band_px)
+    )
     if ebp > 0:
         if im.ndim == 3:
             sherd_pixels = np.any(im > 0, axis=2)
         else:
-            sherd_pixels = (im > 0)
+            sherd_pixels = im > 0
         interior_mask = sherd_pixels.astype(np.uint8) * 255
-        interior_mask = cv2.erode(interior_mask, np.ones((3, 3), np.uint8),
-                                   iterations=ebp,
-                                   borderType=cv2.BORDER_CONSTANT,
-                                   borderValue=0)
+        interior_mask = cv2.erode(
+            interior_mask,
+            np.ones((3, 3), np.uint8),
+            iterations=ebp,
+            borderType=cv2.BORDER_CONSTANT,
+            borderValue=0,
+        )
         ih, iw = interior_mask.shape
 
         def _apply_edge_band(blobs):
@@ -2146,13 +2208,16 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
                     kept.append(kp)
             return kept
     else:
+
         def _apply_edge_band(blobs):
             return blobs
 
     if len(channels) == 1:
         only = channels[0]
-        return (_apply_paste_pop(_apply_edge_band(inc_by_channel[only])),
-                _apply_edge_band(void_by_channel[only]))
+        return (
+            _apply_paste_pop(_apply_edge_band(inc_by_channel[only])),
+            _apply_edge_band(void_by_channel[only]),
+        )
 
     blobs_inclusions = _combine_blob_lists(inc_by_channel, combine_mode, vote_min)
     blobs_voids = _combine_blob_lists(void_by_channel, combine_mode, vote_min)
@@ -2161,9 +2226,15 @@ def sherd_blobs(image, scan_dpi=1200, size_params=None, blob_params=None, blur_s
     return blobs_inclusions, blobs_voids
 
 
-def detect_multiple_sherds(sherd_scan, scan_dpi=1200, crop_buffer=125,
-                           auto_crop=True, n_sherds=None,
-                           min_area_cm2=0.75, mask=None):
+def detect_multiple_sherds(
+    sherd_scan,
+    scan_dpi=1200,
+    crop_buffer=125,
+    auto_crop=True,
+    n_sherds=None,
+    min_area_cm2=0.75,
+    mask=None,
+):
     """
     Detect one or many sherds in a single scan and return per-sherd masks/crops.
 
@@ -2247,7 +2318,7 @@ def detect_multiple_sherds(sherd_scan, scan_dpi=1200, crop_buffer=125,
         border_crop = desired_border
     else:
         border_crop = 0
-    image_cropped = image[border_crop:orig_h - border_crop, border_crop:orig_w - border_crop]
+    image_cropped = image[border_crop : orig_h - border_crop, border_crop : orig_w - border_crop]
     cropped_h, cropped_w = image_cropped.shape[:2]
     image_area = cropped_h * cropped_w
 
@@ -2257,8 +2328,7 @@ def detect_multiple_sherds(sherd_scan, scan_dpi=1200, crop_buffer=125,
             m = cv2.cvtColor(m, cv2.COLOR_BGR2GRAY)
         # The supplied mask is in original-image coords; pull out the
         # interior that corresponds to image_cropped.
-        m_cropped = m[border_crop:orig_h - border_crop,
-                      border_crop:orig_w - border_crop]
+        m_cropped = m[border_crop : orig_h - border_crop, border_crop : orig_w - border_crop]
         fg_mask = (m_cropped > 0).astype(np.uint8) * 255
     else:
         # CLAHE-enhanced V + dual-Otsu trimap → GrabCut, single pass for
@@ -2269,8 +2339,11 @@ def detect_multiple_sherds(sherd_scan, scan_dpi=1200, crop_buffer=125,
         fg_mask = _grabcut_mask(image_cropped, scan_dpi)
 
     contours = _select_multiple_contours(
-        fg_mask, image_area, scan_dpi,
-        n_sherds=n_sherds, min_area_cm2=min_area_cm2,
+        fg_mask,
+        image_area,
+        scan_dpi,
+        n_sherds=n_sherds,
+        min_area_cm2=min_area_cm2,
     )
 
     if not contours:
@@ -2292,25 +2365,34 @@ def detect_multiple_sherds(sherd_scan, scan_dpi=1200, crop_buffer=125,
             cx = x_br + w_br / 2
             cy = y_br + h_br / 2
 
-        results.append({
-            'mask': mask_slice,
-            'color_mask': color_mask_slice,
-            'crop': crop,
-            'contour': contour,
-            'bbox': (x_br, y_br, w_br, h_br),
-            'centroid': (cx, cy),
-            'area': area_px,
-            'area_cm2': area_px / (dpcm ** 2),
-        })
+        results.append(
+            {
+                "mask": mask_slice,
+                "color_mask": color_mask_slice,
+                "crop": crop,
+                "contour": contour,
+                "bbox": (x_br, y_br, w_br, h_br),
+                "centroid": (cx, cy),
+                "area": area_px,
+                "area_cm2": area_px / (dpcm**2),
+            }
+        )
 
-    results.sort(key=lambda r: r['area'], reverse=True)
+    results.sort(key=lambda r: r["area"], reverse=True)
     return results
 
 
-def split_multi_sherd_scan(image_path, output_dir, scan_dpi=1200,
-                           crop_buffer=125, n_sherds=None, min_area_cm2=0.25,
-                           write_manifest=True, manifest_path=None,
-                           apply_mask_to_output=False):
+def split_multi_sherd_scan(
+    image_path,
+    output_dir,
+    scan_dpi=1200,
+    crop_buffer=125,
+    n_sherds=None,
+    min_area_cm2=0.25,
+    write_manifest=True,
+    manifest_path=None,
+    apply_mask_to_output=False,
+):
     """
     Split a (possibly multi-sherd) scan into one cropped image per sherd and
     write them to ``output_dir`` so ``full_analysis`` can consume them.
@@ -2363,8 +2445,12 @@ def split_multi_sherd_scan(image_path, output_dir, scan_dpi=1200,
         raise FileNotFoundError(f"Could not read image: {image_path}")
 
     sherds = detect_multiple_sherds(
-        image, scan_dpi=scan_dpi, crop_buffer=crop_buffer,
-        auto_crop=True, n_sherds=n_sherds, min_area_cm2=min_area_cm2,
+        image,
+        scan_dpi=scan_dpi,
+        crop_buffer=crop_buffer,
+        auto_crop=True,
+        n_sherds=n_sherds,
+        min_area_cm2=min_area_cm2,
     )
 
     if not sherds:
@@ -2383,37 +2469,40 @@ def split_multi_sherd_scan(image_path, output_dir, scan_dpi=1200,
             out_name = f"{stem}_{i}{ext}"
         out_path = output_dir / out_name
 
-        y1, y2, x1, x2, pad_top, pad_bottom, pad_left, pad_right = sherd['crop']
+        y1, y2, x1, x2, pad_top, pad_bottom, pad_left, pad_right = sherd["crop"]
         crop_img = image[y1:y2, x1:x2]
         if pad_top or pad_bottom or pad_left or pad_right:
             crop_img = np.pad(
                 crop_img,
                 ((pad_top, pad_bottom), (pad_left, pad_right), (0, 0)),
-                mode='constant', constant_values=0,
+                mode="constant",
+                constant_values=0,
             )
 
         if apply_mask_to_output:
-            crop_img = cv2.bitwise_and(crop_img, sherd['color_mask'])
+            crop_img = cv2.bitwise_and(crop_img, sherd["color_mask"])
 
         cv2.imwrite(str(out_path), crop_img)
         output_paths.append(out_path)
 
-        manifest_rows.append({
-            'output_file': out_name,
-            'source_file': image_path.name,
-            'source_path': str(image_path),
-            'sherd_index': i,
-            'sherd_count': len(sherds),
-            'bbox_x': int(sherd['bbox'][0]),
-            'bbox_y': int(sherd['bbox'][1]),
-            'bbox_w': int(sherd['bbox'][2]),
-            'bbox_h': int(sherd['bbox'][3]),
-            'area_cm2': float(sherd['area_cm2']),
-        })
+        manifest_rows.append(
+            {
+                "output_file": out_name,
+                "source_file": image_path.name,
+                "source_path": str(image_path),
+                "sherd_index": i,
+                "sherd_count": len(sherds),
+                "bbox_x": int(sherd["bbox"][0]),
+                "bbox_y": int(sherd["bbox"][1]),
+                "bbox_w": int(sherd["bbox"][2]),
+                "bbox_h": int(sherd["bbox"][3]),
+                "area_cm2": float(sherd["area_cm2"]),
+            }
+        )
 
     if write_manifest and manifest_rows:
         if manifest_path is None:
-            manifest_path = output_dir / 'manifest.csv'
+            manifest_path = output_dir / "manifest.csv"
         else:
             manifest_path = Path(manifest_path)
         _append_manifest(manifest_path, manifest_rows)
@@ -2424,12 +2513,22 @@ def split_multi_sherd_scan(image_path, output_dir, scan_dpi=1200,
 def _append_manifest(manifest_path, rows):
     """Append ``rows`` (list of dict) to ``manifest_path``, writing header if new."""
     import csv
+
     manifest_path = Path(manifest_path)
-    fieldnames = ['output_file', 'source_file', 'source_path', 'sherd_index',
-                  'sherd_count', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h',
-                  'area_cm2']
+    fieldnames = [
+        "output_file",
+        "source_file",
+        "source_path",
+        "sherd_index",
+        "sherd_count",
+        "bbox_x",
+        "bbox_y",
+        "bbox_w",
+        "bbox_h",
+        "area_cm2",
+    ]
     write_header = not manifest_path.exists()
-    with open(manifest_path, 'a', newline='') as f:
+    with open(manifest_path, "a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         if write_header:
             writer.writeheader()
@@ -2437,11 +2536,17 @@ def _append_manifest(manifest_path, rows):
             writer.writerow(row)
 
 
-def prepare_multi_sherd_directory(input_dir, output_dir, scan_dpi=1200,
-                                  crop_buffer=125, n_sherds=None,
-                                  min_area_cm2=0.25, file_formats=None,
-                                  write_manifest=True,
-                                  apply_mask_to_output=False):
+def prepare_multi_sherd_directory(
+    input_dir,
+    output_dir,
+    scan_dpi=1200,
+    crop_buffer=125,
+    n_sherds=None,
+    min_area_cm2=0.25,
+    file_formats=None,
+    write_manifest=True,
+    apply_mask_to_output=False,
+):
     """
     Batch wrapper for ``split_multi_sherd_scan``.
 
@@ -2472,17 +2577,17 @@ def prepare_multi_sherd_directory(input_dir, output_dir, scan_dpi=1200,
         All per-sherd image paths that were written.
     """
     if file_formats is None:
-        file_formats = ['jpg', 'jpeg', 'png', 'bmp', 'tiff', 'tif']
+        file_formats = ["jpg", "jpeg", "png", "bmp", "tiff", "tif"]
 
     input_dir = Path(input_dir)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    manifest_path = output_dir / 'manifest.csv' if write_manifest else None
+    manifest_path = output_dir / "manifest.csv" if write_manifest else None
 
     image_files = []
     for ext in file_formats:
-        image_files.extend(list(input_dir.rglob(f'*.{ext}')))
-        image_files.extend(list(input_dir.rglob(f'*.{ext.upper()}')))
+        image_files.extend(list(input_dir.rglob(f"*.{ext}")))
+        image_files.extend(list(input_dir.rglob(f"*.{ext.upper()}")))
 
     # rglob returns the same file twice on case-insensitive filesystems (macOS).
     image_files = sorted({p.resolve() for p in image_files})
@@ -2492,9 +2597,12 @@ def prepare_multi_sherd_directory(input_dir, output_dir, scan_dpi=1200,
         print(f"Splitting {image_path.name} ({i}/{len(image_files)})")
         try:
             outs = split_multi_sherd_scan(
-                image_path, output_dir,
-                scan_dpi=scan_dpi, crop_buffer=crop_buffer,
-                n_sherds=n_sherds, min_area_cm2=min_area_cm2,
+                image_path,
+                output_dir,
+                scan_dpi=scan_dpi,
+                crop_buffer=crop_buffer,
+                n_sherds=n_sherds,
+                min_area_cm2=min_area_cm2,
                 write_manifest=write_manifest,
                 manifest_path=manifest_path,
                 apply_mask_to_output=apply_mask_to_output,
@@ -2508,8 +2616,9 @@ def prepare_multi_sherd_directory(input_dir, output_dir, scan_dpi=1200,
     return all_outputs
 
 
-def enhanced_contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
-                      morph_kernel_mm=2.5, debug_mode=False):
+def enhanced_contour_detection(
+    image, scan_dpi=1200, size_params=None, shape_params=None, morph_kernel_mm=2.5, debug_mode=False
+):
     """
     Contour-based detection using the exact cv2_test.py methodology for individual inclusions.
 
@@ -2639,14 +2748,17 @@ def enhanced_contour_detection(image, scan_dpi=1200, size_params=None, shape_par
     if image is None or image.size == 0:
         print("Warning: Invalid image data provided")
         return {
-            'inclusions': [], 'voids': [], 
-            'inclusion_areas': [], 'void_areas': [],
-            'total_inclusions': 0, 'total_voids': 0
+            "inclusions": [],
+            "voids": [],
+            "inclusion_areas": [],
+            "void_areas": [],
+            "total_inclusions": 0,
+            "total_voids": 0,
         }
-    
+
     if scan_dpi < 150 or scan_dpi > 2400:
         print(f"Warning: scan_dpi {scan_dpi} is outside recommended range (150-2400)")
-    
+
     # Convert to L* (lightness) channel from CIELAB colour space
     if len(image.shape) == 3:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2Lab)[:, :, 0]
@@ -2664,7 +2776,7 @@ def enhanced_contour_detection(image, scan_dpi=1200, size_params=None, shape_par
     # Min: 0.1mm diameter (fine silt boundary, Wentworth scale)
     # Max: 15mm diameter (very coarse gravel temper)
     inc_min_diameter_cm = 0.01  # 0.1 mm
-    inc_max_diameter_cm = 1.5    # 15 mm 
+    inc_max_diameter_cm = 1.5  # 15 mm
     min_area_threshold = int(np.pi * (inc_min_diameter_cm / 2 * dpcm) ** 2)
     max_area_threshold = int(np.pi * (inc_max_diameter_cm / 2 * dpcm) ** 2)
 
@@ -2672,88 +2784,91 @@ def enhanced_contour_detection(image, scan_dpi=1200, size_params=None, shape_par
     # Min: 0.25mm diameter (macroscopic void threshold)
     # Max: 15mm diameter (voids larger than this are likely artifacts)
     void_min_diameter_cm = 0.025  # 0.25 mm
-    void_max_diameter_cm = 1.5    # 15 mm 
+    void_max_diameter_cm = 1.5  # 15 mm
     void_min_area_threshold = int(np.pi * (void_min_diameter_cm / 2 * dpcm) ** 2)
     void_max_area_threshold = int(np.pi * (void_max_diameter_cm / 2 * dpcm) ** 2)
 
-    if size_params and size_params.get('user_override', False):
+    if size_params and size_params.get("user_override", False):
         # Use user-specified size limits if provided
-        min_area_threshold = size_params.get('min_inclusion_area_px', min_area_threshold)
-        max_area_threshold = size_params.get('max_inclusion_area_px', max_area_threshold)
-        void_min_area_threshold = size_params.get('min_void_area_px', void_min_area_threshold)
-        void_max_area_threshold = size_params.get('max_void_area_px', void_max_area_threshold)
-    
+        min_area_threshold = size_params.get("min_inclusion_area_px", min_area_threshold)
+        max_area_threshold = size_params.get("max_inclusion_area_px", max_area_threshold)
+        void_min_area_threshold = size_params.get("min_void_area_px", void_min_area_threshold)
+        void_max_area_threshold = size_params.get("max_void_area_px", void_max_area_threshold)
+
     # FEATURE ISOLATION — tophat (bright) + blackhat (dark) morphological transforms.
     # Unlike global thresholding, these extract features based on *local* contrast
     # relative to the structuring element, preventing adjacent features of different
     # polarity from merging and improving detection in uneven paste backgrounds.
     gray_blur = cv2.GaussianBlur(gray, (3, 3), 0)  # slight blur to reduce noise sensitivity
-    tophat = cv2.morphologyEx(gray_blur, cv2.MORPH_TOPHAT, morph_kernel)    # bright features
+    tophat = cv2.morphologyEx(gray_blur, cv2.MORPH_TOPHAT, morph_kernel)  # bright features
     blackhat = cv2.morphologyEx(gray_blur, cv2.MORPH_BLACKHAT, morph_kernel)  # dark features
 
-
     # Combine – both bright and dark grains become bright
-    combined = cv2.bitwise_or(tophat, blackhat)   # or use np.maximum(tophat, blackhat)
+    combined = cv2.bitwise_or(tophat, blackhat)  # or use np.maximum(tophat, blackhat)
 
     # ----------------------------------------------------------------------
     # 4. Initial binarisation with Otsu
     # ----------------------------------------------------------------------
     _, binary = cv2.threshold(combined, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-    
+
     all_contours, _ = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     # Otsu threshold on each transform output
-    #_, th_light = cv2.threshold(tophat, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-    #_, th_dark = cv2.threshold(blackhat, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    # _, th_light = cv2.threshold(tophat, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    # _, th_dark = cv2.threshold(blackhat, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
 
     # Find contours SEPARATELY, then concatenate — avoids merging adjacent
     # features of different polarity that would fuse in a bitwise_or.
-    #contours_light, _ = cv2.findContours(th_light, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    #contours_dark, _ = cv2.findContours(th_dark, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    #all_contours = contours_light + contours_dark
+    # contours_light, _ = cv2.findContours(th_light, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # contours_dark, _ = cv2.findContours(th_dark, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # all_contours = contours_light + contours_dark
 
-    
     # INCLUSION candidates — direct size filter (no drop-largest trick needed;
     # any sherd-boundary contour exceeds max_area_threshold and is excluded).
-    sel = [c for c in all_contours
-           if min_area_threshold < cv2.contourArea(c) < max_area_threshold]
-    
+    sel = [c for c in all_contours if min_area_threshold < cv2.contourArea(c) < max_area_threshold]
+
     # Shape-quality thresholds — calibrated defaults, overridable via shape_params.
     # inclusion_max_aspect_ratio is the primary elongation gate applied FIRST in the filter chain;
     # solidity and compactness are secondary convexity/regularity checks.
     # CROSS-METHOD CONSISTENCY: max_aspect_ratio = 1 / minInertiaRatio (blob detector)
     #   → max_aspect_ratio 5.0  ↔  minInertiaRatio 0.2  (both defaults identical)
-    inclusion_max_aspect_ratio = 4.0    # primary filter: rejects contours with long/short > 4:1
-                                       # matches blob default minInertiaRatio=0.333 exactly
-    void_max_aspect_ratio     = 5.0    # voids can be more elongated than inclusions, but still filter out wire-thin artifacts
-    inclusion_solidity_min    = 0.45    # secondary: area / convex-hull area
-    inclusion_compactness_min = 0.25   # secondary: 4π·area / perimeter²
-    void_solidity_min         = 0.1    # secondary (voids only, more permissive)
+    inclusion_max_aspect_ratio = 4.0  # primary filter: rejects contours with long/short > 4:1
+    # matches blob default minInertiaRatio=0.333 exactly
+    void_max_aspect_ratio = (
+        5.0  # voids can be more elongated than inclusions, but still filter out wire-thin artifacts
+    )
+    inclusion_solidity_min = 0.45  # secondary: area / convex-hull area
+    inclusion_compactness_min = 0.25  # secondary: 4π·area / perimeter²
+    void_solidity_min = 0.1  # secondary (voids only, more permissive)
     if shape_params:
         # Primary filter first
-        inclusion_max_aspect_ratio = shape_params.get('inclusion_max_aspect_ratio', inclusion_max_aspect_ratio)
+        inclusion_max_aspect_ratio = shape_params.get(
+            "inclusion_max_aspect_ratio", inclusion_max_aspect_ratio
+        )
         # Secondary filters
-        inclusion_solidity_min    = shape_params.get('inclusion_solidity_min',    inclusion_solidity_min)
-        inclusion_compactness_min = shape_params.get('inclusion_compactness_min', inclusion_compactness_min)
-        void_solidity_min         = shape_params.get('void_solidity_min',         void_solidity_min)
+        inclusion_solidity_min = shape_params.get("inclusion_solidity_min", inclusion_solidity_min)
+        inclusion_compactness_min = shape_params.get(
+            "inclusion_compactness_min", inclusion_compactness_min
+        )
+        void_solidity_min = shape_params.get("void_solidity_min", void_solidity_min)
 
     # Apply shape-quality filtering to inclusion candidates
     inclusion_contours = []
     inclusion_areas = []
     debug_info = {
-        'morph_kernel_mm': morph_kernel_mm,
-        'morph_kernel_px': kernel_px,
-        'contours_from_top_and_blackhat': len(combined),
-        'total_candidates': len(sel),
-        'inclusion_accepted': 0,
-        'inclusion_rejected_solidity': 0,
-        'inclusion_rejected_compactness': 0,
-        'void_accepted': 0,
-        'void_rejected': 0,
-        'solidity_threshold': inclusion_solidity_min,
-        'compactness_threshold': inclusion_compactness_min,
-        'void_solidity_threshold': void_solidity_min,
-        'inclusion_max_aspect_ratio': inclusion_max_aspect_ratio,
-        'void_max_aspect_ratio': void_max_aspect_ratio
+        "morph_kernel_mm": morph_kernel_mm,
+        "morph_kernel_px": kernel_px,
+        "contours_from_top_and_blackhat": len(combined),
+        "total_candidates": len(sel),
+        "inclusion_accepted": 0,
+        "inclusion_rejected_solidity": 0,
+        "inclusion_rejected_compactness": 0,
+        "void_accepted": 0,
+        "void_rejected": 0,
+        "solidity_threshold": inclusion_solidity_min,
+        "compactness_threshold": inclusion_compactness_min,
+        "void_solidity_threshold": void_solidity_min,
+        "inclusion_max_aspect_ratio": inclusion_max_aspect_ratio,
+        "void_max_aspect_ratio": void_max_aspect_ratio,
     }
 
     for contour in sel:
@@ -2768,7 +2883,7 @@ def enhanced_contour_detection(image, scan_dpi=1200, size_params=None, shape_par
             # Calculate compactness to filter out wiggly, sinuous shapes
             perimeter = cv2.arcLength(contour, True)
             if perimeter > 0:
-                compactness = (4 * np.pi * area_pixels) / (perimeter ** 2)
+                compactness = (4 * np.pi * area_pixels) / (perimeter**2)
             else:
                 compactness = 0
 
@@ -2778,40 +2893,45 @@ def enhanced_contour_detection(image, scan_dpi=1200, size_params=None, shape_par
             # (passes solidity) and has regular perimeter (passes compactness), so without this
             # filter wire-thin scan artifacts would be silently accepted by the other two checks.
             _, (rw, rh), _ = cv2.minAreaRect(contour)
-            aspect_ratio = (max(rw, rh) / max(min(rw, rh), 1e-6))
+            aspect_ratio = max(rw, rh) / max(min(rw, rh), 1e-6)
 
-            if (aspect_ratio <= inclusion_max_aspect_ratio           # primary: elongation gate
-                    and solidity > inclusion_solidity_min  # secondary: convexity
-                    and compactness > inclusion_compactness_min):  # secondary: perimeter regularity
+            if (
+                aspect_ratio <= inclusion_max_aspect_ratio  # primary: elongation gate
+                and solidity > inclusion_solidity_min  # secondary: convexity
+                and compactness > inclusion_compactness_min
+            ):  # secondary: perimeter regularity
                 inclusion_contours.append(contour)
-                area_cm2 = area_pixels / (dpcm ** 2)
+                area_cm2 = area_pixels / (dpcm**2)
                 inclusion_areas.append(area_cm2)
-                debug_info['inclusion_accepted'] += 1
+                debug_info["inclusion_accepted"] += 1
             elif solidity <= inclusion_solidity_min:
-                debug_info['inclusion_rejected_solidity'] += 1
+                debug_info["inclusion_rejected_solidity"] += 1
             elif compactness <= inclusion_compactness_min:
-                debug_info['inclusion_rejected_compactness'] += 1
+                debug_info["inclusion_rejected_compactness"] += 1
             # (aspect ratio rejections counted implicitly in total_candidates - accepted)
-    
-     # VOID DETECTION - Use OTSU thresholding approach
+
+    # VOID DETECTION - Use OTSU thresholding approach
     _, thresh_voids = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-    
+
     # Find void contours
     contours_voids, _ = cv2.findContours(thresh_voids, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    
+
     # Same approach for voids: drop the largest contour (sherd boundary),
     # filter by DPI-derived size limits.
     size_sorted_contours_voids = sorted(contours_voids, key=cv2.contourArea, reverse=True)
     if len(size_sorted_contours_voids) > 1:
-        sel_voids = [c for c in size_sorted_contours_voids[1:]
-                     if void_min_area_threshold < cv2.contourArea(c) < void_max_area_threshold]
+        sel_voids = [
+            c
+            for c in size_sorted_contours_voids[1:]
+            if void_min_area_threshold < cv2.contourArea(c) < void_max_area_threshold
+        ]
     else:
         sel_voids = []
 
     void_contours = []
     void_areas = []
-    debug_info['void_candidates'] = len(sel_voids)
-    
+    debug_info["void_candidates"] = len(sel_voids)
+
     for contour in sel_voids:
         area_pixels = cv2.contourArea(contour)
         hull = cv2.convexHull(contour)
@@ -2821,66 +2941,85 @@ def enhanced_contour_detection(image, scan_dpi=1200, size_params=None, shape_par
             solidity = float(area_pixels) / hull_area
 
             _, (rw, rh), _ = cv2.minAreaRect(contour)
-            aspect_ratio = (max(rw, rh) / max(min(rw, rh), 1e-6))
+            aspect_ratio = max(rw, rh) / max(min(rw, rh), 1e-6)
 
             # Solidity for voids — permissive by default, overridable via shape_params
             # Aspect ratio shared with inclusions: organic-burnout voids can be elongated
             # but not wire-thin artifacts.
             if solidity > void_solidity_min and aspect_ratio <= void_max_aspect_ratio:
                 void_contours.append(contour)
-                area_cm2 = area_pixels / (dpcm ** 2)
+                area_cm2 = area_pixels / (dpcm**2)
                 void_areas.append(area_cm2)
-                debug_info['void_accepted'] += 1
+                debug_info["void_accepted"] += 1
             else:
-                debug_info['void_rejected'] += 1
-    
+                debug_info["void_rejected"] += 1
+
     if debug_mode:
         di = debug_info
-        total_rej = di['inclusion_rejected_solidity'] + di['inclusion_rejected_compactness']
-        print(f"[contour_detection debug]")
-        print(f"  Morph kernel                       : {di['morph_kernel_mm']}mm ({di['morph_kernel_px']}px)")
+        total_rej = di["inclusion_rejected_solidity"] + di["inclusion_rejected_compactness"]
+        print("[contour_detection debug]")
+        print(
+            f"  Morph kernel                       : {di['morph_kernel_mm']}mm ({di['morph_kernel_px']}px)"
+        )
         print(f"  Contours from tophat (bright)      : {di['contours_from_tophat']}")
         print(f"  Contours from blackhat (dark)      : {di['contours_from_blackhat']}")
         print(f"  Size-filtered inclusion candidates : {di['total_candidates']}")
         print(f"  Accepted inclusions                : {di['inclusion_accepted']}")
-        print(f"  Rejected – solidity < {di['solidity_threshold']:.2f}          : {di['inclusion_rejected_solidity']}")
-        print(f"  Rejected – compactness < {di['compactness_threshold']:.2f}       : {di['inclusion_rejected_compactness']}")
+        print(
+            f"  Rejected – solidity < {di['solidity_threshold']:.2f}          : {di['inclusion_rejected_solidity']}"
+        )
+        print(
+            f"  Rejected – compactness < {di['compactness_threshold']:.2f}       : {di['inclusion_rejected_compactness']}"
+        )
         print(f"  Size-filtered void candidates      : {di.get('void_candidates', '?')}")
         print(f"  Accepted voids                     : {di['void_accepted']}")
         print(f"  Rejected voids                     : {di['void_rejected']}")
-        if di['total_candidates'] > 0:
-            rate = total_rej / di['total_candidates'] * 100
+        if di["total_candidates"] > 0:
+            rate = total_rej / di["total_candidates"] * 100
             print(f"  Shape-filter rejection rate        : {rate:.0f}%")
 
     # GEOMETRIC ANGULARITY ANALYSIS - New Feature for Temper Analysis
     from .analysis import analyze_inclusion_angularity
-    
+
     # Analyze geometric properties of inclusions for archaeological interpretation
     if len(inclusion_contours) > 0:
         geometric_analysis = analyze_inclusion_angularity(inclusion_contours, scan_dpi)
     else:
         geometric_analysis = analyze_inclusion_angularity([], scan_dpi)
 
-
     return {
-        'inclusions': inclusion_contours,
-        'voids': void_contours,
-        'inclusion_areas': inclusion_areas,
-        'void_areas': void_areas,
-        'total_inclusions': len(inclusion_contours),
-        'total_voids': len(void_contours),
-        'debug_info': debug_info,
-        'geometric_analysis': geometric_analysis,
+        "inclusions": inclusion_contours,
+        "voids": void_contours,
+        "inclusion_areas": inclusion_areas,
+        "void_areas": void_areas,
+        "total_inclusions": len(inclusion_contours),
+        "total_voids": len(void_contours),
+        "debug_info": debug_info,
+        "geometric_analysis": geometric_analysis,
     }
 
-def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
-                      debug_mode=False, blur_scale=1.0,
-                      channels=('B', 'G', 'R'), combine_mode='union', vote_min=2,
-                      enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
-                      void_intensity_max=60.0,
-                      paste_pop_k=2.5, paste_pop_floor=8.0,
-                      watershed_enabled=True, multigrain_split_enabled=True,
-                      cluster_solidity_max=0.75, cluster_area_cm2_min=0.005):
+
+def contour_detection(
+    image,
+    scan_dpi=1200,
+    size_params=None,
+    shape_params=None,
+    debug_mode=False,
+    blur_scale=1.0,
+    channels=("B", "G", "R"),
+    combine_mode="union",
+    vote_min=2,
+    enhance_contrast=True,
+    clahe_clip=2.0,
+    clahe_grid=(8, 8),
+    void_intensity_max=60.0,
+    paste_pop_k=2.5,
+    paste_pop_floor=8.0,
+    watershed_enabled=True,
+    multigrain_split_enabled=True,
+    cluster_solidity_max=0.75,
+    cluster_area_cm2_min=0.005,
+):
     """
     Contour-based detection using the exact cv2_test.py methodology for individual inclusions.
 
@@ -3067,17 +3206,19 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
     if image is None or image.size == 0:
         print("Warning: Invalid image data provided")
         return {
-            'inclusions': [], 'voids': [],
-            'inclusion_areas': [], 'void_areas': [],
-            'total_inclusions': 0, 'total_voids': 0
+            "inclusions": [],
+            "voids": [],
+            "inclusion_areas": [],
+            "void_areas": [],
+            "total_inclusions": 0,
+            "total_voids": 0,
         }
 
     if not channels:
         raise ValueError("`channels` must contain at least one entry")
     for ch in channels:
         if ch not in _VALID_CHANNELS:
-            raise ValueError(
-                f"Unknown channel {ch!r}; expected one of {_VALID_CHANNELS}")
+            raise ValueError(f"Unknown channel {ch!r}; expected one of {_VALID_CHANNELS}")
 
     if scan_dpi < 150 or scan_dpi > 2400:
         print(f"Warning: scan_dpi {scan_dpi} is outside recommended range (150-2400)")
@@ -3101,32 +3242,32 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
     # so the filter works correctly for elongated shapes.
     # Min: 0.0001 cm² (≈ 0.1mm diameter circle, Wentworth v.fine sand boundary)
     # Max: 1.5 cm² (largest plausible inclusion — well below any sherd boundary)
-    inc_min_area_cm2 = 0.0001   # ~0.1 mm equiv. diameter
-    inc_max_area_cm2 = 1.5      # absolute area cap
-    min_area_threshold = int(inc_min_area_cm2 * dpcm ** 2)
-    max_area_threshold = int(inc_max_area_cm2 * dpcm ** 2)
+    inc_min_area_cm2 = 0.0001  # ~0.1 mm equiv. diameter
+    inc_max_area_cm2 = 1.5  # absolute area cap
+    min_area_threshold = int(inc_min_area_cm2 * dpcm**2)
+    max_area_threshold = int(inc_max_area_cm2 * dpcm**2)
 
     # VOID size filtering: larger minimum since macroscopic voids from organic burnout
     # Min: 0.0005 cm² (≈ 0.25mm diameter circle, macroscopic void threshold)
     # Max: 1.5 cm² (voids larger than this are likely artifacts)
     void_min_area_cm2 = 0.0005  # ~0.25 mm equiv. diameter
     void_max_area_cm2 = 1.5
-    void_min_area_threshold = int(void_min_area_cm2 * dpcm ** 2)
-    void_max_area_threshold = int(void_max_area_cm2 * dpcm ** 2)
+    void_min_area_threshold = int(void_min_area_cm2 * dpcm**2)
+    void_max_area_threshold = int(void_max_area_cm2 * dpcm**2)
 
-    if size_params and size_params.get('user_override', False):
+    if size_params and size_params.get("user_override", False):
         # Use user-specified size limits if provided
-        min_area_threshold = size_params.get('min_inclusion_area_px', min_area_threshold)
-        max_area_threshold = size_params.get('max_inclusion_area_px', max_area_threshold)
-        void_min_area_threshold = size_params.get('min_void_area_px', void_min_area_threshold)
-        void_max_area_threshold = size_params.get('max_void_area_px', void_max_area_threshold)
+        min_area_threshold = size_params.get("min_inclusion_area_px", min_area_threshold)
+        max_area_threshold = size_params.get("max_inclusion_area_px", max_area_threshold)
+        void_min_area_threshold = size_params.get("min_void_area_px", void_min_area_threshold)
+        void_max_area_threshold = size_params.get("max_void_area_px", void_max_area_threshold)
 
     # Sherd-mask footprint — channel-independent because masked background is
     # zero across every input channel, so any channel's `gray > 0` agrees.
     if image.ndim == 3:
         sherd_pixels = np.any(image > 0, axis=2)
     else:
-        sherd_pixels = (image > 0)
+        sherd_pixels = image > 0
     sherd_area_px = int(np.count_nonzero(sherd_pixels))
 
     # Relative max-area cap: no legitimate inclusion or void should occupy
@@ -3144,19 +3285,19 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
     # solidity and compactness are secondary convexity/regularity checks.
     # CROSS-METHOD CONSISTENCY: max_aspect_ratio = 1 / minInertiaRatio (blob detector)
     #   → max_aspect_ratio 5.0  ↔  minInertiaRatio 0.2  (the shared default)
-    inclusion_max_aspect_ratio = 4.0    # primary filter: rejects contours with long/short > 4:1
-    void_max_aspect_ratio      = 5.0
-    inclusion_solidity_min     = 0.45   # secondary: area / convex-hull area
-    inclusion_compactness_min  = 0.125  # secondary: 4π·area / perimeter²
-    void_solidity_min          = 0.1    # secondary (voids only, more permissive)
-    void_compactness_min       = 0.06   # secondary: 4π·area / perimeter² (voids)
+    inclusion_max_aspect_ratio = 4.0  # primary filter: rejects contours with long/short > 4:1
+    void_max_aspect_ratio = 5.0
+    inclusion_solidity_min = 0.45  # secondary: area / convex-hull area
+    inclusion_compactness_min = 0.125  # secondary: 4π·area / perimeter²
+    void_solidity_min = 0.1  # secondary (voids only, more permissive)
+    void_compactness_min = 0.06  # secondary: 4π·area / perimeter² (voids)
     # Void solidity upper bound is left effectively unrestricted by default.
     # In principle voids are concave (low solidity) and inclusions are convex
     # (high solidity), but the DPI-scaled Gaussian blur plus
     # ``CHAIN_APPROX_SIMPLE`` contour simplification rounds out concavities,
     # so on real masked sherds almost every dark contour ends up with
     # solidity ≥ 0.5 regardless of class.  The real discriminator is below.
-    void_solidity_max          = 1.01
+    void_solidity_max = 1.01
 
     # Brightness-based discriminator.  A void is a *hole* in the ceramic, so
     # the pixels inside its contour read near-black; a dark mineral inclusion
@@ -3172,27 +3313,34 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
     edge_band_px = _default_edge_band_px(image.shape, fraction=0.04)
     if shape_params:
         # Primary filter first
-        inclusion_max_aspect_ratio          = shape_params.get('inclusion_max_aspect_ratio',          inclusion_max_aspect_ratio)
-        void_max_aspect_ratio               = shape_params.get('void_max_aspect_ratio',               void_max_aspect_ratio)
+        inclusion_max_aspect_ratio = shape_params.get(
+            "inclusion_max_aspect_ratio", inclusion_max_aspect_ratio
+        )
+        void_max_aspect_ratio = shape_params.get("void_max_aspect_ratio", void_max_aspect_ratio)
         # Secondary filters
-        inclusion_solidity_min    = shape_params.get('inclusion_solidity_min',    inclusion_solidity_min)
-        inclusion_compactness_min = shape_params.get('inclusion_compactness_min', inclusion_compactness_min)
-        void_solidity_min         = shape_params.get('void_solidity_min',         void_solidity_min)
-        void_compactness_min      = shape_params.get('void_compactness_min',      void_compactness_min)
-        void_solidity_max         = shape_params.get('void_solidity_max',     void_solidity_max)
+        inclusion_solidity_min = shape_params.get("inclusion_solidity_min", inclusion_solidity_min)
+        inclusion_compactness_min = shape_params.get(
+            "inclusion_compactness_min", inclusion_compactness_min
+        )
+        void_solidity_min = shape_params.get("void_solidity_min", void_solidity_min)
+        void_compactness_min = shape_params.get("void_compactness_min", void_compactness_min)
+        void_solidity_max = shape_params.get("void_solidity_max", void_solidity_max)
         # void_intensity_max is also accepted here for backward compatibility,
         # but the top-level kwarg takes precedence when explicitly supplied.
-        if 'void_intensity_max' in shape_params:
-            void_intensity_max    = shape_params['void_intensity_max']
-        edge_band_px              = shape_params.get('edge_band_px',          edge_band_px)
+        if "void_intensity_max" in shape_params:
+            void_intensity_max = shape_params["void_intensity_max"]
+        edge_band_px = shape_params.get("edge_band_px", edge_band_px)
 
     # Build the interior mask used to reject boundary-touching contours.
     interior_mask = sherd_pixels.astype(np.uint8) * 255
     if edge_band_px > 0:
-        interior_mask = cv2.erode(interior_mask, np.ones((3, 3), np.uint8),
-                                  iterations=int(edge_band_px),
-                                  borderType=cv2.BORDER_CONSTANT,
-                                  borderValue=0)
+        interior_mask = cv2.erode(
+            interior_mask,
+            np.ones((3, 3), np.uint8),
+            iterations=int(edge_band_px),
+            borderType=cv2.BORDER_CONSTANT,
+            borderValue=0,
+        )
 
     def _touches_boundary(contour):
         """True if any contour vertex lies in the eroded mask boundary band."""
@@ -3233,39 +3381,40 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
 
         # Size-filter inclusion candidates.  max_area_threshold (1.5 cm²) excludes the
         # sherd boundary and any hierarchy duplicates from RETR_TREE.
-        sel = [c for c in contours_inc
-               if min_area_threshold < cv2.contourArea(c) < max_area_threshold]
+        sel = [
+            c for c in contours_inc if min_area_threshold < cv2.contourArea(c) < max_area_threshold
+        ]
 
         inclusion_contours = []
         inclusion_areas = []
         debug_info = {
-            'total_candidates': len(sel),
-            'inclusion_accepted': 0,
-            'inclusion_rejected_solidity': 0,
-            'inclusion_rejected_compactness': 0,
-            'inclusion_rejected_boundary': 0,
-            'void_accepted': 0,
-            'void_rejected': 0,
-            'void_rejected_solidity': 0,
-            'void_rejected_compactness': 0,
-            'void_rejected_boundary': 0,
-            'void_rejected_intensity': 0,
-            'solidity_threshold': inclusion_solidity_min,
-            'compactness_threshold': inclusion_compactness_min,
-            'void_solidity_threshold': void_solidity_min,
-            'void_compactness_threshold': void_compactness_min,
-            'void_solidity_max': void_solidity_max,
-            'void_intensity_max': void_intensity_max,
-            'inclusion_max_aspect_ratio': inclusion_max_aspect_ratio,
-            'void_max_aspect_ratio': void_max_aspect_ratio,
-            'edge_band_px': edge_band_px,
+            "total_candidates": len(sel),
+            "inclusion_accepted": 0,
+            "inclusion_rejected_solidity": 0,
+            "inclusion_rejected_compactness": 0,
+            "inclusion_rejected_boundary": 0,
+            "void_accepted": 0,
+            "void_rejected": 0,
+            "void_rejected_solidity": 0,
+            "void_rejected_compactness": 0,
+            "void_rejected_boundary": 0,
+            "void_rejected_intensity": 0,
+            "solidity_threshold": inclusion_solidity_min,
+            "compactness_threshold": inclusion_compactness_min,
+            "void_solidity_threshold": void_solidity_min,
+            "void_compactness_threshold": void_compactness_min,
+            "void_solidity_max": void_solidity_max,
+            "void_intensity_max": void_intensity_max,
+            "inclusion_max_aspect_ratio": inclusion_max_aspect_ratio,
+            "void_max_aspect_ratio": void_max_aspect_ratio,
+            "edge_band_px": edge_band_px,
         }
 
         for contour in sel:
             # Boundary-band gate — applied before shape checks so a clean-edged
             # CLAHE artifact contour can't sneak through on solidity/compactness.
             if _touches_boundary(contour):
-                debug_info['inclusion_rejected_boundary'] += 1
+                debug_info["inclusion_rejected_boundary"] += 1
                 continue
 
             area_pixels = cv2.contourArea(contour)
@@ -3277,7 +3426,7 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
 
                 perimeter = cv2.arcLength(contour, True)
                 if perimeter > 0:
-                    compactness = (4 * np.pi * area_pixels) / (perimeter ** 2)
+                    compactness = (4 * np.pi * area_pixels) / (perimeter**2)
                 else:
                     compactness = 0
 
@@ -3287,41 +3436,48 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
                 # (passes solidity) and has regular perimeter (passes compactness), so without this
                 # filter wire-thin scan artifacts would be silently accepted by the other two checks.
                 _, (rw, rh), _ = cv2.minAreaRect(contour)
-                aspect_ratio = (max(rw, rh) / max(min(rw, rh), 1e-6))
+                aspect_ratio = max(rw, rh) / max(min(rw, rh), 1e-6)
 
-                if (aspect_ratio <= inclusion_max_aspect_ratio           # primary: elongation gate
-                        and solidity > inclusion_solidity_min  # secondary: convexity
-                        and compactness > inclusion_compactness_min):  # secondary: perimeter regularity
+                if (
+                    aspect_ratio <= inclusion_max_aspect_ratio  # primary: elongation gate
+                    and solidity > inclusion_solidity_min  # secondary: convexity
+                    and compactness > inclusion_compactness_min
+                ):  # secondary: perimeter regularity
                     inclusion_contours.append(contour)
-                    area_cm2 = area_pixels / (dpcm ** 2)
+                    area_cm2 = area_pixels / (dpcm**2)
                     inclusion_areas.append(area_cm2)
-                    debug_info['inclusion_accepted'] += 1
+                    debug_info["inclusion_accepted"] += 1
                 elif solidity <= inclusion_solidity_min:
-                    debug_info['inclusion_rejected_solidity'] += 1
+                    debug_info["inclusion_rejected_solidity"] += 1
                 elif compactness <= inclusion_compactness_min:
-                    debug_info['inclusion_rejected_compactness'] += 1
+                    debug_info["inclusion_rejected_compactness"] += 1
                 # (aspect ratio rejections counted implicitly in total_candidates - accepted)
 
         # VOID DETECTION — void contours are extracted from the dark-threshold
         # mask (th_dark).  The OTSU threshold below is dead code retained from
         # earlier iterations of this function.
-        _, _thresh_voids_unused = cv2.threshold(gray_blur, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        _, _thresh_voids_unused = cv2.threshold(
+            gray_blur, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU
+        )
 
         contours_voids, _ = cv2.findContours(th_dark, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         # Size-filter void candidates (same logic — max threshold excludes sherd boundary)
-        sel_voids = [c for c in contours_voids
-                     if void_min_area_threshold < cv2.contourArea(c) < void_max_area_threshold]
+        sel_voids = [
+            c
+            for c in contours_voids
+            if void_min_area_threshold < cv2.contourArea(c) < void_max_area_threshold
+        ]
 
         void_contours = []
         void_areas = []
-        debug_info['void_candidates'] = len(sel_voids)
+        debug_info["void_candidates"] = len(sel_voids)
 
         for contour in sel_voids:
             # Boundary-band gate first — any "void" hugging the mask edge is the
             # CLAHE boundary artifact or the sherd outline, not a real pore.
             if _touches_boundary(contour):
-                debug_info['void_rejected_boundary'] += 1
+                debug_info["void_rejected_boundary"] += 1
                 continue
 
             area_pixels = cv2.contourArea(contour)
@@ -3332,10 +3488,10 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
                 solidity = float(area_pixels) / hull_area
 
                 perimeter = cv2.arcLength(contour, True)
-                compactness = (4 * np.pi * area_pixels) / (perimeter ** 2) if perimeter > 0 else 0
+                compactness = (4 * np.pi * area_pixels) / (perimeter**2) if perimeter > 0 else 0
 
                 _, (rw, rh), _ = cv2.minAreaRect(contour)
-                aspect_ratio = (max(rw, rh) / max(min(rw, rh), 1e-6))
+                aspect_ratio = max(rw, rh) / max(min(rw, rh), 1e-6)
 
                 # Brightness gate is the primary inclusion-vs-void
                 # discriminator.  Use median (not mean) pixel intensity
@@ -3352,43 +3508,44 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
                 # a per-contour bbox + filled mask so this stays
                 # O(contour_area), not O(image_area).
                 x, y, w, h = cv2.boundingRect(contour)
-                roi = gray[y:y + h, x:x + w]
+                roi = gray[y : y + h, x : x + w]
                 roi_mask = np.zeros((h, w), dtype=np.uint8)
                 shifted = contour - np.array([[x, y]])
                 cv2.drawContours(roi_mask, [shifted], -1, 255, cv2.FILLED)
                 roi_vals = roi[roi_mask > 0]
                 inside_med = float(np.median(roi_vals)) if roi_vals.size > 0 else 0.0
 
-                shape_ok = (aspect_ratio <= void_max_aspect_ratio
-                            and void_solidity_min < solidity < void_solidity_max
-                            and compactness > void_compactness_min)
+                shape_ok = (
+                    aspect_ratio <= void_max_aspect_ratio
+                    and void_solidity_min < solidity < void_solidity_max
+                    and compactness > void_compactness_min
+                )
                 # ``void_intensity_max=None`` disables the brightness gate
                 # (matches the convention in ``sherd_blobs``).
-                bright_ok = (void_intensity_max is None
-                             or inside_med < void_intensity_max)
+                bright_ok = void_intensity_max is None or inside_med < void_intensity_max
 
                 if shape_ok and bright_ok:
                     void_contours.append(contour)
-                    area_cm2 = area_pixels / (dpcm ** 2)
+                    area_cm2 = area_pixels / (dpcm**2)
                     void_areas.append(area_cm2)
-                    debug_info['void_accepted'] += 1
+                    debug_info["void_accepted"] += 1
                 elif not bright_ok:
-                    debug_info['void_rejected_intensity'] += 1
+                    debug_info["void_rejected_intensity"] += 1
                 elif solidity <= void_solidity_min or solidity >= void_solidity_max:
-                    debug_info['void_rejected_solidity'] += 1
+                    debug_info["void_rejected_solidity"] += 1
                 elif compactness <= void_compactness_min:
-                    debug_info['void_rejected_compactness'] += 1
+                    debug_info["void_rejected_compactness"] += 1
                 else:
-                    debug_info['void_rejected'] += 1
+                    debug_info["void_rejected"] += 1
 
         # Drop nested contours: a single inclusion with internal color gradient
         # otherwise registers as parent + child contours.  Same for voids.
         pre_nested_inc = len(inclusion_contours)
         inclusion_contours, inclusion_areas = _drop_nested(inclusion_contours, inclusion_areas)
-        debug_info['inclusion_rejected_nested'] = pre_nested_inc - len(inclusion_contours)
+        debug_info["inclusion_rejected_nested"] = pre_nested_inc - len(inclusion_contours)
         pre_nested_void = len(void_contours)
         void_contours, void_areas = _drop_nested(void_contours, void_areas)
-        debug_info['void_rejected_nested'] = pre_nested_void - len(void_contours)
+        debug_info["void_rejected_nested"] = pre_nested_void - len(void_contours)
 
         # Brightness exclusion: blackhat surfaces dark mineral inclusions AND
         # dark voids into the same dark-feature candidate pool, and the
@@ -3406,7 +3563,7 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
             dropped = 0
             for contour, area in zip(inclusion_contours, inclusion_areas):
                 x, y, w, h = cv2.boundingRect(contour)
-                roi = gray[y:y + h, x:x + w]
+                roi = gray[y : y + h, x : x + w]
                 roi_mask = np.zeros((h, w), dtype=np.uint8)
                 shifted = contour - np.array([[x, y]])
                 cv2.drawContours(roi_mask, [shifted], -1, 255, cv2.FILLED)
@@ -3419,7 +3576,7 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
                 kept_inc_areas.append(area)
             inclusion_contours = kept_inc
             inclusion_areas = kept_inc_areas
-            debug_info['inclusion_rejected_void_brightness'] = dropped
+            debug_info["inclusion_rejected_void_brightness"] = dropped
 
         return inclusion_contours, inclusion_areas, void_contours, void_areas, debug_info
 
@@ -3428,9 +3585,13 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
     void_by_channel = {}
     debug_per_channel = {}
     for ch in channels:
-        gray = _extract_channel(image, ch,
-                                enhance_contrast=enhance_contrast,
-                                clip_limit=clahe_clip, tile_grid=clahe_grid)
+        gray = _extract_channel(
+            image,
+            ch,
+            enhance_contrast=enhance_contrast,
+            clip_limit=clahe_clip,
+            tile_grid=clahe_grid,
+        )
         inc_c, inc_a, void_c, void_a, dbg = _run_pipeline_for_channel(gray)
         inc_by_channel[ch] = inc_c
         void_by_channel[ch] = void_c
@@ -3443,27 +3604,31 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
         debug_info = debug_per_channel[only]
     else:
         inclusion_contours = _combine_contour_lists(
-            inc_by_channel, image.shape, combine_mode, vote_min)
-        void_contours = _combine_contour_lists(
-            void_by_channel, image.shape, combine_mode, vote_min)
+            inc_by_channel, image.shape, combine_mode, vote_min
+        )
+        void_contours = _combine_contour_lists(void_by_channel, image.shape, combine_mode, vote_min)
         # Aggregate debug_info: threshold/configuration values come from the
         # first channel (identical across all); integer counters are summed.
         threshold_keys = (
-            'solidity_threshold', 'compactness_threshold',
-            'void_solidity_threshold', 'void_compactness_threshold',
-            'void_solidity_max', 'void_intensity_max',
-            'inclusion_max_aspect_ratio', 'void_max_aspect_ratio',
-            'edge_band_px',
+            "solidity_threshold",
+            "compactness_threshold",
+            "void_solidity_threshold",
+            "void_compactness_threshold",
+            "void_solidity_max",
+            "void_intensity_max",
+            "inclusion_max_aspect_ratio",
+            "void_max_aspect_ratio",
+            "edge_band_px",
         )
         first_dbg = debug_per_channel[channels[0]]
         debug_info = {k: first_dbg[k] for k in threshold_keys if k in first_dbg}
         counter_keys = [k for k in first_dbg if k not in threshold_keys]
         for k in counter_keys:
             debug_info[k] = sum(debug_per_channel[ch].get(k, 0) for ch in channels)
-        debug_info['per_channel'] = debug_per_channel
-        debug_info['combine_mode'] = combine_mode
-        debug_info['vote_min'] = vote_min if combine_mode == 'vote' else None
-        debug_info['channels'] = list(channels)
+        debug_info["per_channel"] = debug_per_channel
+        debug_info["combine_mode"] = combine_mode
+        debug_info["vote_min"] = vote_min if combine_mode == "vote" else None
+        debug_info["channels"] = list(channels)
 
     # Paste-anchored pop gate + cluster-recovery + multigrain split.
     # The paste reference (per-channel median of non-zero pixels) and MAD
@@ -3473,24 +3638,29 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
     # primary gate.
     paste_ref = _paste_reference(image)
     paste_mad = _paste_mad(image, paste_ref)
-    debug_info['paste_reference_bgr'] = paste_ref
-    debug_info['paste_mad_bgr'] = paste_mad
+    debug_info["paste_reference_bgr"] = paste_ref
+    debug_info["paste_mad_bgr"] = paste_mad
 
     if paste_pop_k is not None and paste_pop_k > 0 and inclusion_contours:
         pre_pop = len(inclusion_contours)
         inclusion_contours = _gate_contours_by_paste_pop(
-            inclusion_contours, image, paste_ref, paste_mad,
-            paste_pop_k, paste_pop_floor)
-        debug_info['inclusion_rejected_low_pop'] = pre_pop - len(inclusion_contours)
+            inclusion_contours, image, paste_ref, paste_mad, paste_pop_k, paste_pop_floor
+        )
+        debug_info["inclusion_rejected_low_pop"] = pre_pop - len(inclusion_contours)
 
     # Cluster recovery: salvage merged dark blobs the size cap dropped.
     if watershed_enabled and paste_pop_k is not None and paste_pop_k > 0:
         recovered = _recover_clustered_dark_contours(
-            image, scan_dpi, paste_ref, paste_mad,
-            paste_pop_k, paste_pop_floor,
+            image,
+            scan_dpi,
+            paste_ref,
+            paste_mad,
+            paste_pop_k,
+            paste_pop_floor,
             channels=channels,
             enhance_contrast=enhance_contrast,
-            clahe_clip=clahe_clip, clahe_grid=clahe_grid,
+            clahe_clip=clahe_clip,
+            clahe_grid=clahe_grid,
             blur_scale=blur_scale,
             inclusion_max_aspect_ratio=inclusion_max_aspect_ratio,
             inclusion_solidity_min=inclusion_solidity_min,
@@ -3499,62 +3669,80 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
         if recovered:
             pre_recover = len(inclusion_contours)
             inclusion_contours = inclusion_contours + recovered
-            inclusion_contours = _dedup_contours_by_bbox(
-                inclusion_contours, iou_min=0.4)
+            inclusion_contours = _dedup_contours_by_bbox(inclusion_contours, iou_min=0.4)
             inclusion_contours, _ = _drop_nested(
-                inclusion_contours,
-                [cv2.contourArea(c) for c in inclusion_contours])
-            debug_info['inclusion_recovered_cluster'] = (
-                len(inclusion_contours) - pre_recover)
+                inclusion_contours, [cv2.contourArea(c) for c in inclusion_contours]
+            )
+            debug_info["inclusion_recovered_cluster"] = len(inclusion_contours) - pre_recover
 
     # Multigrain split: break lumpy accepted contours that look like merged
     # cluster of touching grains.  Sub-pieces are disjoint by construction
     # within a single cluster, so the post-split list is NOT re-deduped.
-    if (multigrain_split_enabled and paste_pop_k is not None
-            and paste_pop_k > 0 and inclusion_contours):
+    if (
+        multigrain_split_enabled
+        and paste_pop_k is not None
+        and paste_pop_k > 0
+        and inclusion_contours
+    ):
         pre_split = len(inclusion_contours)
         inclusion_contours = _split_multigrain_contours(
-            inclusion_contours, image, scan_dpi,
-            paste_ref, paste_mad, paste_pop_k, paste_pop_floor,
+            inclusion_contours,
+            image,
+            scan_dpi,
+            paste_ref,
+            paste_mad,
+            paste_pop_k,
+            paste_pop_floor,
             inclusion_max_aspect_ratio=inclusion_max_aspect_ratio,
             inclusion_solidity_min=inclusion_solidity_min,
             inclusion_compactness_min=inclusion_compactness_min,
             cluster_solidity_max=cluster_solidity_max,
             cluster_area_cm2_min=cluster_area_cm2_min,
         )
-        debug_info['inclusion_added_by_multigrain_split'] = (
-            len(inclusion_contours) - pre_split)
+        debug_info["inclusion_added_by_multigrain_split"] = len(inclusion_contours) - pre_split
 
     # Recompute areas from the final (possibly cross-channel-combined) contours.
-    inclusion_areas = [cv2.contourArea(c) / (dpcm ** 2) for c in inclusion_contours]
-    void_areas = [cv2.contourArea(c) / (dpcm ** 2) for c in void_contours]
+    inclusion_areas = [cv2.contourArea(c) / (dpcm**2) for c in inclusion_contours]
+    void_areas = [cv2.contourArea(c) / (dpcm**2) for c in void_contours]
 
     if debug_mode:
         di = debug_info
-        total_rej = (di.get('inclusion_rejected_solidity', 0)
-                     + di.get('inclusion_rejected_compactness', 0)
-                     + di.get('inclusion_rejected_boundary', 0)
-                     + di.get('inclusion_rejected_nested', 0))
-        print(f"[contour_detection debug]")
+        total_rej = (
+            di.get("inclusion_rejected_solidity", 0)
+            + di.get("inclusion_rejected_compactness", 0)
+            + di.get("inclusion_rejected_boundary", 0)
+            + di.get("inclusion_rejected_nested", 0)
+        )
+        print("[contour_detection debug]")
         if len(channels) > 1:
             print(f"  Channels                           : {', '.join(channels)}")
-            mode_suffix = f" (vote_min={vote_min})" if combine_mode == 'vote' else ""
+            mode_suffix = f" (vote_min={vote_min})" if combine_mode == "vote" else ""
             print(f"  Combine mode                       : {combine_mode}{mode_suffix}")
         print(f"  Size-filtered inclusion candidates : {di.get('total_candidates', 0)}")
         print(f"  Accepted inclusions                : {len(inclusion_contours)}")
-        print(f"  Rejected – boundary band ({di.get('edge_band_px', '?')} px)   : {di.get('inclusion_rejected_boundary', 0)}")
-        print(f"  Rejected – solidity < {di.get('solidity_threshold', 0):.2f}          : {di.get('inclusion_rejected_solidity', 0)}")
-        print(f"  Rejected – compactness < {di.get('compactness_threshold', 0):.2f}       : {di.get('inclusion_rejected_compactness', 0)}")
+        print(
+            f"  Rejected – boundary band ({di.get('edge_band_px', '?')} px)   : {di.get('inclusion_rejected_boundary', 0)}"
+        )
+        print(
+            f"  Rejected – solidity < {di.get('solidity_threshold', 0):.2f}          : {di.get('inclusion_rejected_solidity', 0)}"
+        )
+        print(
+            f"  Rejected – compactness < {di.get('compactness_threshold', 0):.2f}       : {di.get('inclusion_rejected_compactness', 0)}"
+        )
         print(f"  Rejected – nested in larger contour : {di.get('inclusion_rejected_nested', 0)}")
         print(f"  Size-filtered void candidates      : {di.get('void_candidates', '?')}")
         print(f"  Accepted voids                     : {len(void_contours)}")
         print(f"  Rejected voids – boundary band     : {di.get('void_rejected_boundary', 0)}")
-        print(f"  Rejected voids – solidity < {di.get('void_solidity_threshold', 0):.2f}   : {di.get('void_rejected_solidity', 0)}")
-        print(f"  Rejected voids – compactness < {di.get('void_compactness_threshold', 0):.2f}: {di.get('void_rejected_compactness', 0)}")
+        print(
+            f"  Rejected voids – solidity < {di.get('void_solidity_threshold', 0):.2f}   : {di.get('void_rejected_solidity', 0)}"
+        )
+        print(
+            f"  Rejected voids – compactness < {di.get('void_compactness_threshold', 0):.2f}: {di.get('void_rejected_compactness', 0)}"
+        )
         print(f"  Rejected voids – aspect ratio      : {di.get('void_rejected', 0)}")
         print(f"  Rejected voids – nested in larger  : {di.get('void_rejected_nested', 0)}")
-        if di.get('total_candidates', 0) > 0:
-            rate = total_rej / di['total_candidates'] * 100
+        if di.get("total_candidates", 0) > 0:
+            rate = total_rej / di["total_candidates"] * 100
             print(f"  Total inclusion rejection rate     : {rate:.0f}%")
 
     # GEOMETRIC ANGULARITY ANALYSIS - New Feature for Temper Analysis
@@ -3566,14 +3754,13 @@ def contour_detection(image, scan_dpi=1200, size_params=None, shape_params=None,
     else:
         geometric_analysis = analyze_inclusion_angularity([], scan_dpi)
 
-
     return {
-        'inclusions': inclusion_contours,
-        'voids': void_contours,
-        'inclusion_areas': inclusion_areas,
-        'void_areas': void_areas,
-        'total_inclusions': len(inclusion_contours),
-        'total_voids': len(void_contours),
-        'debug_info': debug_info,
-        'geometric_analysis': geometric_analysis,
+        "inclusions": inclusion_contours,
+        "voids": void_contours,
+        "inclusion_areas": inclusion_areas,
+        "void_areas": void_areas,
+        "total_inclusions": len(inclusion_contours),
+        "total_voids": len(void_contours),
+        "debug_info": debug_info,
+        "geometric_analysis": geometric_analysis,
     }

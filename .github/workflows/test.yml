@@ -1,0 +1,64 @@
+# GitHub Actions workflow: run the pytest suite on every push / PR.
+#
+# "Workflow" = a YAML file that tells GitHub what to do when something happens
+# in the repo.  This one fires on every push to main and on every pull request
+# targeting main.  GitHub spins up fresh virtual machines, installs the
+# package, and runs the tests.  Results appear as a green check or red X on
+# the commit (and block merging if you set branch protection).
+
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pytest:
+    # "matrix" runs the same job multiple times with different inputs.
+    # Here we test Python 3.10/3.11/3.12 on Ubuntu, plus a single macOS run
+    # to catch platform-specific OpenCV quirks early.  Each combination is
+    # a fresh VM — they don't share state.
+    strategy:
+      fail-fast: false   # don't cancel the others if one fails
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+        include:
+          - os: macos-latest
+            python-version: "3.12"
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package with test extras
+        # "-e" = editable install (live source); "[test]" pulls in pytest +
+        # pytest-cov from the optional-dependencies block in pyproject.toml.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]"
+
+      - name: Run pytest with coverage
+        # --cov=amfora measures which package lines the tests actually exercise.
+        # --cov-report=xml emits a file that codecov / GitHub can ingest.
+        run: |
+          pytest --cov=amfora --cov-report=xml --cov-report=term
+
+      - name: Upload coverage to Codecov
+        # Only one matrix entry should upload to avoid noise; pick the
+        # canonical Ubuntu / Python 3.12 cell.
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false   # don't fail the build if codecov is down

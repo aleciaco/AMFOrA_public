@@ -10,6 +10,7 @@ dependency in pyproject.toml.
 
 def test_package_imports():
     import amfora
+
     assert hasattr(amfora, "__version__"), "amfora.__version__ should exist"
     assert isinstance(amfora.__version__, str)
 
@@ -17,6 +18,7 @@ def test_package_imports():
 def test_top_level_api_exposed():
     """The headline functions should be reachable as `amfora.<name>` directly."""
     import amfora
+
     expected = [
         "sherd_mask",
         "apply_mask",
@@ -32,5 +34,6 @@ def test_top_level_api_exposed():
 def test_testing_module_imports():
     """The synthetic-image helper used by the test suite (and notebooks)."""
     from amfora.testing import generate_ceramic_image, generate_ceramic_image_batch
+
     assert callable(generate_ceramic_image)
     assert callable(generate_ceramic_image_batch)

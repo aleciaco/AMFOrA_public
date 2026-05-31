@@ -58,6 +58,7 @@ def _keep_largest_component(mask):
 #   rests on contour_detection's symmetric void_intensity_max brightness
 #   exclusion.
 
+
 def _blob_mask(rng, radius):
     """Round-ish inclusion: ellipse with mild axis ratio, optional rotation.
 
@@ -139,8 +140,7 @@ def _void_mask(rng, radius):
         [(xr + cx_off).astype(np.int32), (yr + cy_off).astype(np.int32)],
         axis=1,
     )
-    cv2.polylines(mask, [pts], isClosed=False, color=255,
-                  thickness=thickness, lineType=cv2.LINE_8)
+    cv2.polylines(mask, [pts], isClosed=False, color=255, thickness=thickness, lineType=cv2.LINE_8)
     return _keep_largest_component(mask)
 
 
@@ -159,7 +159,7 @@ def _void_mask(rng, radius):
 # are tightened in tandem with lower L bounds.
 _INCLUSION_PALETTES = [
     ((210, 250), (118, 135), (118, 138)),  # white shell / limestone
-    ((80, 115),  (124, 132), (124, 132)),  # dark mineral grain (basalt, sand)
+    ((80, 115), (124, 132), (124, 132)),  # dark mineral grain (basalt, sand)
     ((100, 150), (120, 134), (120, 134)),  # mid grey stone
     ((120, 170), (138, 155), (140, 155)),  # terracotta grog
     ((105, 140), (130, 140), (135, 145)),  # dark brown organics / iron-rich
@@ -176,9 +176,9 @@ _MIN_INCLUSION_BG_DELTA = 35
 # pocket of darker paste-hued pixels, not a pure-black hole, because the
 # back wall of the cavity is the same fabric color.
 _VOID_L_DROP_RANGE = (80, 160)  # L_void = L_bg - uniform(80, 160)
-_VOID_L_CAP = 35                # absolute cap (LAB scale) so BGR median <60
+_VOID_L_CAP = 35  # absolute cap (LAB scale) so BGR median <60
 _VOID_L_FLOOR = 5
-_VOID_AB_JITTER = 3             # small a/b wiggle around matrix hue
+_VOID_AB_JITTER = 3  # small a/b wiggle around matrix hue
 
 
 def _sample_inclusion_color(bg_bgr, kind, rng):
@@ -187,10 +187,13 @@ def _sample_inclusion_color(bg_bgr, kind, rng):
         bg_arr = np.array([[bg_bgr]], dtype=np.uint8)
         bg_lab = cv2.cvtColor(bg_arr, cv2.COLOR_BGR2LAB)[0, 0].astype(np.int32)
         L_bg, a_bg, b_bg = int(bg_lab[0]), int(bg_lab[1]), int(bg_lab[2])
-        L_void = max(_VOID_L_FLOOR,
-                     min(_VOID_L_CAP,
-                         L_bg - int(rng.integers(_VOID_L_DROP_RANGE[0],
-                                                 _VOID_L_DROP_RANGE[1] + 1))))
+        L_void = max(
+            _VOID_L_FLOOR,
+            min(
+                _VOID_L_CAP,
+                L_bg - int(rng.integers(_VOID_L_DROP_RANGE[0], _VOID_L_DROP_RANGE[1] + 1)),
+            ),
+        )
         a_void = int(np.clip(a_bg + rng.integers(-_VOID_AB_JITTER, _VOID_AB_JITTER + 1), 0, 255))
         b_void = int(np.clip(b_bg + rng.integers(-_VOID_AB_JITTER, _VOID_AB_JITTER + 1), 0, 255))
         lab = np.array([[[L_void, a_void, b_void]]], dtype=np.uint8)
@@ -251,8 +254,7 @@ def _partition_kinds(n_total, weights):
     return counts
 
 
-def generate_ceramic_image(image_size, n_inclusions, size_range, seed,
-                            paste_noise_std=0):
+def generate_ceramic_image(image_size, n_inclusions, size_range, seed, paste_noise_std=0):
     """Create a synthetic ceramic image with non-overlapping features.
 
     Per-image kind mix is deterministic (largest-remainder split of
@@ -347,7 +349,7 @@ def generate_ceramic_image(image_size, n_inclusions, size_range, seed,
         for _ in range(_MAX_TRIES):
             x0 = int(rng.integers(0, W - sw))
             y0 = int(rng.integers(0, H - sh))
-            region = label_mask[y0:y0 + sh, x0:x0 + sw]
+            region = label_mask[y0 : y0 + sh, x0 : x0 + sw]
             if np.any((shape > 0) & (region > 0)):
                 continue
             ys, xs = np.where(shape > 0)
@@ -355,13 +357,15 @@ def generate_ceramic_image(image_size, n_inclusions, size_range, seed,
             label_mask[y0 + ys, x0 + xs] = i
             cx = x0 + int(xs.mean())
             cy = y0 + int(ys.mean())
-            inclusions.append({
-                "id": i,
-                "kind": kind,
-                "center": (cx, cy),
-                "radius": radius,
-                "color_bgr": color,
-            })
+            inclusions.append(
+                {
+                    "id": i,
+                    "kind": kind,
+                    "center": (cx, cy),
+                    "radius": radius,
+                    "color_bgr": color,
+                }
+            )
             placed_counts[kind] += 1
             placed = True
             break
@@ -381,13 +385,15 @@ def generate_ceramic_image(image_size, n_inclusions, size_range, seed,
     return image, label_mask, metadata
 
 
-def generate_ceramic_image_batch(n_images, seeds, image_size, n_inclusions,
-                                  size_range, paste_noise_std=0):
+def generate_ceramic_image_batch(
+    n_images, seeds, image_size, n_inclusions, size_range, paste_noise_std=0
+):
     """Run ``generate_ceramic_image`` once per seed.  Requires ``len(seeds) == n_images``."""
     if len(seeds) != n_images:
         raise ValueError(f"len(seeds)={len(seeds)} does not match n_images={n_images}")
     return [
-        generate_ceramic_image(image_size, n_inclusions, size_range, s,
-                                paste_noise_std=paste_noise_std)
+        generate_ceramic_image(
+            image_size, n_inclusions, size_range, s, paste_noise_std=paste_noise_std
+        )
         for s in seeds
     ]

@@ -1,0 +1,42 @@
+# GitHub Actions workflow: enforce code style with ruff.
+#
+# Ruff is a fast Python linter + formatter.  It checks for common bugs,
+# unused imports, formatting issues, etc.  Configuration lives in
+# pyproject.toml under [tool.ruff] (set up in Phase 2).
+#
+# This workflow runs on every push / PR.  A failure here doesn't mean
+# the code is broken — it means it doesn't match the project's style
+# rules.  Fix locally with `ruff check --fix .` and `ruff format .`.
+
+name: lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install ruff
+        run: python -m pip install --upgrade pip ruff
+
+      - name: Lint with ruff (style + bugs)
+        run: ruff check .
+
+      - name: Check formatting with ruff
+        # ruff format --check returns non-zero if any file would be reformatted.
+        # Run `ruff format .` locally to auto-fix.
+        run: ruff format --check .

@@ -6,11 +6,10 @@ palettes, and interactive exploration of ceramic fabric features.
 """
 
 import cv2
-import numpy as np
 import matplotlib.pyplot as plt
-import math
+import numpy as np
 
-__all__ = ['inclusion_viewer']
+__all__ = ["inclusion_viewer"]
 
 
 def _contours_to_sq_list(contours):
@@ -33,7 +32,7 @@ def _contours_to_sq_list(contours):
     return items
 
 
-def inclusion_viewer(inclusions, img_color, method='blob'):
+def inclusion_viewer(inclusions, img_color, method="blob"):
     """
     Interactive viewer for individual inclusions with color analysis.
 
@@ -56,13 +55,20 @@ def inclusion_viewer(inclusions, img_color, method='blob'):
     None
         Displays interactive matplotlib visualization
     """
-    if method == 'contour':
+    if method == "contour":
         # Sort contours largest-first by area
         inclusions = sorted(inclusions, key=cv2.contourArea, reverse=True)
         if len(inclusions) == 0:
             print("No inclusions found to display")
             return
-        num = int(input(prompt=f"which inclusion do you want to see up close and personal 1-{len(inclusions)}?")) - 1
+        num = (
+            int(
+                input(
+                    prompt=f"which inclusion do you want to see up close and personal 1-{len(inclusions)}?"
+                )
+            )
+            - 1
+        )
         if num < 0 or num >= len(inclusions):
             print("Invalid inclusion number")
             return
@@ -71,7 +77,14 @@ def inclusion_viewer(inclusions, img_color, method='blob'):
         if len(sq_lst) == 0:
             print("No inclusions found to display")
             return
-        num = int(input(prompt=f"which inclusion do you want to see up close and personal 1-{len(sq_lst)}?")) - 1
+        num = (
+            int(
+                input(
+                    prompt=f"which inclusion do you want to see up close and personal 1-{len(sq_lst)}?"
+                )
+            )
+            - 1
+        )
         if num < 0 or num >= len(sq_lst):
             print("Invalid inclusion number")
             return
@@ -79,12 +92,12 @@ def inclusion_viewer(inclusions, img_color, method='blob'):
     h_img, w_img = img_color.shape[:2]
 
     try:
-        if method == 'contour':
+        if method == "contour":
             contour = inclusions[num]
             x, y, w, h = cv2.boundingRect(contour)
 
             # Extract pixels inside contour only
-            roi = img_color[y:y+h, x:x+w]
+            roi = img_color[y : y + h, x : x + w]
             cmask = np.zeros((h, w), dtype=np.uint8)
             shifted = contour - np.array([x, y])
             cv2.drawContours(cmask, [shifted], -1, 255, -1)
@@ -113,8 +126,9 @@ def inclusion_viewer(inclusions, img_color, method='blob'):
             pad = 250
             highlight_close = img_color.copy()
             cv2.drawContours(highlight_close, [contour], -1, (0, 255, 255), 3)
-            highlight_close = highlight_close[max(0, y-pad):min(h_img, y+h+pad),
-                                              max(0, x-pad):min(w_img, x+w+pad)]
+            highlight_close = highlight_close[
+                max(0, y - pad) : min(h_img, y + h + pad), max(0, x - pad) : min(w_img, x + w + pad)
+            ]
 
             # Cropped inclusion view: show ROI with contour overlay
             inc_display = roi.copy()
@@ -122,12 +136,14 @@ def inclusion_viewer(inclusions, img_color, method='blob'):
 
             n_total = len(inclusions)
         else:
-            inc_img = img_color[sq_lst[num][0][0][1]:sq_lst[num][0][1][1],
-                                sq_lst[num][0][0][0]:sq_lst[num][0][1][0]]
+            inc_img = img_color[
+                sq_lst[num][0][0][1] : sq_lst[num][0][1][1],
+                sq_lst[num][0][0][0] : sq_lst[num][0][1][0],
+            ]
 
             Z = inc_img.reshape((-1, 3))
             Z = np.float32(Z)
-            criteria = (cv2.TERM_CRITERIA_EPS, 10, .1)
+            criteria = (cv2.TERM_CRITERIA_EPS, 10, 0.1)
             K = 3
             ret, label, center = cv2.kmeans(Z, K, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
 
@@ -140,15 +156,20 @@ def inclusion_viewer(inclusions, img_color, method='blob'):
             Z_center = [x for _, x in sorted(zip(Y, X))]
 
             # Pull original image and highlight interesting inclusion
-            highlight = cv2.rectangle(img_color.copy(), sq_lst[num][0][0], sq_lst[num][0][1], (0, 255, 255), 7)
+            highlight = cv2.rectangle(
+                img_color.copy(), sq_lst[num][0][0], sq_lst[num][0][1], (0, 255, 255), 7
+            )
 
             # Close-up
             x1, y1 = sq_lst[num][0][0]
             x2, y2 = sq_lst[num][0][1]
             pad = 250
-            highlight_close = cv2.rectangle(img_color.copy(), sq_lst[num][0][0], sq_lst[num][0][1], (0, 255, 255), 7)
-            highlight_close = highlight_close[max(0, y1 - pad):min(h_img, y2 + pad),
-                                              max(0, x1 - pad):min(w_img, x2 + pad)]
+            highlight_close = cv2.rectangle(
+                img_color.copy(), sq_lst[num][0][0], sq_lst[num][0][1], (0, 255, 255), 7
+            )
+            highlight_close = highlight_close[
+                max(0, y1 - pad) : min(h_img, y2 + pad), max(0, x1 - pad) : min(w_img, x2 + pad)
+            ]
 
             inc_display = inc_img
             n_total = len(sq_lst)
@@ -184,25 +205,25 @@ def inclusion_viewer(inclusions, img_color, method='blob'):
         # Plot it all
         fig, ax = plt.subplots(ncols=3, nrows=2, figsize=(20, 15))
         ax[0, 0].imshow(highlight[:, :, ::-1])
-        ax[0, 0].set_title('Sherd Analysis', fontsize=15)
-        ax[0, 0].axis('off')
-        ax[0, 0].set_aspect('equal', 'box')
+        ax[0, 0].set_title("Sherd Analysis", fontsize=15)
+        ax[0, 0].axis("off")
+        ax[0, 0].set_aspect("equal", "box")
         ax[0, 1].imshow(inc_display[:, :, ::-1])
         ax[0, 2].imshow(highlight_close[:, :, ::-1])
-        ax[0, 2].set_title(f'inclusion #{num+1}/{n_total}', fontsize=15)
+        ax[0, 2].set_title(f"inclusion #{num + 1}/{n_total}", fontsize=15)
         ax[1, 0].imshow(swatch)
-        ax[1, 0].axis('on')
+        ax[1, 0].axis("on")
         ax[1, 0].get_xaxis().set_visible(False)
         ax[1, 0].get_yaxis().set_visible(False)
-        ax[1, 0].set_title(f'dominant color L*a*b*={lab_colors[0]}', fontsize=15)
+        ax[1, 0].set_title(f"dominant color L*a*b*={lab_colors[0]}", fontsize=15)
         ax[1, 1].imshow(swatch1)
         ax[1, 1].get_xaxis().set_visible(False)
         ax[1, 1].get_yaxis().set_visible(False)
-        ax[1, 1].set_title(f'secondary color L*a*b*={lab_colors[1]}', fontsize=15)
+        ax[1, 1].set_title(f"secondary color L*a*b*={lab_colors[1]}", fontsize=15)
         ax[1, 2].imshow(swatch2)
         ax[1, 2].get_xaxis().set_visible(False)
         ax[1, 2].get_yaxis().set_visible(False)
-        ax[1, 2].set_title(f'tertiary color L*a*b*={lab_colors[2]}', fontsize=15)
+        ax[1, 2].set_title(f"tertiary color L*a*b*={lab_colors[2]}", fontsize=15)
         plt.tight_layout()
         plt.show()
 

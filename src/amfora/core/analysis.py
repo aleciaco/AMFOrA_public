@@ -5,22 +5,40 @@ This module contains functions for analyzing inclusions, voids, orientations,
 and colors in ceramic sherds with enhanced accuracy and robustness.
 """
 
+import math
+from pathlib import Path
+
 import cv2
 import numpy as np
 import pandas as pd
-import math
-from pathlib import Path
 from scipy.stats import skew
-from .detection import setup_robust_blob_params, sherd_mask, full_image_mask, apply_mask, sherd_blobs, contour_detection
+
+from .detection import (
+    apply_mask,
+    contour_detection,
+    full_image_mask,
+    sherd_blobs,
+    sherd_mask,
+)
 
 __all__ = [
-    'size_count_summary_single', 'analyze_single_sherd', 'full_analysis',
-    'size_count_summary', 'void_counter', 'contour_counter',
-    'sacredsquare', 'inclusion_colors', 'inclusion_colors_from_contours',
-    'inclusion_orientation',
-    'inclusion_orientation2', 'sherd_color_analysis', 'sherd_color_summary',
-    'extract_core_periphery_colors', 'analyze_inclusion_angularity',
-    'analyze_orientation_for_pca', 'analyze_manufacturing_technique',
+    "size_count_summary_single",
+    "analyze_single_sherd",
+    "full_analysis",
+    "size_count_summary",
+    "void_counter",
+    "contour_counter",
+    "sacredsquare",
+    "inclusion_colors",
+    "inclusion_colors_from_contours",
+    "inclusion_orientation",
+    "inclusion_orientation2",
+    "sherd_color_analysis",
+    "sherd_color_summary",
+    "extract_core_periphery_colors",
+    "analyze_inclusion_angularity",
+    "analyze_orientation_for_pca",
+    "analyze_manufacturing_technique",
 ]
 
 
@@ -29,8 +47,9 @@ def _pad_crop(image_slice, crop):
     if len(crop) == 8:
         pt, pb, pl, pr = crop[4:]
         if pt or pb or pl or pr:
-            return np.pad(image_slice, ((pt, pb), (pl, pr), (0, 0)),
-                          mode='constant', constant_values=0)
+            return np.pad(
+                image_slice, ((pt, pb), (pl, pr), (0, 0)), mode="constant", constant_values=0
+            )
     return image_slice
 
 
@@ -57,18 +76,18 @@ def _interleave_method_columns(df, primary_cols):
     blob_metrics = {}
     contour_metrics = {}
     for col in present:
-        if col.startswith('blob_'):
+        if col.startswith("blob_"):
             blob_metrics[col[5:]] = col
-        elif col.startswith('contour_'):
+        elif col.startswith("contour_"):
             contour_metrics[col[8:]] = col
 
     # Unique metrics in first-seen order
     all_metrics = []
     seen = set()
     for col in present:
-        if col.startswith('blob_'):
+        if col.startswith("blob_"):
             metric = col[5:]
-        elif col.startswith('contour_'):
+        elif col.startswith("contour_"):
             metric = col[8:]
         else:
             continue
@@ -93,16 +112,16 @@ def _interleave_method_columns(df, primary_cols):
 def size_count_summary_single(blobs_light, blobs_dark, scan_dpi=1200):
     """
     Analyze size distributions for a single image's detected blobs.
-    
+
     Parameters
     ----------
     blobs_light : list
         List of light blob keypoints (inclusions)
-    blobs_dark : list  
+    blobs_dark : list
         List of dark blob keypoints (voids)
     scan_dpi : int, optional
         Scan resolution in dots per inch (default: 1200)
-        
+
     Returns
     -------
     dict
@@ -110,71 +129,112 @@ def size_count_summary_single(blobs_light, blobs_dark, scan_dpi=1200):
     """
     # Validate DPI input
     if scan_dpi < 150 or scan_dpi > 2400:
-        print(f"Warning: scan_dpi {scan_dpi} is outside recommended range (150-2400). Results may be unreliable.")
-    
+        print(
+            f"Warning: scan_dpi {scan_dpi} is outside recommended range (150-2400). Results may be unreliable."
+        )
+
     # Convert DPI to dots per centimeter
     dpcm = scan_dpi * 0.3937
-    
+
     # Calculate areas for light blobs (inclusions)
-    inclusion_areas = [np.pi * ((blob.size/2)/dpcm)**2 for blob in blobs_light]
-    
-    # Calculate areas for dark blobs (voids) 
-    void_areas = [np.pi * ((blob.size/2)/dpcm)**2 for blob in blobs_dark]
-    
+    inclusion_areas = [np.pi * ((blob.size / 2) / dpcm) ** 2 for blob in blobs_light]
+
+    # Calculate areas for dark blobs (voids)
+    void_areas = [np.pi * ((blob.size / 2) / dpcm) ** 2 for blob in blobs_dark]
+
     # Calculate comprehensive statistics
     results = {}
-    
+
     # Inclusion statistics
     if inclusion_areas:
-        results['inclusion_count'] = len(inclusion_areas)
-        results['inclusion_total_area_cm2'] = np.sum(inclusion_areas)
-        results['inclusion_mean_area_cm2'] = np.mean(inclusion_areas)
-        results['inclusion_std_area_cm2'] = np.std(inclusion_areas)
-        results['inclusion_min_area_cm2'] = np.min(inclusion_areas)
-        results['inclusion_max_area_cm2'] = np.max(inclusion_areas)
-        results['inclusion_median_area_cm2'] = np.median(inclusion_areas)
-        results['inclusion_25pct_cm2'] = np.percentile(inclusion_areas, 25)
-        results['inclusion_75pct_cm2'] = np.percentile(inclusion_areas, 75)
-        results['inclusion_skewness'] = float(skew(inclusion_areas)) if len(inclusion_areas) >= 3 else 0.0
-        results['inclusion_cv'] = float(np.std(inclusion_areas) / np.mean(inclusion_areas)) if np.mean(inclusion_areas) > 0 else 0.0
+        results["inclusion_count"] = len(inclusion_areas)
+        results["inclusion_total_area_cm2"] = np.sum(inclusion_areas)
+        results["inclusion_mean_area_cm2"] = np.mean(inclusion_areas)
+        results["inclusion_std_area_cm2"] = np.std(inclusion_areas)
+        results["inclusion_min_area_cm2"] = np.min(inclusion_areas)
+        results["inclusion_max_area_cm2"] = np.max(inclusion_areas)
+        results["inclusion_median_area_cm2"] = np.median(inclusion_areas)
+        results["inclusion_25pct_cm2"] = np.percentile(inclusion_areas, 25)
+        results["inclusion_75pct_cm2"] = np.percentile(inclusion_areas, 75)
+        results["inclusion_skewness"] = (
+            float(skew(inclusion_areas)) if len(inclusion_areas) >= 3 else 0.0
+        )
+        results["inclusion_cv"] = (
+            float(np.std(inclusion_areas) / np.mean(inclusion_areas))
+            if np.mean(inclusion_areas) > 0
+            else 0.0
+        )
     else:
-        results['inclusion_count'] = 0
-        for key in ['inclusion_total_area_cm2', 'inclusion_mean_area_cm2', 'inclusion_std_area_cm2',
-                   'inclusion_min_area_cm2', 'inclusion_max_area_cm2', 'inclusion_median_area_cm2',
-                   'inclusion_25pct_cm2', 'inclusion_75pct_cm2', 'inclusion_skewness', 'inclusion_cv']:
+        results["inclusion_count"] = 0
+        for key in [
+            "inclusion_total_area_cm2",
+            "inclusion_mean_area_cm2",
+            "inclusion_std_area_cm2",
+            "inclusion_min_area_cm2",
+            "inclusion_max_area_cm2",
+            "inclusion_median_area_cm2",
+            "inclusion_25pct_cm2",
+            "inclusion_75pct_cm2",
+            "inclusion_skewness",
+            "inclusion_cv",
+        ]:
             results[key] = 0
-    
+
     # Void statistics
     if void_areas:
-        results['void_count'] = len(void_areas)
-        results['void_total_area_cm2'] = np.sum(void_areas)
-        results['void_mean_area_cm2'] = np.mean(void_areas)
-        results['void_std_area_cm2'] = np.std(void_areas)
-        results['void_min_area_cm2'] = np.min(void_areas)
-        results['void_max_area_cm2'] = np.max(void_areas)
-        results['void_median_area_cm2'] = np.median(void_areas)
-        results['void_25pct_cm2'] = np.percentile(void_areas, 25)
-        results['void_75pct_cm2'] = np.percentile(void_areas, 75)
-        results['void_skewness'] = float(skew(void_areas)) if len(void_areas) >= 3 else 0.0
-        results['void_cv'] = float(np.std(void_areas) / np.mean(void_areas)) if np.mean(void_areas) > 0 else 0.0
+        results["void_count"] = len(void_areas)
+        results["void_total_area_cm2"] = np.sum(void_areas)
+        results["void_mean_area_cm2"] = np.mean(void_areas)
+        results["void_std_area_cm2"] = np.std(void_areas)
+        results["void_min_area_cm2"] = np.min(void_areas)
+        results["void_max_area_cm2"] = np.max(void_areas)
+        results["void_median_area_cm2"] = np.median(void_areas)
+        results["void_25pct_cm2"] = np.percentile(void_areas, 25)
+        results["void_75pct_cm2"] = np.percentile(void_areas, 75)
+        results["void_skewness"] = float(skew(void_areas)) if len(void_areas) >= 3 else 0.0
+        results["void_cv"] = (
+            float(np.std(void_areas) / np.mean(void_areas)) if np.mean(void_areas) > 0 else 0.0
+        )
     else:
-        results['void_count'] = 0
-        for key in ['void_total_area_cm2', 'void_mean_area_cm2', 'void_std_area_cm2',
-                   'void_min_area_cm2', 'void_max_area_cm2', 'void_median_area_cm2',
-                   'void_25pct_cm2', 'void_75pct_cm2', 'void_skewness', 'void_cv']:
+        results["void_count"] = 0
+        for key in [
+            "void_total_area_cm2",
+            "void_mean_area_cm2",
+            "void_std_area_cm2",
+            "void_min_area_cm2",
+            "void_max_area_cm2",
+            "void_median_area_cm2",
+            "void_25pct_cm2",
+            "void_75pct_cm2",
+            "void_skewness",
+            "void_cv",
+        ]:
             results[key] = 0
 
     return results
 
 
-def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_voids=True,
-                         analyze_core_periphery=True, use_blob=True, use_contour=True,
-                         enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
-                         channels=('B', 'G', 'R'), combine_mode='union', vote_min=2,
-                         void_intensity_max=60.0,
-                         paste_pop_k=None, paste_pop_floor=8.0,
-                         watershed_enabled=True, multigrain_split_enabled=True,
-                         pre_masked=False):
+def analyze_single_sherd(
+    image,
+    scan_dpi=1200,
+    analyze_inclusions=True,
+    analyze_voids=True,
+    analyze_core_periphery=True,
+    use_blob=True,
+    use_contour=True,
+    enhance_contrast=True,
+    clahe_clip=2.0,
+    clahe_grid=(8, 8),
+    channels=("B", "G", "R"),
+    combine_mode="union",
+    vote_min=2,
+    void_intensity_max=60.0,
+    paste_pop_k=None,
+    paste_pop_floor=8.0,
+    watershed_enabled=True,
+    multigrain_split_enabled=True,
+    pre_masked=False,
+):
     """
     Comprehensive analysis of a single ceramic sherd image.
 
@@ -359,9 +419,15 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
     reported alongside any cross-fabric comparison of inclusion
     metrics.
     """
-    from .detection import (sherd_mask, full_image_mask, apply_mask,
-                             sherd_blobs, clahe_enhance,
-                             _default_edge_band_px, _eroded_mask_area_cm2)
+    from .detection import (
+        _default_edge_band_px,
+        _eroded_mask_area_cm2,
+        apply_mask,
+        clahe_enhance,
+        full_image_mask,
+        sherd_blobs,
+        sherd_mask,
+    )
 
     results = {}
 
@@ -382,9 +448,7 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         #     requested channel — not just L* — receives contrast enhancement.
         multi_channel = len(channels) > 1
         if enhance_contrast and not multi_channel:
-            masked_image = clahe_enhance(masked_image,
-                                         clip_limit=clahe_clip,
-                                         tile_grid=clahe_grid)
+            masked_image = clahe_enhance(masked_image, clip_limit=clahe_clip, tile_grid=clahe_grid)
         detector_enhance = bool(enhance_contrast and multi_channel)
 
         # Sherd area (full mask, no edge erosion) — reported for reference.
@@ -392,7 +456,7 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         # counting — otherwise each pixel is counted once per channel (3x inflation).
         mask_2d = mask[:, :, 0] if mask.ndim == 3 else mask
         sherd_area_cm2 = np.sum(mask_2d > 0) / ((scan_dpi * 0.3937) ** 2)
-        results['sherd_area_cm2'] = sherd_area_cm2
+        results["sherd_area_cm2"] = sherd_area_cm2
 
         # Effective detection area: the sherd area minus the edge band the
         # detectors actually exclude (CLAHE tile-boundary + unmasked-overhang
@@ -401,13 +465,12 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         # full sherd area would systematically understate density because
         # the numerator can only count features inside the eroded interior.
         edge_band_px = _default_edge_band_px(mask_2d.shape, fraction=0.04)
-        effective_detection_area_cm2 = _eroded_mask_area_cm2(
-            mask, scan_dpi, edge_band_px)
-        results['effective_detection_area_cm2'] = effective_detection_area_cm2
+        effective_detection_area_cm2 = _eroded_mask_area_cm2(mask, scan_dpi, edge_band_px)
+        results["effective_detection_area_cm2"] = effective_detection_area_cm2
         # Denominator used by every density / percentage downstream.
-        denom_area = (effective_detection_area_cm2
-                      if effective_detection_area_cm2 > 0
-                      else sherd_area_cm2)
+        denom_area = (
+            effective_detection_area_cm2 if effective_detection_area_cm2 > 0 else sherd_area_cm2
+        )
 
         # BLOB DETECTION - Better for round, circular inclusions and voids
         # Good for: quartz grains, rounded temper, spherical voids
@@ -416,22 +479,26 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
             # paste_pop_k=None lets sherd_blobs use its own default (2.0);
             # an explicit override propagates to both detectors equally.
             blob_kwargs = dict(
-                masked_image=masked_image, scan_dpi=scan_dpi,
-                channels=channels, combine_mode=combine_mode, vote_min=vote_min,
+                masked_image=masked_image,
+                scan_dpi=scan_dpi,
+                channels=channels,
+                combine_mode=combine_mode,
+                vote_min=vote_min,
                 enhance_contrast=detector_enhance,
-                clahe_clip=clahe_clip, clahe_grid=clahe_grid,
+                clahe_clip=clahe_clip,
+                clahe_grid=clahe_grid,
                 void_intensity_max=void_intensity_max,
-                paste_pop_floor=paste_pop_floor)
+                paste_pop_floor=paste_pop_floor,
+            )
             if paste_pop_k is not None:
-                blob_kwargs['paste_pop_k'] = paste_pop_k
-            light_blobs, dark_blobs = sherd_blobs(
-                blob_kwargs.pop('masked_image'), **blob_kwargs)
+                blob_kwargs["paste_pop_k"] = paste_pop_k
+            light_blobs, dark_blobs = sherd_blobs(blob_kwargs.pop("masked_image"), **blob_kwargs)
 
             # Size analysis for BLOB detection
             blob_stats = size_count_summary_single(light_blobs, dark_blobs, scan_dpi)
             # Prefix all blob stats with 'blob_'
             for key, value in blob_stats.items():
-                results[f'blob_{key}'] = value
+                results[f"blob_{key}"] = value
         else:
             light_blobs, dark_blobs = [], []
 
@@ -440,26 +507,34 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         # Less good for: very small features, noisy backgrounds
         if use_contour:
             from .detection import contour_detection
+
             try:
                 contour_kwargs = dict(
-                    scan_dpi=scan_dpi, debug_mode=False,
-                    channels=channels, combine_mode=combine_mode, vote_min=vote_min,
+                    scan_dpi=scan_dpi,
+                    debug_mode=False,
+                    channels=channels,
+                    combine_mode=combine_mode,
+                    vote_min=vote_min,
                     enhance_contrast=detector_enhance,
-                    clahe_clip=clahe_clip, clahe_grid=clahe_grid,
+                    clahe_clip=clahe_clip,
+                    clahe_grid=clahe_grid,
                     void_intensity_max=void_intensity_max,
                     paste_pop_floor=paste_pop_floor,
                     watershed_enabled=watershed_enabled,
-                    multigrain_split_enabled=multigrain_split_enabled)
+                    multigrain_split_enabled=multigrain_split_enabled,
+                )
                 if paste_pop_k is not None:
-                    contour_kwargs['paste_pop_k'] = paste_pop_k
+                    contour_kwargs["paste_pop_k"] = paste_pop_k
                 contour_results = contour_detection(masked_image, **contour_kwargs)
-                contour_inclusions = contour_results.get('inclusions', [])
-                contour_voids = contour_results.get('voids', [])
+                contour_inclusions = contour_results.get("inclusions", [])
+                contour_voids = contour_results.get("voids", [])
 
                 # Convert contour data to areas (cm²)
                 dpcm = scan_dpi * 0.3937
-                contour_inclusion_areas = [cv2.contourArea(c) / (dpcm ** 2) for c in contour_inclusions]
-                contour_void_areas = [cv2.contourArea(c) / (dpcm ** 2) for c in contour_voids]
+                contour_inclusion_areas = [
+                    cv2.contourArea(c) / (dpcm**2) for c in contour_inclusions
+                ]
+                contour_void_areas = [cv2.contourArea(c) / (dpcm**2) for c in contour_voids]
 
             except Exception as e:
                 print(f"Warning: Contour detection failed: {e}")
@@ -470,54 +545,86 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
             contour_results = {}
             contour_inclusions, contour_voids = [], []
             contour_inclusion_areas, contour_void_areas = [], []
-        
+
         # Size analysis for CONTOUR detection manually since it returns areas not keypoints
         if use_contour:
             contour_stats = {}
 
             # Inclusion statistics from contours
             if contour_inclusion_areas:
-                contour_stats['inclusion_count'] = len(contour_inclusion_areas)
-                contour_stats['inclusion_total_area_cm2'] = np.sum(contour_inclusion_areas)
-                contour_stats['inclusion_mean_area_cm2'] = np.mean(contour_inclusion_areas)
-                contour_stats['inclusion_std_area_cm2'] = np.std(contour_inclusion_areas)
-                contour_stats['inclusion_min_area_cm2'] = np.min(contour_inclusion_areas)
-                contour_stats['inclusion_max_area_cm2'] = np.max(contour_inclusion_areas)
-                contour_stats['inclusion_median_area_cm2'] = np.median(contour_inclusion_areas)
-                contour_stats['inclusion_25pct_cm2'] = np.percentile(contour_inclusion_areas, 25)
-                contour_stats['inclusion_75pct_cm2'] = np.percentile(contour_inclusion_areas, 75)
-                contour_stats['inclusion_skewness'] = float(skew(contour_inclusion_areas)) if len(contour_inclusion_areas) >= 3 else 0.0
-                contour_stats['inclusion_cv'] = float(np.std(contour_inclusion_areas) / np.mean(contour_inclusion_areas)) if np.mean(contour_inclusion_areas) > 0 else 0.0
+                contour_stats["inclusion_count"] = len(contour_inclusion_areas)
+                contour_stats["inclusion_total_area_cm2"] = np.sum(contour_inclusion_areas)
+                contour_stats["inclusion_mean_area_cm2"] = np.mean(contour_inclusion_areas)
+                contour_stats["inclusion_std_area_cm2"] = np.std(contour_inclusion_areas)
+                contour_stats["inclusion_min_area_cm2"] = np.min(contour_inclusion_areas)
+                contour_stats["inclusion_max_area_cm2"] = np.max(contour_inclusion_areas)
+                contour_stats["inclusion_median_area_cm2"] = np.median(contour_inclusion_areas)
+                contour_stats["inclusion_25pct_cm2"] = np.percentile(contour_inclusion_areas, 25)
+                contour_stats["inclusion_75pct_cm2"] = np.percentile(contour_inclusion_areas, 75)
+                contour_stats["inclusion_skewness"] = (
+                    float(skew(contour_inclusion_areas))
+                    if len(contour_inclusion_areas) >= 3
+                    else 0.0
+                )
+                contour_stats["inclusion_cv"] = (
+                    float(np.std(contour_inclusion_areas) / np.mean(contour_inclusion_areas))
+                    if np.mean(contour_inclusion_areas) > 0
+                    else 0.0
+                )
             else:
-                contour_stats['inclusion_count'] = 0
-                for key in ['inclusion_total_area_cm2', 'inclusion_mean_area_cm2', 'inclusion_std_area_cm2',
-                           'inclusion_min_area_cm2', 'inclusion_max_area_cm2', 'inclusion_median_area_cm2',
-                           'inclusion_25pct_cm2', 'inclusion_75pct_cm2', 'inclusion_skewness', 'inclusion_cv']:
+                contour_stats["inclusion_count"] = 0
+                for key in [
+                    "inclusion_total_area_cm2",
+                    "inclusion_mean_area_cm2",
+                    "inclusion_std_area_cm2",
+                    "inclusion_min_area_cm2",
+                    "inclusion_max_area_cm2",
+                    "inclusion_median_area_cm2",
+                    "inclusion_25pct_cm2",
+                    "inclusion_75pct_cm2",
+                    "inclusion_skewness",
+                    "inclusion_cv",
+                ]:
                     contour_stats[key] = 0
 
             # Void statistics from contours
             if contour_void_areas:
-                contour_stats['void_count'] = len(contour_void_areas)
-                contour_stats['void_total_area_cm2'] = np.sum(contour_void_areas)
-                contour_stats['void_mean_area_cm2'] = np.mean(contour_void_areas)
-                contour_stats['void_std_area_cm2'] = np.std(contour_void_areas)
-                contour_stats['void_min_area_cm2'] = np.min(contour_void_areas)
-                contour_stats['void_max_area_cm2'] = np.max(contour_void_areas)
-                contour_stats['void_median_area_cm2'] = np.median(contour_void_areas)
-                contour_stats['void_25pct_cm2'] = np.percentile(contour_void_areas, 25)
-                contour_stats['void_75pct_cm2'] = np.percentile(contour_void_areas, 75)
-                contour_stats['void_skewness'] = float(skew(contour_void_areas)) if len(contour_void_areas) >= 3 else 0.0
-                contour_stats['void_cv'] = float(np.std(contour_void_areas) / np.mean(contour_void_areas)) if np.mean(contour_void_areas) > 0 else 0.0
+                contour_stats["void_count"] = len(contour_void_areas)
+                contour_stats["void_total_area_cm2"] = np.sum(contour_void_areas)
+                contour_stats["void_mean_area_cm2"] = np.mean(contour_void_areas)
+                contour_stats["void_std_area_cm2"] = np.std(contour_void_areas)
+                contour_stats["void_min_area_cm2"] = np.min(contour_void_areas)
+                contour_stats["void_max_area_cm2"] = np.max(contour_void_areas)
+                contour_stats["void_median_area_cm2"] = np.median(contour_void_areas)
+                contour_stats["void_25pct_cm2"] = np.percentile(contour_void_areas, 25)
+                contour_stats["void_75pct_cm2"] = np.percentile(contour_void_areas, 75)
+                contour_stats["void_skewness"] = (
+                    float(skew(contour_void_areas)) if len(contour_void_areas) >= 3 else 0.0
+                )
+                contour_stats["void_cv"] = (
+                    float(np.std(contour_void_areas) / np.mean(contour_void_areas))
+                    if np.mean(contour_void_areas) > 0
+                    else 0.0
+                )
             else:
-                contour_stats['void_count'] = 0
-                for key in ['void_total_area_cm2', 'void_mean_area_cm2', 'void_std_area_cm2',
-                           'void_min_area_cm2', 'void_max_area_cm2', 'void_median_area_cm2',
-                           'void_25pct_cm2', 'void_75pct_cm2', 'void_skewness', 'void_cv']:
+                contour_stats["void_count"] = 0
+                for key in [
+                    "void_total_area_cm2",
+                    "void_mean_area_cm2",
+                    "void_std_area_cm2",
+                    "void_min_area_cm2",
+                    "void_max_area_cm2",
+                    "void_median_area_cm2",
+                    "void_25pct_cm2",
+                    "void_75pct_cm2",
+                    "void_skewness",
+                    "void_cv",
+                ]:
                     contour_stats[key] = 0
 
             # Prefix all contour stats with 'contour_'
             for key, value in contour_stats.items():
-                results[f'contour_{key}'] = value
+                results[f"contour_{key}"] = value
 
         # Density / area-percentage calculations.  Denominator is the
         # effective detection area (sherd minus edge band) so the metrics
@@ -525,56 +632,76 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
         # the full sherd area only if edge erosion left nothing.
         if use_blob:
             if denom_area > 0:
-                results['blob_inclusion_density_per_cm2'] = results['blob_inclusion_count'] / denom_area
-                results['blob_void_density_per_cm2'] = results['blob_void_count'] / denom_area
-                results['blob_inclusion_area_percentage'] = (results['blob_inclusion_total_area_cm2'] / denom_area) * 100
-                results['blob_void_area_percentage'] = (results['blob_void_total_area_cm2'] / denom_area) * 100
+                results["blob_inclusion_density_per_cm2"] = (
+                    results["blob_inclusion_count"] / denom_area
+                )
+                results["blob_void_density_per_cm2"] = results["blob_void_count"] / denom_area
+                results["blob_inclusion_area_percentage"] = (
+                    results["blob_inclusion_total_area_cm2"] / denom_area
+                ) * 100
+                results["blob_void_area_percentage"] = (
+                    results["blob_void_total_area_cm2"] / denom_area
+                ) * 100
             else:
-                results['blob_inclusion_density_per_cm2'] = 0
-                results['blob_void_density_per_cm2'] = 0
-                results['blob_inclusion_area_percentage'] = 0
-                results['blob_void_area_percentage'] = 0
+                results["blob_inclusion_density_per_cm2"] = 0
+                results["blob_void_density_per_cm2"] = 0
+                results["blob_inclusion_area_percentage"] = 0
+                results["blob_void_area_percentage"] = 0
 
         if use_contour:
             if denom_area > 0:
-                results['contour_inclusion_density_per_cm2'] = results['contour_inclusion_count'] / denom_area
-                results['contour_void_density_per_cm2'] = results['contour_void_count'] / denom_area
-                results['contour_inclusion_area_percentage'] = (results['contour_inclusion_total_area_cm2'] / denom_area) * 100
-                results['contour_void_area_percentage'] = (results['contour_void_total_area_cm2'] / denom_area) * 100
+                results["contour_inclusion_density_per_cm2"] = (
+                    results["contour_inclusion_count"] / denom_area
+                )
+                results["contour_void_density_per_cm2"] = results["contour_void_count"] / denom_area
+                results["contour_inclusion_area_percentage"] = (
+                    results["contour_inclusion_total_area_cm2"] / denom_area
+                ) * 100
+                results["contour_void_area_percentage"] = (
+                    results["contour_void_total_area_cm2"] / denom_area
+                ) * 100
             else:
-                results['contour_inclusion_density_per_cm2'] = 0
-                results['contour_void_density_per_cm2'] = 0
-                results['contour_inclusion_area_percentage'] = 0
-                results['contour_void_area_percentage'] = 0
-        
+                results["contour_inclusion_density_per_cm2"] = 0
+                results["contour_void_density_per_cm2"] = 0
+                results["contour_inclusion_area_percentage"] = 0
+                results["contour_void_area_percentage"] = 0
+
         # Orientation analysis — contour-based (reuses pre-detected contour inclusions/voids)
         if use_contour and analyze_inclusions and contour_inclusions:
             try:
-                orientation_data = inclusion_orientation2(masked_image, scan_dpi,
-                                                         contour_result=contour_results, sherd_contour=best_contour)
+                orientation_data = inclusion_orientation2(
+                    masked_image,
+                    scan_dpi,
+                    contour_result=contour_results,
+                    sherd_contour=best_contour,
+                )
                 if orientation_data and len(orientation_data) >= 3:
                     inc_angles, void_angles, sherd_angle = orientation_data
-                    results['contour_inclusion_orientation_mean'] = np.mean(inc_angles) if inc_angles else 0
-                    results['contour_inclusion_orientation_std'] = np.std(inc_angles) if inc_angles else 0
-                    results['sherd_orientation'] = sherd_angle if sherd_angle is not None else 0
+                    results["contour_inclusion_orientation_mean"] = (
+                        np.mean(inc_angles) if inc_angles else 0
+                    )
+                    results["contour_inclusion_orientation_std"] = (
+                        np.std(inc_angles) if inc_angles else 0
+                    )
+                    results["sherd_orientation"] = sherd_angle if sherd_angle is not None else 0
                 else:
-                    results['contour_inclusion_orientation_mean'] = 0
-                    results['contour_inclusion_orientation_std'] = 0
-                    results['sherd_orientation'] = 0
+                    results["contour_inclusion_orientation_mean"] = 0
+                    results["contour_inclusion_orientation_std"] = 0
+                    results["sherd_orientation"] = 0
             except Exception as e:
                 print(f"Warning: Contour orientation analysis failed: {e}")
-                results['contour_inclusion_orientation_mean'] = 0
-                results['contour_inclusion_orientation_std'] = 0
-                results['sherd_orientation'] = 0
+                results["contour_inclusion_orientation_mean"] = 0
+                results["contour_inclusion_orientation_std"] = 0
+                results["sherd_orientation"] = 0
         elif use_contour:
             # Contour enabled but no inclusions to orient — zero-fill contour columns
-            results['contour_inclusion_orientation_mean'] = 0
-            results['contour_inclusion_orientation_std'] = 0
-            results['sherd_orientation'] = 0
+            results["contour_inclusion_orientation_mean"] = 0
+            results["contour_inclusion_orientation_std"] = 0
+            results["sherd_orientation"] = 0
         else:
             # Contour disabled — only keep the unprefixed sherd_orientation
-            results['sherd_orientation'] = 0
-        
+            results["sherd_orientation"] = 0
+
         # Blob inclusion color analysis
         if use_blob and analyze_inclusions and light_blobs:
             try:
@@ -584,171 +711,252 @@ def analyze_single_sherd(image, scan_dpi=1200, analyze_inclusions=True, analyze_
                 # Extract the dominant (first) Lab triplet from each inclusion
                 if color_data:
                     dominant_lab = np.array([inc[0] for inc in color_data], dtype=float)
-                    results['blob_inclusion_color_l_mean'] = np.mean(dominant_lab[:, 0])
-                    results['blob_inclusion_color_a_mean'] = np.mean(dominant_lab[:, 1])
-                    results['blob_inclusion_color_b_mean'] = np.mean(dominant_lab[:, 2])
-                    results['blob_inclusion_color_l_std'] = np.std(dominant_lab[:, 0])
-                    results['blob_inclusion_color_a_std'] = np.std(dominant_lab[:, 1])
-                    results['blob_inclusion_color_b_std'] = np.std(dominant_lab[:, 2])
+                    results["blob_inclusion_color_l_mean"] = np.mean(dominant_lab[:, 0])
+                    results["blob_inclusion_color_a_mean"] = np.mean(dominant_lab[:, 1])
+                    results["blob_inclusion_color_b_mean"] = np.mean(dominant_lab[:, 2])
+                    results["blob_inclusion_color_l_std"] = np.std(dominant_lab[:, 0])
+                    results["blob_inclusion_color_a_std"] = np.std(dominant_lab[:, 1])
+                    results["blob_inclusion_color_b_std"] = np.std(dominant_lab[:, 2])
                     if len(dominant_lab) > 1:
-                        dists = [np.linalg.norm(dominant_lab[i] - dominant_lab[j])
-                                 for i in range(len(dominant_lab)) for j in range(i+1, len(dominant_lab))]
-                        results['blob_inclusion_color_diversity'] = np.mean(dists)
+                        dists = [
+                            np.linalg.norm(dominant_lab[i] - dominant_lab[j])
+                            for i in range(len(dominant_lab))
+                            for j in range(i + 1, len(dominant_lab))
+                        ]
+                        results["blob_inclusion_color_diversity"] = np.mean(dists)
                     else:
-                        results['blob_inclusion_color_diversity'] = 0
+                        results["blob_inclusion_color_diversity"] = 0
                 else:
-                    for key in ['blob_inclusion_color_l_mean', 'blob_inclusion_color_a_mean', 'blob_inclusion_color_b_mean',
-                               'blob_inclusion_color_l_std', 'blob_inclusion_color_a_std', 'blob_inclusion_color_b_std',
-                               'blob_inclusion_color_diversity']:
+                    for key in [
+                        "blob_inclusion_color_l_mean",
+                        "blob_inclusion_color_a_mean",
+                        "blob_inclusion_color_b_mean",
+                        "blob_inclusion_color_l_std",
+                        "blob_inclusion_color_a_std",
+                        "blob_inclusion_color_b_std",
+                        "blob_inclusion_color_diversity",
+                    ]:
                         results[key] = 0
             except Exception as e:
                 print(f"Warning: Inclusion color analysis failed: {e}")
-                for key in ['blob_inclusion_color_l_mean', 'blob_inclusion_color_a_mean', 'blob_inclusion_color_b_mean',
-                           'blob_inclusion_color_l_std', 'blob_inclusion_color_a_std', 'blob_inclusion_color_b_std',
-                           'blob_inclusion_color_diversity']:
+                for key in [
+                    "blob_inclusion_color_l_mean",
+                    "blob_inclusion_color_a_mean",
+                    "blob_inclusion_color_b_mean",
+                    "blob_inclusion_color_l_std",
+                    "blob_inclusion_color_a_std",
+                    "blob_inclusion_color_b_std",
+                    "blob_inclusion_color_diversity",
+                ]:
                     results[key] = 0
         elif use_blob:
             # Blob enabled but no inclusions or analyze_inclusions=False — zero-fill
-            for key in ['blob_inclusion_color_l_mean', 'blob_inclusion_color_a_mean', 'blob_inclusion_color_b_mean',
-                       'blob_inclusion_color_l_std', 'blob_inclusion_color_a_std', 'blob_inclusion_color_b_std',
-                       'blob_inclusion_color_diversity']:
+            for key in [
+                "blob_inclusion_color_l_mean",
+                "blob_inclusion_color_a_mean",
+                "blob_inclusion_color_b_mean",
+                "blob_inclusion_color_l_std",
+                "blob_inclusion_color_a_std",
+                "blob_inclusion_color_b_std",
+                "blob_inclusion_color_diversity",
+            ]:
                 results[key] = 0
 
         # Contour inclusion color analysis
         if use_contour and analyze_inclusions and contour_inclusions:
             try:
-                contour_color_data = inclusion_colors_from_contours(masked_image, contour_inclusions)
+                contour_color_data = inclusion_colors_from_contours(
+                    masked_image, contour_inclusions
+                )
                 if contour_color_data:
                     dominant_lab = np.array([inc[0] for inc in contour_color_data], dtype=float)
-                    results['contour_inclusion_color_l_mean'] = np.mean(dominant_lab[:, 0])
-                    results['contour_inclusion_color_a_mean'] = np.mean(dominant_lab[:, 1])
-                    results['contour_inclusion_color_b_mean'] = np.mean(dominant_lab[:, 2])
-                    results['contour_inclusion_color_l_std'] = np.std(dominant_lab[:, 0])
-                    results['contour_inclusion_color_a_std'] = np.std(dominant_lab[:, 1])
-                    results['contour_inclusion_color_b_std'] = np.std(dominant_lab[:, 2])
+                    results["contour_inclusion_color_l_mean"] = np.mean(dominant_lab[:, 0])
+                    results["contour_inclusion_color_a_mean"] = np.mean(dominant_lab[:, 1])
+                    results["contour_inclusion_color_b_mean"] = np.mean(dominant_lab[:, 2])
+                    results["contour_inclusion_color_l_std"] = np.std(dominant_lab[:, 0])
+                    results["contour_inclusion_color_a_std"] = np.std(dominant_lab[:, 1])
+                    results["contour_inclusion_color_b_std"] = np.std(dominant_lab[:, 2])
                     if len(dominant_lab) > 1:
-                        dists = [np.linalg.norm(dominant_lab[i] - dominant_lab[j])
-                                 for i in range(len(dominant_lab)) for j in range(i+1, len(dominant_lab))]
-                        results['contour_inclusion_color_diversity'] = np.mean(dists)
+                        dists = [
+                            np.linalg.norm(dominant_lab[i] - dominant_lab[j])
+                            for i in range(len(dominant_lab))
+                            for j in range(i + 1, len(dominant_lab))
+                        ]
+                        results["contour_inclusion_color_diversity"] = np.mean(dists)
                     else:
-                        results['contour_inclusion_color_diversity'] = 0
+                        results["contour_inclusion_color_diversity"] = 0
                 else:
-                    for key in ['contour_inclusion_color_l_mean', 'contour_inclusion_color_a_mean', 'contour_inclusion_color_b_mean',
-                               'contour_inclusion_color_l_std', 'contour_inclusion_color_a_std', 'contour_inclusion_color_b_std',
-                               'contour_inclusion_color_diversity']:
+                    for key in [
+                        "contour_inclusion_color_l_mean",
+                        "contour_inclusion_color_a_mean",
+                        "contour_inclusion_color_b_mean",
+                        "contour_inclusion_color_l_std",
+                        "contour_inclusion_color_a_std",
+                        "contour_inclusion_color_b_std",
+                        "contour_inclusion_color_diversity",
+                    ]:
                         results[key] = 0
             except Exception as e:
                 print(f"Warning: Contour inclusion color analysis failed: {e}")
-                for key in ['contour_inclusion_color_l_mean', 'contour_inclusion_color_a_mean', 'contour_inclusion_color_b_mean',
-                           'contour_inclusion_color_l_std', 'contour_inclusion_color_a_std', 'contour_inclusion_color_b_std',
-                           'contour_inclusion_color_diversity']:
+                for key in [
+                    "contour_inclusion_color_l_mean",
+                    "contour_inclusion_color_a_mean",
+                    "contour_inclusion_color_b_mean",
+                    "contour_inclusion_color_l_std",
+                    "contour_inclusion_color_a_std",
+                    "contour_inclusion_color_b_std",
+                    "contour_inclusion_color_diversity",
+                ]:
                     results[key] = 0
         elif use_contour:
             # Contour enabled but no inclusions or analyze_inclusions=False — zero-fill
-            for key in ['contour_inclusion_color_l_mean', 'contour_inclusion_color_a_mean', 'contour_inclusion_color_b_mean',
-                       'contour_inclusion_color_l_std', 'contour_inclusion_color_a_std', 'contour_inclusion_color_b_std',
-                       'contour_inclusion_color_diversity']:
+            for key in [
+                "contour_inclusion_color_l_mean",
+                "contour_inclusion_color_a_mean",
+                "contour_inclusion_color_b_mean",
+                "contour_inclusion_color_l_std",
+                "contour_inclusion_color_a_std",
+                "contour_inclusion_color_b_std",
+                "contour_inclusion_color_diversity",
+            ]:
                 results[key] = 0
 
         # Sherd color analysis (CIELAB)
         try:
             sherd_color = sherd_color_analysis(image)
-            results['sherd_color_l_mean'] = sherd_color.get('mean_l', 0)
-            results['sherd_color_a_mean'] = sherd_color.get('mean_a', 128)
-            results['sherd_color_b_mean'] = sherd_color.get('mean_b', 128)
+            results["sherd_color_l_mean"] = sherd_color.get("mean_l", 0)
+            results["sherd_color_a_mean"] = sherd_color.get("mean_a", 128)
+            results["sherd_color_b_mean"] = sherd_color.get("mean_b", 128)
         except Exception as e:
             print(f"Warning: Sherd color analysis failed: {e}")
-            results['sherd_color_l_mean'] = 0
-            results['sherd_color_a_mean'] = 128
-            results['sherd_color_b_mean'] = 128
+            results["sherd_color_l_mean"] = 0
+            results["sherd_color_a_mean"] = 128
+            results["sherd_color_b_mean"] = 128
 
         # Core-periphery color analysis (firing atmosphere) - optional due to computation cost
         if analyze_core_periphery:
             try:
                 core_periph = extract_core_periphery_colors(masked_image, mask, scan_dpi)
                 # Core color
-                if core_periph['core_lab']:
-                    results['core_color_l'] = core_periph['core_lab'][0]
-                    results['core_color_a'] = core_periph['core_lab'][1]
-                    results['core_color_b'] = core_periph['core_lab'][2]
+                if core_periph["core_lab"]:
+                    results["core_color_l"] = core_periph["core_lab"][0]
+                    results["core_color_a"] = core_periph["core_lab"][1]
+                    results["core_color_b"] = core_periph["core_lab"][2]
                 else:
-                    results['core_color_l'] = 0
-                    results['core_color_a'] = 128
-                    results['core_color_b'] = 128
+                    results["core_color_l"] = 0
+                    results["core_color_a"] = 128
+                    results["core_color_b"] = 128
                 # Inner margin color
-                if core_periph['inner_margin_lab']:
-                    results['inner_margin_color_l'] = core_periph['inner_margin_lab'][0]
-                    results['inner_margin_color_a'] = core_periph['inner_margin_lab'][1]
-                    results['inner_margin_color_b'] = core_periph['inner_margin_lab'][2]
+                if core_periph["inner_margin_lab"]:
+                    results["inner_margin_color_l"] = core_periph["inner_margin_lab"][0]
+                    results["inner_margin_color_a"] = core_periph["inner_margin_lab"][1]
+                    results["inner_margin_color_b"] = core_periph["inner_margin_lab"][2]
                 else:
-                    results['inner_margin_color_l'] = 0
-                    results['inner_margin_color_a'] = 128
-                    results['inner_margin_color_b'] = 128
+                    results["inner_margin_color_l"] = 0
+                    results["inner_margin_color_a"] = 128
+                    results["inner_margin_color_b"] = 128
                 # Outer margin color
-                if core_periph['outer_margin_lab']:
-                    results['outer_margin_color_l'] = core_periph['outer_margin_lab'][0]
-                    results['outer_margin_color_a'] = core_periph['outer_margin_lab'][1]
-                    results['outer_margin_color_b'] = core_periph['outer_margin_lab'][2]
+                if core_periph["outer_margin_lab"]:
+                    results["outer_margin_color_l"] = core_periph["outer_margin_lab"][0]
+                    results["outer_margin_color_a"] = core_periph["outer_margin_lab"][1]
+                    results["outer_margin_color_b"] = core_periph["outer_margin_lab"][2]
                 else:
-                    results['outer_margin_color_l'] = 0
-                    results['outer_margin_color_a'] = 128
-                    results['outer_margin_color_b'] = 128
+                    results["outer_margin_color_l"] = 0
+                    results["outer_margin_color_a"] = 128
+                    results["outer_margin_color_b"] = 128
                 # Per-zone atmosphere classifications
-                results['core_atmosphere'] = core_periph['core_atmosphere']
-                results['inner_margin_atmosphere'] = core_periph['inner_margin_atmosphere']
-                results['outer_margin_atmosphere'] = core_periph['outer_margin_atmosphere']
+                results["core_atmosphere"] = core_periph["core_atmosphere"]
+                results["inner_margin_atmosphere"] = core_periph["inner_margin_atmosphere"]
+                results["outer_margin_atmosphere"] = core_periph["outer_margin_atmosphere"]
                 # Gradient and interpretation
-                results['core_periphery_gradient'] = core_periph['color_gradient']
-                results['firing_interpretation'] = core_periph['firing_interpretation']
-                results['margin_symmetry'] = core_periph['margin_symmetry']
+                results["core_periphery_gradient"] = core_periph["color_gradient"]
+                results["firing_interpretation"] = core_periph["firing_interpretation"]
+                results["margin_symmetry"] = core_periph["margin_symmetry"]
             except Exception as e:
                 print(f"Warning: Core-periphery color analysis failed: {e}")
-                for key in ['core_color_l', 'inner_margin_color_l', 'outer_margin_color_l']:
+                for key in ["core_color_l", "inner_margin_color_l", "outer_margin_color_l"]:
                     results[key] = 0
-                for key in ['core_color_a', 'core_color_b', 'inner_margin_color_a',
-                           'inner_margin_color_b', 'outer_margin_color_a', 'outer_margin_color_b']:
+                for key in [
+                    "core_color_a",
+                    "core_color_b",
+                    "inner_margin_color_a",
+                    "inner_margin_color_b",
+                    "outer_margin_color_a",
+                    "outer_margin_color_b",
+                ]:
                     results[key] = 128
-                results['core_atmosphere'] = 'analysis_failed'
-                results['inner_margin_atmosphere'] = 'analysis_failed'
-                results['outer_margin_atmosphere'] = 'analysis_failed'
-                results['core_periphery_gradient'] = 0
-                results['firing_interpretation'] = 'analysis_failed'
-                results['margin_symmetry'] = 'analysis_failed'
+                results["core_atmosphere"] = "analysis_failed"
+                results["inner_margin_atmosphere"] = "analysis_failed"
+                results["outer_margin_atmosphere"] = "analysis_failed"
+                results["core_periphery_gradient"] = 0
+                results["firing_interpretation"] = "analysis_failed"
+                results["margin_symmetry"] = "analysis_failed"
 
-        results['analysis_status'] = 'success'
-        
+        results["analysis_status"] = "success"
+
     except Exception as e:
         print(f"Error in sherd analysis: {e}")
-        results['analysis_status'] = f'error: {str(e)}'
+        results["analysis_status"] = f"error: {str(e)}"
         # Fill with zeros for failed analysis - only for requested methods
         methods = []
         if use_blob:
-            methods.append('blob')
+            methods.append("blob")
         if use_contour:
-            methods.append('contour')
-        for key in ['sherd_area_cm2', 'effective_detection_area_cm2'] + \
-                   [f'{method}_{feature}_{stat}' for method in methods
-                    for feature in ['inclusion', 'void']
-                    for stat in ['count', 'total_area_cm2', 'mean_area_cm2', 'std_area_cm2',
-                                'min_area_cm2', 'max_area_cm2', 'median_area_cm2']] + \
-                   ([f'contour_inclusion_orientation_{stat}'
-                    for stat in ['mean', 'std']] if use_contour else []) + \
-                   ['sherd_orientation']:
+            methods.append("contour")
+        for key in (
+            ["sherd_area_cm2", "effective_detection_area_cm2"]
+            + [
+                f"{method}_{feature}_{stat}"
+                for method in methods
+                for feature in ["inclusion", "void"]
+                for stat in [
+                    "count",
+                    "total_area_cm2",
+                    "mean_area_cm2",
+                    "std_area_cm2",
+                    "min_area_cm2",
+                    "max_area_cm2",
+                    "median_area_cm2",
+                ]
+            ]
+            + (
+                [f"contour_inclusion_orientation_{stat}" for stat in ["mean", "std"]]
+                if use_contour
+                else []
+            )
+            + ["sherd_orientation"]
+        ):
             if key not in results:
                 results[key] = 0
-    
+
     return results
 
 
-def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_voids=True,
-                  analyze_core_periphery=True, use_blob=True, use_contour=True,
-                  interleave_columns=False, file_formats=None, save_csv=True, output_filename=None,
-                  enhance_contrast=True, clahe_clip=2.0, clahe_grid=(8, 8),
-                  channels=('B', 'G', 'R'), combine_mode='union', vote_min=2,
-                  void_intensity_max=60.0,
-                  paste_pop_k=None, paste_pop_floor=8.0,
-                  watershed_enabled=True, multigrain_split_enabled=True,
-                  pre_masked=False):
+def full_analysis(
+    folder_path,
+    scan_dpi=1200,
+    analyze_inclusions=True,
+    analyze_voids=True,
+    analyze_core_periphery=True,
+    use_blob=True,
+    use_contour=True,
+    interleave_columns=False,
+    file_formats=None,
+    save_csv=True,
+    output_filename=None,
+    enhance_contrast=True,
+    clahe_clip=2.0,
+    clahe_grid=(8, 8),
+    channels=("B", "G", "R"),
+    combine_mode="union",
+    vote_min=2,
+    void_intensity_max=60.0,
+    paste_pop_k=None,
+    paste_pop_floor=8.0,
+    watershed_enabled=True,
+    multigrain_split_enabled=True,
+    pre_masked=False,
+):
     """
     Comprehensive analysis of all ceramic sherds in a directory with both blob and contour detection.
 
@@ -877,42 +1085,42 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
     bars sharing identical sand temper.
     """
     if file_formats is None:
-        file_formats = ['jpg', 'jpeg', 'png', 'bmp', 'tiff', 'tif']
-    
+        file_formats = ["jpg", "jpeg", "png", "bmp", "tiff", "tif"]
+
     # Find all image files in the directory
     folder_path = Path(folder_path)
     image_files = []
-    
+
     for ext in file_formats:
-        image_files.extend(list(folder_path.rglob(f'*.{ext}')))
-        image_files.extend(list(folder_path.rglob(f'*.{ext.upper()}')))
-    
+        image_files.extend(list(folder_path.rglob(f"*.{ext}")))
+        image_files.extend(list(folder_path.rglob(f"*.{ext.upper()}")))
+
     if not image_files:
         print(f"No image files found in {folder_path}")
         return pd.DataFrame()
-    
+
     print(f"Starting full analysis of {len(image_files)} ceramic sherds...")
     print(f"Using scan DPI: {scan_dpi}")
-    methods = [m for m, on in [('Blob', use_blob), ('Contour', use_contour)] if on]
+    methods = [m for m, on in [("Blob", use_blob), ("Contour", use_contour)] if on]
     print(f"Detection methods: {' + '.join(methods) if methods else 'None'}")
     print(f"Analyzing inclusions: {analyze_inclusions}")
     print(f"Analyzing voids: {analyze_voids}")
     print("-" * 50)
-    
+
     # Process each image
     results_list = []
     successful_count = 0
-    
+
     for i, image_path in enumerate(image_files):
-        print(f"Processing {image_path.name} ({i+1}/{len(image_files)})")
-        
+        print(f"Processing {image_path.name} ({i + 1}/{len(image_files)})")
+
         try:
             # Load image
             image = cv2.imread(str(image_path))
             if image is None:
-                print(f"  Warning: Could not load image")
+                print("  Warning: Could not load image")
                 continue
-            
+
             # Analyze sherd using comprehensive function with selected detection methods
             result = analyze_single_sherd(
                 image,
@@ -935,13 +1143,13 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
                 multigrain_split_enabled=multigrain_split_enabled,
                 pre_masked=pre_masked,
             )
-            
+
             # Add filename and path information
-            result['filename'] = image_path.name
-            result['file_path'] = str(image_path)
-            result['scan_dpi'] = scan_dpi
-            
-            if result['analysis_status'] == 'success':
+            result["filename"] = image_path.name
+            result["file_path"] = str(image_path)
+            result["scan_dpi"] = scan_dpi
+
+            if result["analysis_status"] == "success":
                 successful_count += 1
                 # Print brief summary
                 parts = []
@@ -952,30 +1160,36 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
                 print(f"  Success - {', '.join(parts)}")
             else:
                 print(f"  ❌ Failed: {result['analysis_status']}")
-            
+
             results_list.append(result)
-            
+
         except Exception as e:
             print(f"  ❌ Error: {str(e)}")
             # Add error entry
             error_result = {
-                'filename': image_path.name,
-                'file_path': str(image_path),
-                'scan_dpi': scan_dpi,
-                'analysis_status': f'error: {str(e)}'
+                "filename": image_path.name,
+                "file_path": str(image_path),
+                "scan_dpi": scan_dpi,
+                "analysis_status": f"error: {str(e)}",
             }
             results_list.append(error_result)
-    
+
     # Convert to DataFrame
     if not results_list:
         print("No results to process")
         return pd.DataFrame()
-        
+
     df = pd.DataFrame(results_list)
-    
+
     # Column ordering: always put metadata first; optionally interleave blob/contour
-    primary_cols = ['filename', 'file_path', 'scan_dpi', 'analysis_status',
-                    'sherd_area_cm2', 'effective_detection_area_cm2']
+    primary_cols = [
+        "filename",
+        "file_path",
+        "scan_dpi",
+        "analysis_status",
+        "sherd_area_cm2",
+        "effective_detection_area_cm2",
+    ]
     if interleave_columns:
         df = _interleave_method_columns(df, primary_cols)
     else:
@@ -983,32 +1197,43 @@ def full_analysis(folder_path, scan_dpi=1200, analyze_inclusions=True, analyze_v
 
     # Print summary
     print("-" * 50)
-    print(f"Full Analysis Complete!")
+    print("Full Analysis Complete!")
     print(f"Total sherds processed: {len(df)}")
     print(f"Successful analyses: {successful_count}")
     print(f"Failed analyses: {len(df) - successful_count}")
 
     if successful_count > 0:
-        success_df = df[df['analysis_status'] == 'success']
+        success_df = df[df["analysis_status"] == "success"]
         if use_blob:
-            print(f"Average inclusions (blob method): {success_df['blob_inclusion_count'].mean():.1f}")
+            print(
+                f"Average inclusions (blob method): {success_df['blob_inclusion_count'].mean():.1f}"
+            )
         if use_contour:
-            print(f"Average inclusions (contour method): {success_df['contour_inclusion_count'].mean():.1f}")
-    
+            print(
+                f"Average inclusions (contour method): {success_df['contour_inclusion_count'].mean():.1f}"
+            )
+
     # Save CSV if requested
     if save_csv:
         if output_filename is None:
             output_filename = f"amacfa_full_analysis_{folder_path.name}_{scan_dpi}dpi.csv"
-        
+
         output_path = folder_path / output_filename
         df.to_csv(output_path, index=False)
         print(f"💾 Results saved to: {output_path}")
-    
+
     return df
 
 
-def size_count_summary(folder_path, fileformat='jpeg', scan_dpi=1200, use_blob=True, use_contour=True,
-                       interleave_columns=False, pre_masked=False):
+def size_count_summary(
+    folder_path,
+    fileformat="jpeg",
+    scan_dpi=1200,
+    use_blob=True,
+    use_contour=True,
+    interleave_columns=False,
+    pre_masked=False,
+):
     """
     Analysis of inclusions and voids using blob and/or contour detection.
 
@@ -1039,13 +1264,13 @@ def size_count_summary(folder_path, fileformat='jpeg', scan_dpi=1200, use_blob=T
         All area measurements are in cm². Column names are prefixed with
         'blob_' or 'contour_' to indicate detection method.
     """
-    from .detection import sherd_mask, full_image_mask, apply_mask, sherd_blobs, contour_detection
+    from .detection import apply_mask, contour_detection, full_image_mask, sherd_blobs, sherd_mask
 
     if scan_dpi < 150 or scan_dpi > 2400:
         print(f"Warning: scan_dpi {scan_dpi} is outside recommended range (150-2400).")
 
     dpcm = scan_dpi * 0.3937
-    path_strs = [str(path) for path in Path(folder_path).rglob(f'*.{fileformat}')]
+    path_strs = [str(path) for path in Path(folder_path).rglob(f"*.{fileformat}")]
 
     results_list = []
 
@@ -1055,8 +1280,8 @@ def size_count_summary(folder_path, fileformat='jpeg', scan_dpi=1200, use_blob=T
             print(f"Warning: Could not load image {path}")
             continue
 
-        name = path.rsplit(sep='/')[-1]
-        row = {'Name': name}
+        name = path.rsplit(sep="/")[-1]
+        row = {"Name": name}
 
         # Mask the sherd (auto-cropped)
         try:
@@ -1069,18 +1294,18 @@ def size_count_summary(folder_path, fileformat='jpeg', scan_dpi=1200, use_blob=T
             # mask is 3-channel by default; collapse to 2D so we don't count
             # each sherd pixel three times.
             mask_2d = mask[:, :, 0] if mask.ndim == 3 else mask
-            sherd_area_cm2 = np.sum(mask_2d > 0) / (dpcm ** 2)
-            row['sherd_area_cm2'] = sherd_area_cm2
+            sherd_area_cm2 = np.sum(mask_2d > 0) / (dpcm**2)
+            row["sherd_area_cm2"] = sherd_area_cm2
             # Match analyze_single_sherd: divide densities by the area the
             # detectors actually search (sherd minus edge band).
             from .detection import _default_edge_band_px, _eroded_mask_area_cm2
+
             edge_band_px = _default_edge_band_px(mask_2d.shape, fraction=0.04)
-            effective_detection_area_cm2 = _eroded_mask_area_cm2(
-                mask, scan_dpi, edge_band_px)
-            row['effective_detection_area_cm2'] = effective_detection_area_cm2
-            denom_area = (effective_detection_area_cm2
-                          if effective_detection_area_cm2 > 0
-                          else sherd_area_cm2)
+            effective_detection_area_cm2 = _eroded_mask_area_cm2(mask, scan_dpi, edge_band_px)
+            row["effective_detection_area_cm2"] = effective_detection_area_cm2
+            denom_area = (
+                effective_detection_area_cm2 if effective_detection_area_cm2 > 0 else sherd_area_cm2
+            )
         except Exception as e:
             print(f"Warning: Could not mask {name}: {e}")
             continue
@@ -1092,51 +1317,63 @@ def size_count_summary(folder_path, fileformat='jpeg', scan_dpi=1200, use_blob=T
 
                 # Inclusion (light blob) stats
                 inc_areas = [np.pi * ((b.size / 2) / dpcm) ** 2 for b in blobs_light]
-                row['blob_inclusion_count'] = len(inc_areas)
+                row["blob_inclusion_count"] = len(inc_areas)
                 if inc_areas:
-                    row['blob_inclusion_max_area_cm2'] = np.max(inc_areas)
-                    row['blob_inclusion_mean_area_cm2'] = np.mean(inc_areas)
-                    row['blob_inclusion_min_area_cm2'] = np.min(inc_areas)
-                    row['blob_inclusion_std_area_cm2'] = np.std(inc_areas)
-                    row['blob_inclusion_median_area_cm2'] = np.median(inc_areas)
-                    row['blob_inclusion_25pct_cm2'] = np.percentile(inc_areas, 25)
-                    row['blob_inclusion_75pct_cm2'] = np.percentile(inc_areas, 75)
-                    row['blob_inclusion_total_area_cm2'] = np.sum(inc_areas)
-                    row['blob_inclusion_skewness'] = float(skew(inc_areas)) if len(inc_areas) >= 3 else 0.0
-                    row['blob_inclusion_cv'] = float(np.std(inc_areas) / np.mean(inc_areas)) if np.mean(inc_areas) > 0 else 0.0
+                    row["blob_inclusion_max_area_cm2"] = np.max(inc_areas)
+                    row["blob_inclusion_mean_area_cm2"] = np.mean(inc_areas)
+                    row["blob_inclusion_min_area_cm2"] = np.min(inc_areas)
+                    row["blob_inclusion_std_area_cm2"] = np.std(inc_areas)
+                    row["blob_inclusion_median_area_cm2"] = np.median(inc_areas)
+                    row["blob_inclusion_25pct_cm2"] = np.percentile(inc_areas, 25)
+                    row["blob_inclusion_75pct_cm2"] = np.percentile(inc_areas, 75)
+                    row["blob_inclusion_total_area_cm2"] = np.sum(inc_areas)
+                    row["blob_inclusion_skewness"] = (
+                        float(skew(inc_areas)) if len(inc_areas) >= 3 else 0.0
+                    )
+                    row["blob_inclusion_cv"] = (
+                        float(np.std(inc_areas) / np.mean(inc_areas))
+                        if np.mean(inc_areas) > 0
+                        else 0.0
+                    )
                 else:
-                    for k in ['max', 'mean', 'min', 'std', 'median', '25pct', '75pct', 'total']:
-                        row[f'blob_inclusion_{k}_area_cm2'] = 0
-                    row['blob_inclusion_skewness'] = 0
-                    row['blob_inclusion_cv'] = 0
+                    for k in ["max", "mean", "min", "std", "median", "25pct", "75pct", "total"]:
+                        row[f"blob_inclusion_{k}_area_cm2"] = 0
+                    row["blob_inclusion_skewness"] = 0
+                    row["blob_inclusion_cv"] = 0
 
                 # Void (dark blob) stats
                 void_areas = [np.pi * ((b.size / 2) / dpcm) ** 2 for b in blobs_dark]
-                row['blob_void_count'] = len(void_areas)
+                row["blob_void_count"] = len(void_areas)
                 if void_areas:
-                    row['blob_void_max_area_cm2'] = np.max(void_areas)
-                    row['blob_void_mean_area_cm2'] = np.mean(void_areas)
-                    row['blob_void_min_area_cm2'] = np.min(void_areas)
-                    row['blob_void_std_area_cm2'] = np.std(void_areas)
-                    row['blob_void_median_area_cm2'] = np.median(void_areas)
-                    row['blob_void_25pct_cm2'] = np.percentile(void_areas, 25)
-                    row['blob_void_75pct_cm2'] = np.percentile(void_areas, 75)
-                    row['blob_void_total_area_cm2'] = np.sum(void_areas)
-                    row['blob_void_skewness'] = float(skew(void_areas)) if len(void_areas) >= 3 else 0.0
-                    row['blob_void_cv'] = float(np.std(void_areas) / np.mean(void_areas)) if np.mean(void_areas) > 0 else 0.0
+                    row["blob_void_max_area_cm2"] = np.max(void_areas)
+                    row["blob_void_mean_area_cm2"] = np.mean(void_areas)
+                    row["blob_void_min_area_cm2"] = np.min(void_areas)
+                    row["blob_void_std_area_cm2"] = np.std(void_areas)
+                    row["blob_void_median_area_cm2"] = np.median(void_areas)
+                    row["blob_void_25pct_cm2"] = np.percentile(void_areas, 25)
+                    row["blob_void_75pct_cm2"] = np.percentile(void_areas, 75)
+                    row["blob_void_total_area_cm2"] = np.sum(void_areas)
+                    row["blob_void_skewness"] = (
+                        float(skew(void_areas)) if len(void_areas) >= 3 else 0.0
+                    )
+                    row["blob_void_cv"] = (
+                        float(np.std(void_areas) / np.mean(void_areas))
+                        if np.mean(void_areas) > 0
+                        else 0.0
+                    )
                 else:
-                    for k in ['max', 'mean', 'min', 'std', 'median', '25pct', '75pct', 'total']:
-                        row[f'blob_void_{k}_area_cm2'] = 0
-                    row['blob_void_skewness'] = 0
-                    row['blob_void_cv'] = 0
+                    for k in ["max", "mean", "min", "std", "median", "25pct", "75pct", "total"]:
+                        row[f"blob_void_{k}_area_cm2"] = 0
+                    row["blob_void_skewness"] = 0
+                    row["blob_void_cv"] = 0
 
                 # Density
                 if denom_area > 0:
-                    row['blob_inclusion_density_per_cm2'] = row['blob_inclusion_count'] / denom_area
-                    row['blob_void_density_per_cm2'] = row['blob_void_count'] / denom_area
+                    row["blob_inclusion_density_per_cm2"] = row["blob_inclusion_count"] / denom_area
+                    row["blob_void_density_per_cm2"] = row["blob_void_count"] / denom_area
                 else:
-                    row['blob_inclusion_density_per_cm2'] = 0
-                    row['blob_void_density_per_cm2'] = 0
+                    row["blob_inclusion_density_per_cm2"] = 0
+                    row["blob_void_density_per_cm2"] = 0
 
             except Exception as e:
                 print(f"Warning: Blob detection failed for {name}: {e}")
@@ -1145,56 +1382,70 @@ def size_count_summary(folder_path, fileformat='jpeg', scan_dpi=1200, use_blob=T
         if use_contour:
             try:
                 contour_results = contour_detection(masked_im, scan_dpi=scan_dpi, debug_mode=False)
-                inc_contours = contour_results.get('inclusions', [])
-                void_contours = contour_results.get('voids', [])
+                inc_contours = contour_results.get("inclusions", [])
+                void_contours = contour_results.get("voids", [])
 
                 # Inclusion stats from contours
-                inc_areas = [cv2.contourArea(c) / (dpcm ** 2) for c in inc_contours]
-                row['contour_inclusion_count'] = len(inc_areas)
+                inc_areas = [cv2.contourArea(c) / (dpcm**2) for c in inc_contours]
+                row["contour_inclusion_count"] = len(inc_areas)
                 if inc_areas:
-                    row['contour_inclusion_max_area_cm2'] = np.max(inc_areas)
-                    row['contour_inclusion_mean_area_cm2'] = np.mean(inc_areas)
-                    row['contour_inclusion_min_area_cm2'] = np.min(inc_areas)
-                    row['contour_inclusion_std_area_cm2'] = np.std(inc_areas)
-                    row['contour_inclusion_median_area_cm2'] = np.median(inc_areas)
-                    row['contour_inclusion_25pct_cm2'] = np.percentile(inc_areas, 25)
-                    row['contour_inclusion_75pct_cm2'] = np.percentile(inc_areas, 75)
-                    row['contour_inclusion_total_area_cm2'] = np.sum(inc_areas)
-                    row['contour_inclusion_skewness'] = float(skew(inc_areas)) if len(inc_areas) >= 3 else 0.0
-                    row['contour_inclusion_cv'] = float(np.std(inc_areas) / np.mean(inc_areas)) if np.mean(inc_areas) > 0 else 0.0
+                    row["contour_inclusion_max_area_cm2"] = np.max(inc_areas)
+                    row["contour_inclusion_mean_area_cm2"] = np.mean(inc_areas)
+                    row["contour_inclusion_min_area_cm2"] = np.min(inc_areas)
+                    row["contour_inclusion_std_area_cm2"] = np.std(inc_areas)
+                    row["contour_inclusion_median_area_cm2"] = np.median(inc_areas)
+                    row["contour_inclusion_25pct_cm2"] = np.percentile(inc_areas, 25)
+                    row["contour_inclusion_75pct_cm2"] = np.percentile(inc_areas, 75)
+                    row["contour_inclusion_total_area_cm2"] = np.sum(inc_areas)
+                    row["contour_inclusion_skewness"] = (
+                        float(skew(inc_areas)) if len(inc_areas) >= 3 else 0.0
+                    )
+                    row["contour_inclusion_cv"] = (
+                        float(np.std(inc_areas) / np.mean(inc_areas))
+                        if np.mean(inc_areas) > 0
+                        else 0.0
+                    )
                 else:
-                    for k in ['max', 'mean', 'min', 'std', 'median', '25pct', '75pct', 'total']:
-                        row[f'contour_inclusion_{k}_area_cm2'] = 0
-                    row['contour_inclusion_skewness'] = 0
-                    row['contour_inclusion_cv'] = 0
+                    for k in ["max", "mean", "min", "std", "median", "25pct", "75pct", "total"]:
+                        row[f"contour_inclusion_{k}_area_cm2"] = 0
+                    row["contour_inclusion_skewness"] = 0
+                    row["contour_inclusion_cv"] = 0
 
                 # Void stats from contours
-                void_areas = [cv2.contourArea(c) / (dpcm ** 2) for c in void_contours]
-                row['contour_void_count'] = len(void_areas)
+                void_areas = [cv2.contourArea(c) / (dpcm**2) for c in void_contours]
+                row["contour_void_count"] = len(void_areas)
                 if void_areas:
-                    row['contour_void_max_area_cm2'] = np.max(void_areas)
-                    row['contour_void_mean_area_cm2'] = np.mean(void_areas)
-                    row['contour_void_min_area_cm2'] = np.min(void_areas)
-                    row['contour_void_std_area_cm2'] = np.std(void_areas)
-                    row['contour_void_median_area_cm2'] = np.median(void_areas)
-                    row['contour_void_25pct_cm2'] = np.percentile(void_areas, 25)
-                    row['contour_void_75pct_cm2'] = np.percentile(void_areas, 75)
-                    row['contour_void_total_area_cm2'] = np.sum(void_areas)
-                    row['contour_void_skewness'] = float(skew(void_areas)) if len(void_areas) >= 3 else 0.0
-                    row['contour_void_cv'] = float(np.std(void_areas) / np.mean(void_areas)) if np.mean(void_areas) > 0 else 0.0
+                    row["contour_void_max_area_cm2"] = np.max(void_areas)
+                    row["contour_void_mean_area_cm2"] = np.mean(void_areas)
+                    row["contour_void_min_area_cm2"] = np.min(void_areas)
+                    row["contour_void_std_area_cm2"] = np.std(void_areas)
+                    row["contour_void_median_area_cm2"] = np.median(void_areas)
+                    row["contour_void_25pct_cm2"] = np.percentile(void_areas, 25)
+                    row["contour_void_75pct_cm2"] = np.percentile(void_areas, 75)
+                    row["contour_void_total_area_cm2"] = np.sum(void_areas)
+                    row["contour_void_skewness"] = (
+                        float(skew(void_areas)) if len(void_areas) >= 3 else 0.0
+                    )
+                    row["contour_void_cv"] = (
+                        float(np.std(void_areas) / np.mean(void_areas))
+                        if np.mean(void_areas) > 0
+                        else 0.0
+                    )
                 else:
-                    for k in ['max', 'mean', 'min', 'std', 'median', '25pct', '75pct', 'total']:
-                        row[f'contour_void_{k}_area_cm2'] = 0
-                    row['contour_void_skewness'] = 0
-                    row['contour_void_cv'] = 0
+                    for k in ["max", "mean", "min", "std", "median", "25pct", "75pct", "total"]:
+                        row[f"contour_void_{k}_area_cm2"] = 0
+                    row["contour_void_skewness"] = 0
+                    row["contour_void_cv"] = 0
 
                 # Density
                 if denom_area > 0:
-                    row['contour_inclusion_density_per_cm2'] = row['contour_inclusion_count'] / denom_area
-                    row['contour_void_density_per_cm2'] = row['contour_void_count'] / denom_area
+                    row["contour_inclusion_density_per_cm2"] = (
+                        row["contour_inclusion_count"] / denom_area
+                    )
+                    row["contour_void_density_per_cm2"] = row["contour_void_count"] / denom_area
                 else:
-                    row['contour_inclusion_density_per_cm2'] = 0
-                    row['contour_void_density_per_cm2'] = 0
+                    row["contour_inclusion_density_per_cm2"] = 0
+                    row["contour_void_density_per_cm2"] = 0
 
             except Exception as e:
                 print(f"Warning: Contour detection failed for {name}: {e}")
@@ -1203,7 +1454,7 @@ def size_count_summary(folder_path, fileformat='jpeg', scan_dpi=1200, use_blob=T
 
     data = pd.DataFrame(results_list)
     if not data.empty:
-        primary_cols = ['Name', 'sherd_area_cm2']
+        primary_cols = ["Name", "sherd_area_cm2"]
         if interleave_columns:
             data = _interleave_method_columns(data, primary_cols)
         else:
@@ -1214,7 +1465,7 @@ def size_count_summary(folder_path, fileformat='jpeg', scan_dpi=1200, use_blob=T
 def void_counter(image, scan_dpi=1200):
     """
     Calculate the number and area of void spaces within a ceramic sherd.
-    
+
     Parameters
     ----------
     image : numpy.ndarray
@@ -1222,7 +1473,7 @@ def void_counter(image, scan_dpi=1200):
     scan_dpi : int, optional
         Scan resolution in dots per inch (default: 1200)
         Valid range: 150-2400 DPI
-        
+
     Returns
     -------
     tuple
@@ -1230,44 +1481,46 @@ def void_counter(image, scan_dpi=1200):
     """
     # Validate DPI input
     if scan_dpi < 150 or scan_dpi > 2400:
-        print(f"Warning: scan_dpi {scan_dpi} is outside recommended range (150-2400). Results may be unreliable.")
-    
+        print(
+            f"Warning: scan_dpi {scan_dpi} is outside recommended range (150-2400). Results may be unreliable."
+        )
+
     # Convert DPI to dots per centimeter
     dpcm = scan_dpi * 0.3937
-    
+
     areas = []
     # Convert to L* channel (CIELAB lightness)
     bw = cv2.cvtColor(image, cv2.COLOR_BGR2Lab)[:, :, 0]
 
     # Convert image to binary
-    _, binary_img = cv2.threshold(bw, 0, 255, cv2.THRESH_BINARY|cv2.THRESH_OTSU)
+    _, binary_img = cv2.threshold(bw, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
 
     # Find all the contours in the thresholded image
-    contours_inc , _ = cv2.findContours(binary_img, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    contours_inc, _ = cv2.findContours(binary_img, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
     for i, c in enumerate(contours_inc):
-      # Calculate the area of each contour in pixels
+        # Calculate the area of each contour in pixels
         area_pixels = cv2.contourArea(c)
 
-      # Ignore contours that are too small or too large
+        # Ignore contours that are too small or too large
         # Convert pixel thresholds to be DPI-aware
         min_area_pixels = int((0.01 * dpcm) ** 2)  # ~0.01cm² minimum
-        max_area_pixels = int((10.0 * dpcm) ** 2)   # ~10cm² maximum
-        
+        max_area_pixels = int((10.0 * dpcm) ** 2)  # ~10cm² maximum
+
         if area_pixels < min_area_pixels or area_pixels > max_area_pixels:
             continue
-            
+
         # Convert area from pixels² to cm²
         area_cm2 = area_pixels / (dpcm**2)
         areas.append(area_cm2)
-        
+
     return areas, len(areas)
 
 
 def contour_counter(image, scan_dpi=1200):
     """
     Calculate the number and area of contours within a ceramic sherd.
-    
+
     Parameters
     ----------
     image : numpy.ndarray
@@ -1275,7 +1528,7 @@ def contour_counter(image, scan_dpi=1200):
     scan_dpi : int, optional
         Scan resolution in dots per inch (default: 1200)
         Valid range: 150-2400 DPI
-        
+
     Returns
     -------
     tuple
@@ -1283,11 +1536,13 @@ def contour_counter(image, scan_dpi=1200):
     """
     # Validate DPI input
     if scan_dpi < 150 or scan_dpi > 2400:
-        print(f"Warning: scan_dpi {scan_dpi} is outside recommended range (150-2400). Results may be unreliable.")
-    
+        print(
+            f"Warning: scan_dpi {scan_dpi} is outside recommended range (150-2400). Results may be unreliable."
+        )
+
     # Convert DPI to dots per centimeter
     dpcm = scan_dpi * 0.3937
-    
+
     areas = []
     # Convert to L* channel (CIELAB lightness)
     bw = cv2.cvtColor(image, cv2.COLOR_BGR2Lab)[:, :, 0]
@@ -1296,58 +1551,59 @@ def contour_counter(image, scan_dpi=1200):
     _, binary_img = cv2.threshold(bw, 125, 255, cv2.THRESH_BINARY)
 
     # Find all the contours in the thresholded image
-    contours_inc , _ = cv2.findContours(binary_img, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    contours_inc, _ = cv2.findContours(binary_img, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
     for i, c in enumerate(contours_inc):
-      # Calculate the area of each contour in pixels
+        # Calculate the area of each contour in pixels
         area_pixels = cv2.contourArea(c)
 
-      # Ignore contours that are too small or too large
+        # Ignore contours that are too small or too large
         # Convert pixel thresholds to be DPI-aware
         min_area_pixels = int((0.01 * dpcm) ** 2)  # ~0.01cm² minimum
-        max_area_pixels = int((10.0 * dpcm) ** 2)   # ~10cm² maximum
-        
+        max_area_pixels = int((10.0 * dpcm) ** 2)  # ~10cm² maximum
+
         if area_pixels < min_area_pixels or area_pixels > max_area_pixels:
             continue
-            
+
         # Convert area from pixels² to cm²
         area_cm2 = area_pixels / (dpcm**2)
         areas.append(area_cm2)
-        
+
     return areas, len(areas)
+
 
 def sacredsquare(og_img, blobs):
     """
     Extract squares representing inclusions using blob detection results.
-    
+
     Parameters
     ----------
     og_img : numpy.ndarray
         Original image from which blobs were detected
     blobs : list
         Blob KeyPoint objects from blob detection
-        
+
     Returns
     -------
     tuple
-        (sorted list of [(left_vertex, right_vertex), size], 
+        (sorted list of [(left_vertex, right_vertex), size],
          image with squares drawn over blobs)
     """
     lst = []
     im = og_img.copy()
-    
+
     for b in blobs:
-        c = b.pt #center
-        d = b.size #diameter
-        l = math.sqrt(((((d)**2))/2))
-        v1 = (int(c[0]-.5*l), int(c[1]-.5*l)) #figure out the vertices
-        v2 = (int(c[0]+.5*l), int(c[1]+.5*l))
-        lst.append([(v1,v2), d])
-        
+        c = b.pt  # center
+        d = b.size  # diameter
+        l = math.sqrt(((d) ** 2) / 2)
+        v1 = (int(c[0] - 0.5 * l), int(c[1] - 0.5 * l))  # figure out the vertices
+        v2 = (int(c[0] + 0.5 * l), int(c[1] + 0.5 * l))
+        lst.append([(v1, v2), d])
+
     for i in lst:
         cv2.rectangle(im, i[0][0], i[0][1], (0, 255, 255), 3)
 
-    lst.sort(key = lambda x : x[1], reverse=True)
+    lst.sort(key=lambda x: x[1], reverse=True)
     return lst, im
 
 
@@ -1374,7 +1630,7 @@ def inclusion_colors(image, inclusion_list):
     for i in inclusion_list:
         # Extract inclusion region
         try:
-            inc_img = image[i[0][0][1]:i[0][1][1], i[0][0][0]:i[0][1][0]]
+            inc_img = image[i[0][0][1] : i[0][1][1], i[0][0][0] : i[0][1][0]]
 
             if inc_img.size == 0:
                 lab_lst.append([[0, 128, 128], [0, 128, 128], [0, 128, 128]])
@@ -1416,6 +1672,7 @@ def inclusion_colors(image, inclusion_list):
 
     return lab_lst
 
+
 def inclusion_colors_from_contours(image, contours):
     """
     Extract color information for contour-detected inclusions using contour masks.
@@ -1446,7 +1703,7 @@ def inclusion_colors_from_contours(image, contours):
                 continue
 
             # Crop to bounding box for efficiency
-            roi = image[y:y+h, x:x+w]
+            roi = image[y : y + h, x : x + w]
 
             # Create contour mask in ROI coordinates
             mask = np.zeros((h, w), dtype=np.uint8)
@@ -1524,40 +1781,45 @@ def inclusion_orientation(image, scan_dpi, contour_result=None):
 
     if contour_result is not None:
         # Use the already-detected, shape-filtered contours from contour_detection()
-        inc_contours  = contour_result['inclusions']
-        void_contours = contour_result['voids']
+        inc_contours = contour_result["inclusions"]
+        void_contours = contour_result["voids"]
     else:
         # Fallback: re-detect from the image directly
         bw = cv2.cvtColor(image, cv2.COLOR_BGR2Lab)[:, :, 0]  # L* channel
-        _, binary_inc  = cv2.threshold(bw, 125, 255, cv2.THRESH_BINARY)
-        _, binary_void = cv2.threshold(bw, 0,   255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-        raw_inc,  _ = cv2.findContours(binary_inc,  cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+        _, binary_inc = cv2.threshold(bw, 125, 255, cv2.THRESH_BINARY)
+        _, binary_void = cv2.threshold(bw, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        raw_inc, _ = cv2.findContours(binary_inc, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
         raw_void, _ = cv2.findContours(binary_void, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
         pixels_per_mm = scan_dpi / 25.4
-        min_area = int((0.1  * pixels_per_mm) ** 2)
+        min_area = int((0.1 * pixels_per_mm) ** 2)
         max_area = int((25.0 * pixels_per_mm) ** 2)
 
         all_raw = list(raw_inc) + list(raw_void)
         if all_raw:
-            min_sherd_size = cv2.contourArea(
-                max(all_raw, key=cv2.contourArea)) * 0.8
+            min_sherd_size = cv2.contourArea(max(all_raw, key=cv2.contourArea)) * 0.8
         else:
-            min_sherd_size = float('inf')
+            min_sherd_size = float("inf")
 
-        inc_contours  = [c for c in raw_inc  if min_area < cv2.contourArea(c) < max_area
-                         and cv2.contourArea(c) < min_sherd_size]
-        void_contours = [c for c in raw_void if min_area < cv2.contourArea(c) < max_area
-                         and cv2.contourArea(c) < min_sherd_size]
+        inc_contours = [
+            c
+            for c in raw_inc
+            if min_area < cv2.contourArea(c) < max_area and cv2.contourArea(c) < min_sherd_size
+        ]
+        void_contours = [
+            c
+            for c in raw_void
+            if min_area < cv2.contourArea(c) < max_area and cv2.contourArea(c) < min_sherd_size
+        ]
 
     def _angle_from_rect(contour):
         rect = cv2.minAreaRect(contour)
-        w, h  = int(rect[1][0]), int(rect[1][1])
+        w, h = int(rect[1][0]), int(rect[1][1])
         angle = int(rect[2])
         return (90 - angle) if w < h else -angle
 
     inclusion_angles = [_angle_from_rect(c) for c in inc_contours]
-    void_angles      = [_angle_from_rect(c) for c in void_contours]
+    void_angles = [_angle_from_rect(c) for c in void_contours]
 
     return inclusion_angles, void_angles
 
@@ -1573,7 +1835,7 @@ def _long_axis_angle(rect):
       - If w <  h the height is the long side → long axis at theta + 90°
     Result is normalised to [0°, 180°) so that 0° = horizontal, 90° = vertical.
     """
-    w, h  = rect[1][0], rect[1][1]
+    w, h = rect[1][0], rect[1][1]
     center = rect[0]
     theta = rect[2]
     # Determine the angle of the long axis
@@ -1621,7 +1883,7 @@ def inclusion_orientation2(image, scan_dpi, contour_result=None, sherd_contour=N
         the sherd angle itself.
     """
     inclusion_angles = []
-    void_angles      = []
+    void_angles = []
 
     # --- Sherd principal axis ---------------------------------------------------
     # Prefer the exact contour that sherd_mask() used (passed in as sherd_contour)
@@ -1632,47 +1894,51 @@ def inclusion_orientation2(image, scan_dpi, contour_result=None, sherd_contour=N
     impangle = 0.0
 
     if sherd_contour is not None:
-        rect     = cv2.minAreaRect(sherd_contour)
-        _ , _,impangle = _long_axis_angle(rect)
+        rect = cv2.minAreaRect(sherd_contour)
+        _, _, impangle = _long_axis_angle(rect)
     else:
         # Fallback: re-derive sherd outline by thresholding the masked image.
         # Threshold at 1 so the full sherd silhouette is captured (background = 0
         # exactly; any pixel > 0 belongs to the sherd).
         bw = cv2.cvtColor(image, cv2.COLOR_BGR2Lab)[:, :, 0]  # L* channel
         _, binary_sherd = cv2.threshold(bw, 1, 255, cv2.THRESH_BINARY)
-        contours_sherd, _ = cv2.findContours(binary_sherd, cv2.RETR_LIST,
-                                              cv2.CHAIN_APPROX_NONE)
+        contours_sherd, _ = cv2.findContours(binary_sherd, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
         if len(contours_sherd) > 0:
-            _sc      = max(contours_sherd, key=cv2.contourArea)
-            _ , _,impangle = _long_axis_angle(cv2.minAreaRect(_sc))
+            _sc = max(contours_sherd, key=cv2.contourArea)
+            _, _, impangle = _long_axis_angle(cv2.minAreaRect(_sc))
 
     if contour_result is not None:
         # Use the already-detected, shape-filtered contours from contour_detection()
-        inc_contours  = contour_result['inclusions']
-        void_contours = contour_result['voids']
+        inc_contours = contour_result["inclusions"]
+        void_contours = contour_result["voids"]
     else:
         # Fallback: re-detect from the image directly
         bw = cv2.cvtColor(image, cv2.COLOR_BGR2Lab)[:, :, 0]  # L* channel
-        _, binary_inc  = cv2.threshold(bw, 125, 255, cv2.THRESH_BINARY)
-        _, binary_void = cv2.threshold(bw, 0,   255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-        raw_inc,  _ = cv2.findContours(binary_inc,  cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+        _, binary_inc = cv2.threshold(bw, 125, 255, cv2.THRESH_BINARY)
+        _, binary_void = cv2.threshold(bw, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        raw_inc, _ = cv2.findContours(binary_inc, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
         raw_void, _ = cv2.findContours(binary_void, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
         pixels_per_mm = scan_dpi / 25.4
-        min_area = int((0.1  * pixels_per_mm) ** 2)
+        min_area = int((0.1 * pixels_per_mm) ** 2)
         max_area = int((25.0 * pixels_per_mm) ** 2)
 
         all_raw = list(raw_inc) + list(raw_void)
         if all_raw:
-            min_sherd_size = cv2.contourArea(
-                max(all_raw, key=cv2.contourArea)) * 0.8
+            min_sherd_size = cv2.contourArea(max(all_raw, key=cv2.contourArea)) * 0.8
         else:
-            min_sherd_size = float('inf')
+            min_sherd_size = float("inf")
 
-        inc_contours  = [c for c in raw_inc  if min_area < cv2.contourArea(c) < max_area
-                         and cv2.contourArea(c) < min_sherd_size]
-        void_contours = [c for c in raw_void if min_area < cv2.contourArea(c) < max_area
-                         and cv2.contourArea(c) < min_sherd_size]
+        inc_contours = [
+            c
+            for c in raw_inc
+            if min_area < cv2.contourArea(c) < max_area and cv2.contourArea(c) < min_sherd_size
+        ]
+        void_contours = [
+            c
+            for c in raw_void
+            if min_area < cv2.contourArea(c) < max_area and cv2.contourArea(c) < min_sherd_size
+        ]
 
     def _corrected_angle(contour, imp):
         """
@@ -1681,13 +1947,13 @@ def inclusion_orientation2(image, scan_dpi, contour_result=None, sherd_contour=N
         Result is in (-90°, 90°] — the magnitude of angular difference from
         the sherd's principal axis (0° = parallel, ±90° = orthogonal).
         """
-        _,_,inc_angle = _long_axis_angle(cv2.minAreaRect(contour))
+        _, _, inc_angle = _long_axis_angle(cv2.minAreaRect(contour))
         # Difference mapped to (-90, 90] so that ±90° are treated identically
         # (orientation is symmetric: 0° and 180° are the same direction).
         return (inc_angle - imp + 90.0) % 180.0 - 90.0
 
     inclusion_angles = [_corrected_angle(c, impangle) for c in inc_contours]
-    void_angles      = [_corrected_angle(c, impangle) for c in void_contours]
+    void_angles = [_corrected_angle(c, impangle) for c in void_contours]
 
     return inclusion_angles, void_angles, impangle
 
@@ -1754,19 +2020,25 @@ def sherd_color_analysis(image, mask=None, crop=None, pre_masked=False):
         lab_values = swatch_lab[0, 0]
 
         return {
-            'mean_l': float(lab_values[0]),
-            'mean_a': float(lab_values[1]),
-            'mean_b': float(lab_values[2])
+            "mean_l": float(lab_values[0]),
+            "mean_a": float(lab_values[1]),
+            "mean_b": float(lab_values[2]),
         }
 
     except Exception as e:
         print(f"Warning: Could not analyze color: {e}")
-        return {'mean_l': 0, 'mean_a': 128, 'mean_b': 128}
+        return {"mean_l": 0, "mean_a": 128, "mean_b": 128}
 
 
-def sherd_color_summary(folder_path, scan_dpi=1200, use_blob=True, use_contour=True,
-                        analyze_core_periphery=True, interleave_columns=False,
-                        pre_masked=False):
+def sherd_color_summary(
+    folder_path,
+    scan_dpi=1200,
+    use_blob=True,
+    use_contour=True,
+    analyze_core_periphery=True,
+    interleave_columns=False,
+    pre_masked=False,
+):
     """
     Provide summary of color aspects of sherds in CIELAB colorspace.
 
@@ -1797,19 +2069,19 @@ def sherd_color_summary(folder_path, scan_dpi=1200, use_blob=True, use_contour=T
         L* = lightness (0-100), a* = green-red, b* = blue-yellow.
         Columns are prefixed with 'blob_' or 'contour_' to indicate method.
     """
-    path_strs = [str(path) for path in Path(folder_path).rglob('*.jpeg')]
+    path_strs = [str(path) for path in Path(folder_path).rglob("*.jpeg")]
 
     results_list = []
 
     for path in path_strs:
-        name = path.rsplit(sep='/')[-1]
+        name = path.rsplit(sep="/")[-1]
         im = cv2.imread(path)
 
         if im is None:
             print(f"Warning: Could not load image {name}")
             continue
 
-        row = {'Name': name}
+        row = {"Name": name}
 
         try:
             if pre_masked:
@@ -1831,9 +2103,9 @@ def sherd_color_summary(folder_path, scan_dpi=1200, use_blob=True, use_contour=T
             swatch[0, 0, 2] = int(avg_color[2])  # R
             swatch_lab = cv2.cvtColor(swatch, cv2.COLOR_BGR2LAB)
             lab_vals = swatch_lab[0][0]
-            row['sherd_avg_color_l'] = float(lab_vals[0])
-            row['sherd_avg_color_a'] = float(lab_vals[1])
-            row['sherd_avg_color_b'] = float(lab_vals[2])
+            row["sherd_avg_color_l"] = float(lab_vals[0])
+            row["sherd_avg_color_a"] = float(lab_vals[1])
+            row["sherd_avg_color_b"] = float(lab_vals[2])
 
             # BLOB method inclusion colors
             if use_blob:
@@ -1844,139 +2116,151 @@ def sherd_color_summary(folder_path, scan_dpi=1200, use_blob=True, use_contour=T
                     # Extract dominant color stats
                     if blob_lab:
                         dominant = np.array([inc[0] for inc in blob_lab], dtype=float)
-                        row['blob_inclusion_color_l_mean'] = np.mean(dominant[:, 0])
-                        row['blob_inclusion_color_a_mean'] = np.mean(dominant[:, 1])
-                        row['blob_inclusion_color_b_mean'] = np.mean(dominant[:, 2])
-                        row['blob_inclusion_color_l_std'] = np.std(dominant[:, 0])
-                        row['blob_inclusion_color_a_std'] = np.std(dominant[:, 1])
-                        row['blob_inclusion_color_b_std'] = np.std(dominant[:, 2])
+                        row["blob_inclusion_color_l_mean"] = np.mean(dominant[:, 0])
+                        row["blob_inclusion_color_a_mean"] = np.mean(dominant[:, 1])
+                        row["blob_inclusion_color_b_mean"] = np.mean(dominant[:, 2])
+                        row["blob_inclusion_color_l_std"] = np.std(dominant[:, 0])
+                        row["blob_inclusion_color_a_std"] = np.std(dominant[:, 1])
+                        row["blob_inclusion_color_b_std"] = np.std(dominant[:, 2])
                         if len(dominant) > 1:
-                            dists = [np.linalg.norm(dominant[i] - dominant[j])
-                                     for i in range(len(dominant)) for j in range(i+1, len(dominant))]
-                            row['blob_inclusion_color_diversity'] = np.mean(dists)
+                            dists = [
+                                np.linalg.norm(dominant[i] - dominant[j])
+                                for i in range(len(dominant))
+                                for j in range(i + 1, len(dominant))
+                            ]
+                            row["blob_inclusion_color_diversity"] = np.mean(dists)
                         else:
-                            row['blob_inclusion_color_diversity'] = 0
+                            row["blob_inclusion_color_diversity"] = 0
                     else:
-                        row['blob_inclusion_color_l_mean'] = 0
-                        row['blob_inclusion_color_a_mean'] = 128
-                        row['blob_inclusion_color_b_mean'] = 128
-                        row['blob_inclusion_color_l_std'] = 0
-                        row['blob_inclusion_color_a_std'] = 0
-                        row['blob_inclusion_color_b_std'] = 0
-                        row['blob_inclusion_color_diversity'] = 0
+                        row["blob_inclusion_color_l_mean"] = 0
+                        row["blob_inclusion_color_a_mean"] = 128
+                        row["blob_inclusion_color_b_mean"] = 128
+                        row["blob_inclusion_color_l_std"] = 0
+                        row["blob_inclusion_color_a_std"] = 0
+                        row["blob_inclusion_color_b_std"] = 0
+                        row["blob_inclusion_color_diversity"] = 0
                 except Exception as e:
                     print(f"Warning: Blob color analysis failed for {name}: {e}")
-                    row['blob_inclusion_color_l_mean'] = 0
-                    row['blob_inclusion_color_a_mean'] = 128
-                    row['blob_inclusion_color_b_mean'] = 128
-                    row['blob_inclusion_color_l_std'] = 0
-                    row['blob_inclusion_color_a_std'] = 0
-                    row['blob_inclusion_color_b_std'] = 0
-                    row['blob_inclusion_color_diversity'] = 0
+                    row["blob_inclusion_color_l_mean"] = 0
+                    row["blob_inclusion_color_a_mean"] = 128
+                    row["blob_inclusion_color_b_mean"] = 128
+                    row["blob_inclusion_color_l_std"] = 0
+                    row["blob_inclusion_color_a_std"] = 0
+                    row["blob_inclusion_color_b_std"] = 0
+                    row["blob_inclusion_color_diversity"] = 0
 
             # CONTOUR method inclusion colors
             if use_contour:
                 try:
                     contour_results = contour_detection(masked_im, scan_dpi=scan_dpi)
-                    inc_contours = contour_results.get('inclusions', [])
+                    inc_contours = contour_results.get("inclusions", [])
                     contour_lab = inclusion_colors_from_contours(masked_im, inc_contours)
                     # Extract dominant color stats
                     if contour_lab:
                         dominant = np.array([inc[0] for inc in contour_lab], dtype=float)
-                        row['contour_inclusion_color_l_mean'] = np.mean(dominant[:, 0])
-                        row['contour_inclusion_color_a_mean'] = np.mean(dominant[:, 1])
-                        row['contour_inclusion_color_b_mean'] = np.mean(dominant[:, 2])
-                        row['contour_inclusion_color_l_std'] = np.std(dominant[:, 0])
-                        row['contour_inclusion_color_a_std'] = np.std(dominant[:, 1])
-                        row['contour_inclusion_color_b_std'] = np.std(dominant[:, 2])
+                        row["contour_inclusion_color_l_mean"] = np.mean(dominant[:, 0])
+                        row["contour_inclusion_color_a_mean"] = np.mean(dominant[:, 1])
+                        row["contour_inclusion_color_b_mean"] = np.mean(dominant[:, 2])
+                        row["contour_inclusion_color_l_std"] = np.std(dominant[:, 0])
+                        row["contour_inclusion_color_a_std"] = np.std(dominant[:, 1])
+                        row["contour_inclusion_color_b_std"] = np.std(dominant[:, 2])
                         if len(dominant) > 1:
-                            dists = [np.linalg.norm(dominant[i] - dominant[j])
-                                     for i in range(len(dominant)) for j in range(i+1, len(dominant))]
-                            row['contour_inclusion_color_diversity'] = np.mean(dists)
+                            dists = [
+                                np.linalg.norm(dominant[i] - dominant[j])
+                                for i in range(len(dominant))
+                                for j in range(i + 1, len(dominant))
+                            ]
+                            row["contour_inclusion_color_diversity"] = np.mean(dists)
                         else:
-                            row['contour_inclusion_color_diversity'] = 0
+                            row["contour_inclusion_color_diversity"] = 0
                     else:
-                        row['contour_inclusion_color_l_mean'] = 0
-                        row['contour_inclusion_color_a_mean'] = 128
-                        row['contour_inclusion_color_b_mean'] = 128
-                        row['contour_inclusion_color_l_std'] = 0
-                        row['contour_inclusion_color_a_std'] = 0
-                        row['contour_inclusion_color_b_std'] = 0
-                        row['contour_inclusion_color_diversity'] = 0
+                        row["contour_inclusion_color_l_mean"] = 0
+                        row["contour_inclusion_color_a_mean"] = 128
+                        row["contour_inclusion_color_b_mean"] = 128
+                        row["contour_inclusion_color_l_std"] = 0
+                        row["contour_inclusion_color_a_std"] = 0
+                        row["contour_inclusion_color_b_std"] = 0
+                        row["contour_inclusion_color_diversity"] = 0
                 except Exception as e:
                     print(f"Warning: Contour color analysis failed for {name}: {e}")
-                    row['contour_inclusion_color_l_mean'] = 0
-                    row['contour_inclusion_color_a_mean'] = 128
-                    row['contour_inclusion_color_b_mean'] = 128
-                    row['contour_inclusion_color_l_std'] = 0
-                    row['contour_inclusion_color_a_std'] = 0
-                    row['contour_inclusion_color_b_std'] = 0
-                    row['contour_inclusion_color_diversity'] = 0
+                    row["contour_inclusion_color_l_mean"] = 0
+                    row["contour_inclusion_color_a_mean"] = 128
+                    row["contour_inclusion_color_b_mean"] = 128
+                    row["contour_inclusion_color_l_std"] = 0
+                    row["contour_inclusion_color_a_std"] = 0
+                    row["contour_inclusion_color_b_std"] = 0
+                    row["contour_inclusion_color_diversity"] = 0
 
             # Core-periphery color analysis (firing atmosphere) - optional due to computation cost
             if analyze_core_periphery:
                 try:
                     core_periph = extract_core_periphery_colors(masked_im, mask, scan_dpi)
                     # Core color
-                    if core_periph['core_lab']:
-                        row['core_color_l'] = core_periph['core_lab'][0]
-                        row['core_color_a'] = core_periph['core_lab'][1]
-                        row['core_color_b'] = core_periph['core_lab'][2]
+                    if core_periph["core_lab"]:
+                        row["core_color_l"] = core_periph["core_lab"][0]
+                        row["core_color_a"] = core_periph["core_lab"][1]
+                        row["core_color_b"] = core_periph["core_lab"][2]
                     else:
-                        row['core_color_l'] = 0
-                        row['core_color_a'] = 128
-                        row['core_color_b'] = 128
+                        row["core_color_l"] = 0
+                        row["core_color_a"] = 128
+                        row["core_color_b"] = 128
                     # Inner margin color
-                    if core_periph['inner_margin_lab']:
-                        row['inner_margin_color_l'] = core_periph['inner_margin_lab'][0]
-                        row['inner_margin_color_a'] = core_periph['inner_margin_lab'][1]
-                        row['inner_margin_color_b'] = core_periph['inner_margin_lab'][2]
+                    if core_periph["inner_margin_lab"]:
+                        row["inner_margin_color_l"] = core_periph["inner_margin_lab"][0]
+                        row["inner_margin_color_a"] = core_periph["inner_margin_lab"][1]
+                        row["inner_margin_color_b"] = core_periph["inner_margin_lab"][2]
                     else:
-                        row['inner_margin_color_l'] = 0
-                        row['inner_margin_color_a'] = 128
-                        row['inner_margin_color_b'] = 128
+                        row["inner_margin_color_l"] = 0
+                        row["inner_margin_color_a"] = 128
+                        row["inner_margin_color_b"] = 128
                     # Outer margin color
-                    if core_periph['outer_margin_lab']:
-                        row['outer_margin_color_l'] = core_periph['outer_margin_lab'][0]
-                        row['outer_margin_color_a'] = core_periph['outer_margin_lab'][1]
-                        row['outer_margin_color_b'] = core_periph['outer_margin_lab'][2]
+                    if core_periph["outer_margin_lab"]:
+                        row["outer_margin_color_l"] = core_periph["outer_margin_lab"][0]
+                        row["outer_margin_color_a"] = core_periph["outer_margin_lab"][1]
+                        row["outer_margin_color_b"] = core_periph["outer_margin_lab"][2]
                     else:
-                        row['outer_margin_color_l'] = 0
-                        row['outer_margin_color_a'] = 128
-                        row['outer_margin_color_b'] = 128
+                        row["outer_margin_color_l"] = 0
+                        row["outer_margin_color_a"] = 128
+                        row["outer_margin_color_b"] = 128
                     # Per-zone atmosphere classifications
-                    row['core_atmosphere'] = core_periph['core_atmosphere']
-                    row['inner_margin_atmosphere'] = core_periph['inner_margin_atmosphere']
-                    row['outer_margin_atmosphere'] = core_periph['outer_margin_atmosphere']
+                    row["core_atmosphere"] = core_periph["core_atmosphere"]
+                    row["inner_margin_atmosphere"] = core_periph["inner_margin_atmosphere"]
+                    row["outer_margin_atmosphere"] = core_periph["outer_margin_atmosphere"]
                     # Gradient and interpretation
-                    row['core_periphery_gradient'] = core_periph['color_gradient']
-                    row['firing_interpretation'] = core_periph['firing_interpretation']
-                    row['margin_symmetry'] = core_periph['margin_symmetry']
+                    row["core_periphery_gradient"] = core_periph["color_gradient"]
+                    row["firing_interpretation"] = core_periph["firing_interpretation"]
+                    row["margin_symmetry"] = core_periph["margin_symmetry"]
                 except Exception as e:
                     print(f"Warning: Core-periphery color analysis failed for {name}: {e}")
-                    for key in ['core_color_l', 'inner_margin_color_l', 'outer_margin_color_l']:
+                    for key in ["core_color_l", "inner_margin_color_l", "outer_margin_color_l"]:
                         row[key] = 0
-                    for key in ['core_color_a', 'core_color_b', 'inner_margin_color_a',
-                               'inner_margin_color_b', 'outer_margin_color_a', 'outer_margin_color_b']:
+                    for key in [
+                        "core_color_a",
+                        "core_color_b",
+                        "inner_margin_color_a",
+                        "inner_margin_color_b",
+                        "outer_margin_color_a",
+                        "outer_margin_color_b",
+                    ]:
                         row[key] = 128
-                    row['core_atmosphere'] = 'analysis_failed'
-                    row['inner_margin_atmosphere'] = 'analysis_failed'
-                    row['outer_margin_atmosphere'] = 'analysis_failed'
-                    row['core_periphery_gradient'] = 0
-                    row['firing_interpretation'] = 'analysis_failed'
-                    row['margin_symmetry'] = 'analysis_failed'
+                    row["core_atmosphere"] = "analysis_failed"
+                    row["inner_margin_atmosphere"] = "analysis_failed"
+                    row["outer_margin_atmosphere"] = "analysis_failed"
+                    row["core_periphery_gradient"] = 0
+                    row["firing_interpretation"] = "analysis_failed"
+                    row["margin_symmetry"] = "analysis_failed"
 
         except Exception as e:
             print(f"Warning: Could not process colors for {name}: {e}")
-            row['sherd_avg_color_l'] = 0
-            row['sherd_avg_color_a'] = 128
-            row['sherd_avg_color_b'] = 128
+            row["sherd_avg_color_l"] = 0
+            row["sherd_avg_color_a"] = 128
+            row["sherd_avg_color_b"] = 128
 
         results_list.append(row)
 
     data = pd.DataFrame(results_list)
     if not data.empty:
-        primary_cols = ['Name', 'sherd_avg_color_l', 'sherd_avg_color_a', 'sherd_avg_color_b']
+        primary_cols = ["Name", "sherd_avg_color_l", "sherd_avg_color_a", "sherd_avg_color_b"]
         if interleave_columns:
             data = _interleave_method_columns(data, primary_cols)
         else:
@@ -1985,6 +2269,7 @@ def sherd_color_summary(folder_path, scan_dpi=1200, use_blob=True, use_contour=T
 
 
 # --- Helper functions for core-periphery analysis (module level for performance) ---
+
 
 def _extract_dominant_color_lab(pixels):
     """Extract dominant color using k-means clustering, return as CIELAB."""
@@ -2026,24 +2311,24 @@ def _classify_zone_atmosphere(lab):
     a*/b*: ±127); the conversions below match Photoshop/standard CIELAB.
     """
     L, a, b = lab[0], lab[1], lab[2]
-    L_real = L * 100.0 / 255.0   # 8-bit L → standard L* (0..100)
-    a_c = a - 128                # centered: + = red, - = green
-    b_c = b - 128                # centered: + = yellow, - = blue
+    L_real = L * 100.0 / 255.0  # 8-bit L → standard L* (0..100)
+    a_c = a - 128  # centered: + = red, - = green
+    b_c = b - 128  # centered: + = yellow, - = blue
 
     # 1. CARBONACEOUS: very dark + completely neutral = unburnt organics
     #    L* < 29 (raw L < 75); chromaticity within ±8 of neutral
     if L < 75 and abs(a_c) < 8 and abs(b_c) < 8:
-        return 'carbonaceous'
+        return "carbonaceous"
 
     # 2. OXIDIZED: meaningful red shift from iron oxidation
     #    a* > +8 (raw a > 136) — perceptible redness from Fe2O3/hematite
     if a_c > 8:
-        return 'oxidized'
+        return "oxidized"
 
     # 3. INCOMPLETE_OXIDATION: slight warmth developing
     #    a* +2 to +8 — partial Fe oxidation, brown/buff tones
     if a_c > 2:
-        return 'incomplete_oxidation'
+        return "incomplete_oxidation"
 
     # 4. OXIDIZED_LOW_IRON: light + chromatically near-neutral
     #    L* >= 65 (raw L >= 166), |a*| <= 4, |b*| <= 10.  Low-iron clays
@@ -2054,11 +2339,11 @@ def _classify_zone_atmosphere(lab):
     #    iron-bearing clay would darken the matrix — a light neutral
     #    fabric is petrologically inconsistent with reduction.
     if L_real >= 65 and abs(a_c) <= 4 and abs(b_c) <= 10:
-        return 'oxidized_low_iron'
+        return "oxidized_low_iron"
 
     # 5. REDUCED: dark + neutral chromaticity = reduced iron or
     #    preserved carbon on an iron-bearing clay
-    return 'reduced'
+    return "reduced"
 
 
 def _define_core_periphery_regions(binary_mask, scan_dpi=1200):
@@ -2110,23 +2395,22 @@ def _split_margins(binary_mask, periphery_mask):
     h, w = periphery_mask.shape
 
     # --- Get sherd contour and orientation (always from binary_mask) ---
-    contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL,
-                                    cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
         inner = periphery_mask.copy()
         outer = periphery_mask.copy()
-        inner[:, w // 2:] = 0
-        outer[:, :w // 2] = 0
+        inner[:, w // 2 :] = 0
+        outer[:, : w // 2] = 0
         return inner, outer
     sherd_contour = max(contours, key=cv2.contourArea)
 
     rect = cv2.minAreaRect(sherd_contour)
-    center = np.array(rect[0], dtype=np.float64)          # (cx, cy)
-    _, _, angle_deg = _long_axis_angle(rect)                     # long-axis angle [0, 180)
+    center = np.array(rect[0], dtype=np.float64)  # (cx, cy)
+    _, _, angle_deg = _long_axis_angle(rect)  # long-axis angle [0, 180)
     angle_rad = np.deg2rad(angle_deg)
 
     # Unit vectors: long axis and short (perpendicular) axis
-    long_axis  = np.array([np.cos(angle_rad), np.sin(angle_rad)])
+    long_axis = np.array([np.cos(angle_rad), np.sin(angle_rad)])
     short_axis = np.array([-np.sin(angle_rad), np.cos(angle_rad)])
 
     # --- Project periphery pixels onto both axes ---
@@ -2134,11 +2418,12 @@ def _split_margins(binary_mask, periphery_mask):
     if len(ys) == 0:
         return np.zeros_like(periphery_mask), np.zeros_like(periphery_mask)
 
-    offsets = np.column_stack([xs.astype(np.float64) - center[0],
-                               ys.astype(np.float64) - center[1]])  # (N, 2)
+    offsets = np.column_stack(
+        [xs.astype(np.float64) - center[0], ys.astype(np.float64) - center[1]]
+    )  # (N, 2)
 
-    proj_long  = offsets @ long_axis    # projection onto long axis
-    proj_short = offsets @ short_axis   # projection onto short axis
+    proj_long = offsets @ long_axis  # projection onto long axis
+    proj_short = offsets @ short_axis  # projection onto short axis
 
     # --- Restrict to middle 60% along long axis ---
     long_min, long_max = proj_long.min(), proj_long.max()
@@ -2146,8 +2431,8 @@ def _split_margins(binary_mask, periphery_mask):
     if long_range == 0:
         return np.zeros_like(periphery_mask), np.zeros_like(periphery_mask)
 
-    mid_lo = long_min + 0.2 * long_range   # skip bottom 20%
-    mid_hi = long_max - 0.2 * long_range   # skip top 20%
+    mid_lo = long_min + 0.2 * long_range  # skip bottom 20%
+    mid_hi = long_max - 0.2 * long_range  # skip top 20%
     in_middle = (proj_long >= mid_lo) & (proj_long <= mid_hi)
 
     # --- Split on short axis: negative = inner margin, positive = outer margin ---
@@ -2208,18 +2493,18 @@ def extract_core_periphery_colors(masked_image, mask, scan_dpi=1200):
     """
     # Initialize results
     result = {
-        'core_lab': None,
-        'inner_margin_lab': None,
-        'outer_margin_lab': None,
-        'core_atmosphere': 'insufficient_data',
-        'inner_margin_atmosphere': 'insufficient_data',
-        'outer_margin_atmosphere': 'insufficient_data',
-        'color_gradient': 0.0,
-        'firing_interpretation': 'insufficient_data',
-        'margin_symmetry': 'insufficient_data',
-        'core_pixels': 0,
-        'inner_margin_pixels': 0,
-        'outer_margin_pixels': 0,
+        "core_lab": None,
+        "inner_margin_lab": None,
+        "outer_margin_lab": None,
+        "core_atmosphere": "insufficient_data",
+        "inner_margin_atmosphere": "insufficient_data",
+        "outer_margin_atmosphere": "insufficient_data",
+        "color_gradient": 0.0,
+        "firing_interpretation": "insufficient_data",
+        "margin_symmetry": "insufficient_data",
+        "core_pixels": 0,
+        "inner_margin_pixels": 0,
+        "outer_margin_pixels": 0,
     }
 
     # Prepare binary mask
@@ -2242,48 +2527,52 @@ def extract_core_periphery_colors(masked_image, mask, scan_dpi=1200):
         return result
 
     # Extract pixels (handle grayscale)
-    img = masked_image if len(masked_image.shape) == 3 else cv2.cvtColor(masked_image, cv2.COLOR_GRAY2BGR)
+    img = (
+        masked_image
+        if len(masked_image.shape) == 3
+        else cv2.cvtColor(masked_image, cv2.COLOR_GRAY2BGR)
+    )
 
     core_pixels = img[core_mask > 0]
     inner_pixels = img[inner_mask > 0]
     outer_pixels = img[outer_mask > 0]
 
-    result['core_pixels'] = len(core_pixels)
-    result['inner_margin_pixels'] = len(inner_pixels)
-    result['outer_margin_pixels'] = len(outer_pixels)
+    result["core_pixels"] = len(core_pixels)
+    result["inner_margin_pixels"] = len(inner_pixels)
+    result["outer_margin_pixels"] = len(outer_pixels)
 
     # Extract dominant colors
-    result['core_lab'] = _extract_dominant_color_lab(core_pixels)
-    result['inner_margin_lab'] = _extract_dominant_color_lab(inner_pixels)
-    result['outer_margin_lab'] = _extract_dominant_color_lab(outer_pixels)
+    result["core_lab"] = _extract_dominant_color_lab(core_pixels)
+    result["inner_margin_lab"] = _extract_dominant_color_lab(inner_pixels)
+    result["outer_margin_lab"] = _extract_dominant_color_lab(outer_pixels)
 
     # Classify each zone and determine firing interpretation
-    if result['core_lab'] and result['inner_margin_lab'] and result['outer_margin_lab']:
-        core = np.array(result['core_lab'])
-        inner = np.array(result['inner_margin_lab'])
-        outer = np.array(result['outer_margin_lab'])
+    if result["core_lab"] and result["inner_margin_lab"] and result["outer_margin_lab"]:
+        core = np.array(result["core_lab"])
+        inner = np.array(result["inner_margin_lab"])
+        outer = np.array(result["outer_margin_lab"])
 
         # Per-zone atmosphere classification
         core_atm = _classify_zone_atmosphere(core)
         inner_atm = _classify_zone_atmosphere(inner)
         outer_atm = _classify_zone_atmosphere(outer)
-        result['core_atmosphere'] = core_atm
-        result['inner_margin_atmosphere'] = inner_atm
-        result['outer_margin_atmosphere'] = outer_atm
+        result["core_atmosphere"] = core_atm
+        result["inner_margin_atmosphere"] = inner_atm
+        result["outer_margin_atmosphere"] = outer_atm
 
         # Delta-E calculations (supplementary continuous measure)
         de_core_inner = np.linalg.norm(core - inner)
         de_core_outer = np.linalg.norm(core - outer)
         de_inner_outer = np.linalg.norm(inner - outer)
         max_de = max(de_core_inner, de_core_outer, de_inner_outer)
-        result['color_gradient'] = float(max_de)
+        result["color_gradient"] = float(max_de)
 
         # --- Firing interpretation from zone comparison ---
         # 'oxidized_low_iron' groups with oxidized for sandwich/differential
         # logic: a low-iron oxidized fabric is chemically oxidized, just
         # without iron to redden it.
-        oxidized_set = {'oxidized', 'incomplete_oxidation', 'oxidized_low_iron'}
-        reduced_set = {'reduced', 'carbonaceous'}
+        oxidized_set = {"oxidized", "incomplete_oxidation", "oxidized_low_iron"}
+        reduced_set = {"reduced", "carbonaceous"}
 
         # ΔE stability floor: when the max color gradient across zones is
         # below this perceptual threshold, treat per-zone bin differences
@@ -2293,9 +2582,9 @@ def extract_core_periphery_colors(masked_image, mask, scan_dpi=1200):
         # incomplete_oxidation cutoff of +2) reads as 'sandwich_oxidized'
         # even though all three zones are within JND of each other.
         UNIFORM_DE_FLOOR = 15.0
-        zones_uniform_by_color = (max_de < UNIFORM_DE_FLOOR)
+        zones_uniform_by_color = max_de < UNIFORM_DE_FLOOR
 
-        all_same = (core_atm == inner_atm == outer_atm)
+        all_same = core_atm == inner_atm == outer_atm
         if all_same or zones_uniform_by_color:
             # When the zones are colorimetrically uniform but bins
             # disagree (boundary-flicker case), re-classify from the
@@ -2306,38 +2595,38 @@ def extract_core_periphery_colors(masked_image, mask, scan_dpi=1200):
                 resolved_atm = _classify_zone_atmosphere(mean_lab)
             else:
                 resolved_atm = core_atm
-            if resolved_atm in oxidized_set and resolved_atm != 'incomplete_oxidation':
-                result['firing_interpretation'] = 'fully_oxidized'
-            elif resolved_atm == 'reduced':
-                result['firing_interpretation'] = 'fully_reduced'
-            elif resolved_atm == 'carbonaceous':
-                result['firing_interpretation'] = 'carbonaceous_throughout'
+            if resolved_atm in oxidized_set and resolved_atm != "incomplete_oxidation":
+                result["firing_interpretation"] = "fully_oxidized"
+            elif resolved_atm == "reduced":
+                result["firing_interpretation"] = "fully_reduced"
+            elif resolved_atm == "carbonaceous":
+                result["firing_interpretation"] = "carbonaceous_throughout"
             else:  # incomplete_oxidation
-                result['firing_interpretation'] = 'incomplete_oxidation'
+                result["firing_interpretation"] = "incomplete_oxidation"
         else:
             core_reduced = core_atm in reduced_set
-            both_margins_oxidized = (inner_atm in oxidized_set and outer_atm in oxidized_set)
+            both_margins_oxidized = inner_atm in oxidized_set and outer_atm in oxidized_set
             core_oxidized = core_atm in oxidized_set
-            both_margins_reduced = (inner_atm in reduced_set and outer_atm in reduced_set)
+            both_margins_reduced = inner_atm in reduced_set and outer_atm in reduced_set
 
             if core_reduced and both_margins_oxidized:
-                result['firing_interpretation'] = 'sandwich_oxidized_margins'
+                result["firing_interpretation"] = "sandwich_oxidized_margins"
             elif core_oxidized and both_margins_reduced:
-                result['firing_interpretation'] = 'reduced_margins_oxidized_core'
+                result["firing_interpretation"] = "reduced_margins_oxidized_core"
             elif inner_atm != outer_atm:
-                result['firing_interpretation'] = 'differential_margins'
+                result["firing_interpretation"] = "differential_margins"
             elif core_reduced and (inner_atm in oxidized_set or outer_atm in oxidized_set):
-                result['firing_interpretation'] = 'partial_oxidation'
+                result["firing_interpretation"] = "partial_oxidation"
             else:
-                result['firing_interpretation'] = 'mixed_atmosphere'
+                result["firing_interpretation"] = "mixed_atmosphere"
 
         # --- Margin symmetry ---
         if inner_atm == outer_atm:
-            result['margin_symmetry'] = 'symmetric'
+            result["margin_symmetry"] = "symmetric"
         elif inner_atm in oxidized_set and outer_atm in oxidized_set:
-            result['margin_symmetry'] = 'symmetric_transitional'
+            result["margin_symmetry"] = "symmetric_transitional"
         else:
-            result['margin_symmetry'] = 'asymmetric'
+            result["margin_symmetry"] = "asymmetric"
 
     return result
 
@@ -2385,8 +2674,8 @@ def analyze_inclusion_angularity(contours, scan_dpi=1200):
     # DPI-aware size filtering
     dpcm = scan_dpi * 0.3937
     min_area_pixels = int((0.005 * dpcm) ** 2)  # 0.005cm² minimum (50μm diameter)
-    max_area_pixels = int((4.0 * dpcm) ** 2)     # 4cm² maximum (reasonable inclusion limit)
-    
+    max_area_pixels = int((4.0 * dpcm) ** 2)  # 4cm² maximum (reasonable inclusion limit)
+
     # Initialize result containers
     angularity_scores = []
     vertex_counts = []
@@ -2394,25 +2683,25 @@ def analyze_inclusion_angularity(contours, scan_dpi=1200):
     roundness_classifications = []
     areas_cm2 = []
     approx_polygons = []
-    
+
     for contour in contours:
         area_pixels = cv2.contourArea(contour)
-        
+
         # Skip contours that are too small or too large
         if area_pixels < min_area_pixels or area_pixels > max_area_pixels:
             continue
-            
+
         # Convert area to cm²
-        area_cm2 = area_pixels / (dpcm ** 2)
+        area_cm2 = area_pixels / (dpcm**2)
         areas_cm2.append(area_cm2)
-        
+
         # Calculate perimeter for polygon approximation
         perimeter = cv2.arcLength(contour, True)
-        
+
         # Skip degenerate contours
         if perimeter < 1.0:
             continue
-        
+
         # Polygon approximation - find simplified polygon that represents the shape
         # More conservative epsilon (2%) to preserve important vertices while removing noise
         epsilon = 0.02 * perimeter
@@ -2420,20 +2709,24 @@ def analyze_inclusion_angularity(contours, scan_dpi=1200):
         approx_polygons.append(approx_polygon)
         vertex_count = len(approx_polygon)
         vertex_counts.append(vertex_count)
-        
+
         # Calculate multiple angularity metrics
-        
+
         # 1. Vertex-based angularity score
         # More vertices generally = more complex/angular shape
         # Normalize by logarithmic scale since vertex count grows non-linearly with complexity
-        vertex_score = min(1.0, math.log(max(3, vertex_count)) / math.log(12))  # 12 vertices = maximum complexity
-        
+        vertex_score = min(
+            1.0, math.log(max(3, vertex_count)) / math.log(12)
+        )  # 12 vertices = maximum complexity
+
         # 2. Perimeter-to-area ratio (complexity measure)
         # More angular shapes have higher perimeter relative to area
         theoretical_circle_perimeter = 2 * math.sqrt(math.pi * area_pixels)
         complexity_ratio = perimeter / theoretical_circle_perimeter
-        complexity_score = min(1.0, (complexity_ratio - 1.0) / 2.0)  # Normalize: circle=0, complex shapes approach 1
-        
+        complexity_score = min(
+            1.0, (complexity_ratio - 1.0) / 2.0
+        )  # Normalize: circle=0, complex shapes approach 1
+
         # 3. Convex hull ratio (solidity) - inverted for angularity
         hull = cv2.convexHull(contour)
         hull_area = cv2.contourArea(hull)
@@ -2443,7 +2736,7 @@ def analyze_inclusion_angularity(contours, scan_dpi=1200):
             hull_angularity = 1.0 - solidity
         else:
             hull_angularity = 0.0
-        
+
         # 4. Calculate roundness ratio (Feret diameter approach)
         # Fit minimum enclosing circle
         (cx, cy), radius = cv2.minEnclosingCircle(contour)
@@ -2453,39 +2746,43 @@ def analyze_inclusion_angularity(contours, scan_dpi=1200):
         else:
             roundness = 0.0
         roundness_ratios.append(roundness)
-        
+
         # Combine metrics into final angularity score
         # Weight the different components based on archaeological significance
         angularity_score = (
-            0.35 * vertex_score +           # Vertex complexity (most important)
-            0.30 * complexity_score +       # Perimeter complexity  
-            0.25 * hull_angularity +        # Shape irregularity
-            0.10 * (1.0 - roundness)        # Non-roundness
+            0.35 * vertex_score  # Vertex complexity (most important)
+            + 0.30 * complexity_score  # Perimeter complexity
+            + 0.25 * hull_angularity  # Shape irregularity
+            + 0.10 * (1.0 - roundness)  # Non-roundness
         )
-        
+
         angularity_scores.append(angularity_score)
-        
+
         # Roundness classification using Powers (1953) / Muller (1964) scale
         # Boundaries based on Wadell roundness index adapted for circularity
         if roundness < 0.17:
-            classification = 'very_angular'
+            classification = "very_angular"
         elif roundness < 0.25:
-            classification = 'angular'
+            classification = "angular"
         elif roundness < 0.35:
-            classification = 'sub_angular'
+            classification = "sub_angular"
         elif roundness < 0.49:
-            classification = 'sub_rounded'
+            classification = "sub_rounded"
         elif roundness < 0.70:
-            classification = 'rounded'
+            classification = "rounded"
         else:
-            classification = 'well_rounded'
+            classification = "well_rounded"
 
         roundness_classifications.append(classification)
-    
+
     # Muller/Powers roundness class names in order from most angular to most rounded
     _ROUNDNESS_CLASSES = [
-        'very_angular', 'angular', 'sub_angular',
-        'sub_rounded', 'rounded', 'well_rounded',
+        "very_angular",
+        "angular",
+        "sub_angular",
+        "sub_rounded",
+        "rounded",
+        "well_rounded",
     ]
 
     # Calculate summary statistics
@@ -2499,136 +2796,135 @@ def analyze_inclusion_angularity(contours, scan_dpi=1200):
         total_count = len(roundness_classifications)
         class_counts = {c: roundness_classifications.count(c) for c in _ROUNDNESS_CLASSES}
         class_proportions = {
-            c: class_counts[c] / total_count if total_count > 0 else 0.0
-            for c in _ROUNDNESS_CLASSES
+            c: class_counts[c] / total_count if total_count > 0 else 0.0 for c in _ROUNDNESS_CLASSES
         }
 
         # Create summary statistics
         summary_stats = {
-            'total_inclusions_analyzed': total_count,
-            'mean_angularity': mean_angularity,
-            'std_angularity': std_angularity,
-            'mean_vertex_count': mean_vertices,
-            'mean_roundness': mean_roundness,
+            "total_inclusions_analyzed": total_count,
+            "mean_angularity": mean_angularity,
+            "std_angularity": std_angularity,
+            "mean_vertex_count": mean_vertices,
+            "mean_roundness": mean_roundness,
         }
-        summary_stats.update({f'{c}_count': class_counts[c] for c in _ROUNDNESS_CLASSES})
-        summary_stats.update({f'{c}_proportion': class_proportions[c] for c in _ROUNDNESS_CLASSES})
+        summary_stats.update({f"{c}_count": class_counts[c] for c in _ROUNDNESS_CLASSES})
+        summary_stats.update({f"{c}_proportion": class_proportions[c] for c in _ROUNDNESS_CLASSES})
 
         # Create PCA-ready metrics (standardized variables for multivariate analysis)
         pca_metrics = {
-            'angularity_mean': mean_angularity,
-            'angularity_std': std_angularity,
-            'vertex_count_mean': mean_vertices,
-            'roundness_mean': mean_roundness,
-            'geometric_complexity': mean_angularity * mean_vertices / 10.0,
+            "angularity_mean": mean_angularity,
+            "angularity_std": std_angularity,
+            "vertex_count_mean": mean_vertices,
+            "roundness_mean": mean_roundness,
+            "geometric_complexity": mean_angularity * mean_vertices / 10.0,
         }
-        pca_metrics.update({f'{c}_ratio': class_proportions[c] for c in _ROUNDNESS_CLASSES})
+        pca_metrics.update({f"{c}_ratio": class_proportions[c] for c in _ROUNDNESS_CLASSES})
 
     else:
         # No valid inclusions found
         summary_stats = {
-            'total_inclusions_analyzed': 0,
-            'mean_angularity': 0.0,
-            'std_angularity': 0.0,
-            'mean_vertex_count': 0.0,
-            'mean_roundness': 0.0,
+            "total_inclusions_analyzed": 0,
+            "mean_angularity": 0.0,
+            "std_angularity": 0.0,
+            "mean_vertex_count": 0.0,
+            "mean_roundness": 0.0,
         }
-        summary_stats.update({f'{c}_count': 0 for c in _ROUNDNESS_CLASSES})
-        summary_stats.update({f'{c}_proportion': 0.0 for c in _ROUNDNESS_CLASSES})
+        summary_stats.update({f"{c}_count": 0 for c in _ROUNDNESS_CLASSES})
+        summary_stats.update({f"{c}_proportion": 0.0 for c in _ROUNDNESS_CLASSES})
 
         pca_metrics = {
-            'angularity_mean': 0.0,
-            'angularity_std': 0.0,
-            'vertex_count_mean': 0.0,
-            'roundness_mean': 0.0,
-            'geometric_complexity': 0.0,
+            "angularity_mean": 0.0,
+            "angularity_std": 0.0,
+            "vertex_count_mean": 0.0,
+            "roundness_mean": 0.0,
+            "geometric_complexity": 0.0,
         }
-        pca_metrics.update({f'{c}_ratio': 0.0 for c in _ROUNDNESS_CLASSES})
+        pca_metrics.update({f"{c}_ratio": 0.0 for c in _ROUNDNESS_CLASSES})
 
     return {
-        'angularity_scores': angularity_scores,
-        'vertex_counts': vertex_counts,
-        'roundness_ratios': roundness_ratios,
-        'roundness_classifications': roundness_classifications,
-        'approx_polygons': approx_polygons,
-        'areas_cm2': areas_cm2,
-        'summary_stats': summary_stats,
-        'pca_metrics': pca_metrics
+        "angularity_scores": angularity_scores,
+        "vertex_counts": vertex_counts,
+        "roundness_ratios": roundness_ratios,
+        "roundness_classifications": roundness_classifications,
+        "approx_polygons": approx_polygons,
+        "areas_cm2": areas_cm2,
+        "summary_stats": summary_stats,
+        "pca_metrics": pca_metrics,
     }
 
 
 def analyze_orientation_for_pca(orientation_angles):
     """
     Convert circular orientation data to PCA-compatible metrics.
-    
+
     Handles the statistical challenges of circular data by computing:
     1. Vector components (sine/cosine) - preserves directional information
-    2. Circular statistical measures (mean direction, concentration)  
+    2. Circular statistical measures (mean direction, concentration)
     3. Fabric strength indicators (preferred orientation vs randomness)
-    
+
     Parameters
     ----------
     orientation_angles : list or array-like
         List of angles in degrees (0-360° or -180° to +180°)
-        
+
     Returns
     -------
     dict
         Dictionary containing PCA-ready orientation metrics:
         - orientation_strength: How strongly oriented the fabric is (0=random, 1=perfectly aligned)
-        - mean_orientation_x: X-component of mean orientation vector  
+        - mean_orientation_x: X-component of mean orientation vector
         - mean_orientation_y: Y-component of mean orientation vector
         - orientation_concentration: Circular concentration parameter (higher = more aligned)
         - orientation_uniformity: Measure of how evenly distributed angles are
         - dominant_orientation_deg: Main orientation direction in degrees
         - orientation_bimodality: Whether fabric shows two preferred orientations
-        
+
     Notes
     -----
     This approach solves the "circular data problem" for PCA by:
     1. Converting angles to unit vectors, avoiding 0°/360° discontinuity
     2. Computing vector statistics that are PCA-compatible
     3. Providing archaeological interpretations (fabric strength, preferred orientations)
-    
+
     For ceramic analysis:
     - High orientation_strength = strong fabric, deliberate manufacturing technique
     - Low orientation_strength = random fabric, hand-building or poor clay preparation
     - Bimodality = cross-hatched or woven fabric structure
     """
-    
+
     if not orientation_angles or len(orientation_angles) == 0:
         return {
-            'orientation_strength': 0.0,
-            'mean_orientation_x': 0.0,
-            'mean_orientation_y': 0.0, 
-            'orientation_concentration': 0.0,
-            'orientation_uniformity': 0.0,
-            'dominant_orientation_deg': 0.0,
-            'orientation_bimodality': 0.0
+            "orientation_strength": 0.0,
+            "mean_orientation_x": 0.0,
+            "mean_orientation_y": 0.0,
+            "orientation_concentration": 0.0,
+            "orientation_uniformity": 0.0,
+            "dominant_orientation_deg": 0.0,
+            "orientation_bimodality": 0.0,
         }
-    
+
     # Convert angles to numpy array and ensure they're in radians
     angles_deg = np.array(orientation_angles)
     angles_rad = np.deg2rad(angles_deg)
-    
+
     # Method 1: Vector approach - convert to unit vectors
     # This avoids the circular discontinuity problem
     x_components = np.cos(angles_rad)
     y_components = np.sin(angles_rad)
-    
+
     # Calculate mean vector components (PCA-ready)
     mean_x = np.mean(x_components)
     mean_y = np.mean(y_components)
-    
+
     # Calculate resultant vector length (orientation strength)
     # Length = 1 means perfect alignment, length = 0 means random
     resultant_length = np.sqrt(mean_x**2 + mean_y**2)
     orientation_strength = resultant_length
-    
+
     # Calculate mean orientation direction
     mean_orientation_rad = np.arctan2(mean_y, mean_x)
     dominant_orientation_deg = np.rad2deg(mean_orientation_rad) % 360
-    
+
     # Method 2: Circular statistics
     # Calculate circular concentration (von Mises parameter estimate)
     if resultant_length < 0.53:
@@ -2640,22 +2936,22 @@ def analyze_orientation_for_pca(orientation_angles):
     else:
         # High concentration estimate
         concentration = 1 / (resultant_length**3 - 4 * resultant_length**2 + 3 * resultant_length)
-    
+
     # Method 3: Uniformity test
     # Calculate how evenly distributed the angles are (Kuiper's test approximation)
     # Sort angles and calculate spacings
     sorted_angles = np.sort(angles_deg)
     n = len(sorted_angles)
-    
+
     if n > 1:
         # Calculate spacings between consecutive angles
-        spacings = np.diff(sorted_angles) 
+        spacings = np.diff(sorted_angles)
         # Add the wraparound spacing
         spacings = np.append(spacings, 360 + sorted_angles[0] - sorted_angles[-1])
-        
+
         # Calculate expected spacing for uniform distribution
         expected_spacing = 360 / n
-        
+
         # Calculate uniformity measure (1 = perfectly uniform, 0 = completely clustered)
         spacing_variance = np.var(spacings)
         max_possible_variance = (360**2) / 12  # Variance for maximally non-uniform distribution
@@ -2663,24 +2959,24 @@ def analyze_orientation_for_pca(orientation_angles):
         orientation_uniformity = max(0.0, min(1.0, orientation_uniformity))  # Clamp to [0,1]
     else:
         orientation_uniformity = 1.0
-    
+
     # Method 4: Ceramic fabric alignment detection
     # Check for preferred orientations in ceramic inclusions (not textile patterns)
     # Ceramics may show alignment from manufacturing techniques like coiling or wheel throwing
     if n >= 4:  # Lowered threshold - need fewer points for basic pattern detection
         hist, bin_edges = np.histogram(angles_deg, bins=12)  # 30° bins for ceramic analysis
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-        
+
         # Count significant peaks (local maxima above background)
         mean_count = np.mean(hist)
         std_count = np.std(hist)
         threshold = mean_count + 0.5 * std_count  # More sensitive peak detection
-        
+
         peak_indices = []
         for i in range(1, len(hist) - 1):
-            if hist[i] > hist[i-1] and hist[i] > hist[i+1] and hist[i] > threshold:
+            if hist[i] > hist[i - 1] and hist[i] > hist[i + 1] and hist[i] > threshold:
                 peak_indices.append(i)
-        
+
         # Calculate bimodality based on distribution patterns relevant to ceramic manufacturing
         if len(peak_indices) >= 2:
             # Multiple peaks indicate preferred orientations from manufacturing
@@ -2696,69 +2992,66 @@ def analyze_orientation_for_pca(orientation_angles):
             bimodality_score = 0.0
     else:
         bimodality_score = 0.0
-    
+
     return {
-        'orientation_strength': orientation_strength,
-        'mean_orientation_x': mean_x,
-        'mean_orientation_y': mean_y,
-        'orientation_concentration': concentration,
-        'orientation_uniformity': orientation_uniformity, 
-        'dominant_orientation_deg': dominant_orientation_deg,
-        'orientation_bimodality': bimodality_score
+        "orientation_strength": orientation_strength,
+        "mean_orientation_x": mean_x,
+        "mean_orientation_y": mean_y,
+        "orientation_concentration": concentration,
+        "orientation_uniformity": orientation_uniformity,
+        "dominant_orientation_deg": dominant_orientation_deg,
+        "orientation_bimodality": bimodality_score,
     }
 
 
 def analyze_manufacturing_technique(orientation_metrics, size_metrics, geometric_metrics):
     """
     Identify likely ceramic manufacturing technique based on inclusion patterns.
-    
+
     Based on archaeological research (Berg 2008, Roux & Courty 2005, EXARC 2021):
     - Coiling: wavy/spiral patterns, radial orientations, moderate alignment
-    - Wheel throwing: strong horizontal alignment, high uniformity, low bimodality  
+    - Wheel throwing: strong horizontal alignment, high uniformity, low bimodality
     - Slab construction: parallel to walls, moderate-high alignment, clustered joints
     - Pinching: random orientations, low alignment, clustering at stress points
-    
+
     Parameters
     ----------
     orientation_metrics : dict
         Results from analyze_orientation_for_pca()
     size_metrics : dict
         Size distribution metrics
-    geometric_metrics : dict 
+    geometric_metrics : dict
         Geometric analysis results
-        
+
     Returns
     -------
     dict
         Manufacturing technique analysis with confidence scores
     """
-    
+
     # Extract key orientation metrics
-    strength = orientation_metrics.get('orientation_strength', 0)
-    uniformity = orientation_metrics.get('orientation_uniformity', 0) 
-    bimodality = orientation_metrics.get('orientation_bimodality', 0)
-    concentration = orientation_metrics.get('orientation_concentration', 0)
-    
+    strength = orientation_metrics.get("orientation_strength", 0)
+    uniformity = orientation_metrics.get("orientation_uniformity", 0)
+    bimodality = orientation_metrics.get("orientation_bimodality", 0)
+    concentration = orientation_metrics.get("orientation_concentration", 0)
+
     # Extract geometric indicators if available
-    angularity = geometric_metrics.get('geometric_angularity_mean', 0.5)
-    
+    angularity = geometric_metrics.get("geometric_angularity_mean", 0.5)
+
     # Initialize technique scores
-    techniques = {
-        'wheel_thrown': 0.0,
-        'coiled': 0.0,
-        'slab_built': 0.0, 
-        'pinched': 0.0
-    }
-    
+    techniques = {"wheel_thrown": 0.0, "coiled": 0.0, "slab_built": 0.0, "pinched": 0.0}
+
     # WHEEL THROWING signatures (gradual scoring):
     # - Strong horizontal alignment (high strength)
-    # - Very uniform distribution (high uniformity)  
+    # - Very uniform distribution (high uniformity)
     # - Low bimodality (single preferred orientation)
     wheel_strength_score = max(0, min(1, (strength - 0.3) / 0.4))  # Scale 0.3-0.7 → 0-1
     wheel_uniformity_score = max(0, min(1, (uniformity - 0.5) / 0.3))  # Scale 0.5-0.8 → 0-1
     wheel_bimodal_score = max(0, min(1, (0.4 - bimodality) / 0.4))  # Scale 0.4-0 → 0-1
-    techniques['wheel_thrown'] = (wheel_strength_score + wheel_uniformity_score + wheel_bimodal_score) / 3 * 0.9
-    
+    techniques["wheel_thrown"] = (
+        (wheel_strength_score + wheel_uniformity_score + wheel_bimodal_score) / 3 * 0.9
+    )
+
     # COILING signatures (gradual scoring):
     # - Moderate alignment with spiral/wavy patterns
     # - Moderate bimodality (radial + spiral orientations)
@@ -2766,26 +3059,38 @@ def analyze_manufacturing_technique(orientation_metrics, size_metrics, geometric
     coil_strength_score = 1.0 - abs(strength - 0.5) * 2  # Peak at 0.5, decline toward 0/1
     coil_bimodal_score = min(1, bimodality * 3)  # Scale bimodality 0-0.33 → 0-1
     coil_concentration_score = min(1, concentration * 2)  # Scale concentration 0-0.5 → 0-1
-    techniques['coiled'] = max(0, (coil_strength_score + coil_bimodal_score + coil_concentration_score) / 3 * 0.8)
-        
+    techniques["coiled"] = max(
+        0, (coil_strength_score + coil_bimodal_score + coil_concentration_score) / 3 * 0.8
+    )
+
     # SLAB CONSTRUCTION signatures (gradual scoring):
     # - Moderate to high alignment parallel to walls
     # - Low to moderate uniformity (joints create variation)
     # - Angular inclusions clustered at joints
     slab_strength_score = max(0, min(1, (strength - 0.2) / 0.5))  # Scale 0.2-0.7 → 0-1
-    slab_uniformity_score = max(0, min(1, (0.7 - uniformity) / 0.4))  # Lower uniformity = higher score
+    slab_uniformity_score = max(
+        0, min(1, (0.7 - uniformity) / 0.4)
+    )  # Lower uniformity = higher score
     slab_angularity_score = max(0, min(1, (angularity - 0.4) / 0.4))  # Scale 0.4-0.8 → 0-1
-    techniques['slab_built'] = (slab_strength_score + slab_uniformity_score + slab_angularity_score) / 3 * 0.7
-    
+    techniques["slab_built"] = (
+        (slab_strength_score + slab_uniformity_score + slab_angularity_score) / 3 * 0.7
+    )
+
     # PINCHING signatures (gradual scoring):
     # - Low overall alignment (random orientations)
     # - Low uniformity (clustering at stress points)
     # - Low bimodality (no preferred directions)
     pinch_strength_score = max(0, min(1, (0.5 - strength) / 0.5))  # Lower strength = higher score
-    pinch_uniformity_score = max(0, min(1, (0.6 - uniformity) / 0.6))  # Lower uniformity = higher score
-    pinch_bimodal_score = max(0, min(1, (0.3 - bimodality) / 0.3))  # Lower bimodality = higher score
-    techniques['pinched'] = (pinch_strength_score + pinch_uniformity_score + pinch_bimodal_score) / 3 * 0.8
-    
+    pinch_uniformity_score = max(
+        0, min(1, (0.6 - uniformity) / 0.6)
+    )  # Lower uniformity = higher score
+    pinch_bimodal_score = max(
+        0, min(1, (0.3 - bimodality) / 0.3)
+    )  # Lower bimodality = higher score
+    techniques["pinched"] = (
+        (pinch_strength_score + pinch_uniformity_score + pinch_bimodal_score) / 3 * 0.8
+    )
+
     # Light normalization to prevent any single technique from dominating
     # but keep reasonable confidence levels
     max_score = max(techniques.values())
@@ -2793,11 +3098,11 @@ def analyze_manufacturing_technique(orientation_metrics, size_metrics, geometric
         # Only normalize if scores are too high
         for technique in techniques:
             techniques[technique] = techniques[technique] / max_score
-    
+
     # Determine most likely technique and calculate meaningful confidence
     primary_technique = max(techniques.keys(), key=lambda k: techniques[k])
     confidence = techniques[primary_technique]
-    
+
     # Add uncertainty penalty if top techniques are very close (ambiguous results)
     sorted_scores = sorted(techniques.values(), reverse=True)
     if len(sorted_scores) >= 2 and sorted_scores[0] > 0:
@@ -2805,21 +3110,21 @@ def analyze_manufacturing_technique(orientation_metrics, size_metrics, geometric
         score_ratio = sorted_scores[1] / sorted_scores[0] if sorted_scores[0] > 0 else 0
         if score_ratio > 0.8:  # Very close scores = uncertain
             confidence = confidence * 0.7  # Reduce confidence for ambiguous cases
-    
+
     # Archaeological interpretation
     interpretations = {
-        'wheel_thrown': "Strong horizontal alignment suggests wheel throwing with centrifugal force organizing inclusions parallel to vessel walls.",
-        'coiled': "Radial and spiral orientation patterns indicate coil construction with inclusions following clay manipulation paths.",
-        'slab_built': "Parallel alignment with joint markers suggests slab construction with inclusions oriented along building planes.", 
-        'pinched': "Random orientation with stress point clustering indicates pinch pot construction with localized clay deformation."
+        "wheel_thrown": "Strong horizontal alignment suggests wheel throwing with centrifugal force organizing inclusions parallel to vessel walls.",
+        "coiled": "Radial and spiral orientation patterns indicate coil construction with inclusions following clay manipulation paths.",
+        "slab_built": "Parallel alignment with joint markers suggests slab construction with inclusions oriented along building planes.",
+        "pinched": "Random orientation with stress point clustering indicates pinch pot construction with localized clay deformation.",
     }
-    
+
     return {
-        'technique_scores': techniques,
-        'primary_technique': primary_technique,
-        'confidence': confidence,
-        'interpretation': interpretations.get(primary_technique, "Technique pattern unclear"),
-        'archaeological_evidence': f"Based on inclusion orientation analysis used in archaeological ceramic studies (Berg 2008, EXARC 2021)",
-        'strength_indicator': strength,
-        'pattern_complexity': bimodality + (1 - uniformity) * 0.5
+        "technique_scores": techniques,
+        "primary_technique": primary_technique,
+        "confidence": confidence,
+        "interpretation": interpretations.get(primary_technique, "Technique pattern unclear"),
+        "archaeological_evidence": "Based on inclusion orientation analysis used in archaeological ceramic studies (Berg 2008, EXARC 2021)",
+        "strength_indicator": strength,
+        "pattern_complexity": bimodality + (1 - uniformity) * 0.5,
     }
