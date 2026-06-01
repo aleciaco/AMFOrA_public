@@ -8,7 +8,7 @@ A Python package for automated analysis of ceramic sherd fabric, including:
 - Color analysis
 - Enhanced edge detection and masking
 
-Version: 1.0.0
+Version: 1.0.1
 Author: Alec Iacobucci
 """
 
@@ -17,5 +17,5 @@ from .core.detection import *
 from .core.statistics import *
 from .core.visualization import *
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __author__ = "Alec Iacobucci"

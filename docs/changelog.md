@@ -2,6 +2,10 @@
 
 All notable changes to AMFOrA are documented here. The format roughly follows [Keep a Changelog](https://keepachangelog.com/), and versions follow [semantic versioning](https://semver.org/).
 
+## v1.0.1 update Docs
+
+Docs still had instructions to clone the github and install -e instead of pointing to the pypi pip install amfora. This should fix that issue.
+
 ## v1.0.0 — Unreleased
 
 First release. Package renamed from the original `AMFOrA_public` working name to `amfora` for PyPI publication.
