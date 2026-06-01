@@ -1887,7 +1887,7 @@ def sherd_blobs(
         can afford to be more permissive without losing precision).
         "Pop" here is informal shorthand for **how much the feature
         stands out against the sherd's paste** — concretely, on the
-        **raw (pre-CLAHE) BGR channels** of the masked input image:
+        **raw (pre-CLAHE) BGR channels** of the masked input image::
 
             paste_ref = per-channel median of non-zero pixels
             paste_MAD = per-channel median(|pixel - paste_ref|)

@@ -1,0 +1,68 @@
+# GitHub Actions workflow: build the Jupyter Book docs and deploy them
+# to GitHub Pages on every push to main.
+#
+# After this workflow runs for the first time, you need to enable
+# GitHub Pages in the repo settings:
+#   Settings > Pages > Source: "GitHub Actions"
+# The site will then be live at:
+#   https://aleciaco.github.io/AMFOrA_public/
+#
+# Manual builds: trigger from the Actions tab (workflow_dispatch).
+
+name: docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# GitHub Pages deployment needs these permissions
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one concurrent docs build; queue the rest, cancel old ones
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package + docs extras
+        # The package needs to be installed so Sphinx autodoc can import
+        # amfora.* and pull docstrings.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[docs]"
+
+      - name: Build Jupyter Book
+        run: jupyter-book build docs/
+
+      - name: Upload built site as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_build/html
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -56,7 +56,10 @@ dev = [
     "ruff>=0.4",
 ]
 docs = [
-    "jupyter-book>=1.0",
+    # Pinned to v1 because our docs use the Sphinx-based _config.yml / _toc.yml
+    # layout; jupyter-book v2 switched to a mystmd-based system with a
+    # different config schema.  Migration to v2 is a future task.
+    "jupyter-book>=1.0,<2",
     "sphinx-autodoc-typehints",
 ]
 

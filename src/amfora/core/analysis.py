@@ -63,8 +63,8 @@ def _prioritize_columns(df, primary_cols):
 def _interleave_method_columns(df, primary_cols):
     """Reorder DataFrame so blob/contour columns are interleaved by metric.
 
-    For every metric suffix (e.g. ``inclusion_count``), the blob_ and
-    contour_ variants are placed side-by-side. Metric order follows
+    For every metric suffix (e.g. ``inclusion_count``), the ``blob_`` and
+    ``contour_`` variants are placed side-by-side. Metric order follows
     first-seen insertion order. Columns without a method prefix are
     appended at the end.
     """
@@ -325,7 +325,7 @@ def analyze_single_sherd(
         same K.  "Pop" here is informal shorthand for **how much the
         feature stands out against the sherd's paste** — concretely,
         on the **raw (pre-CLAHE) BGR channels** of the masked input
-        image:
+        image::
 
             paste_ref = per-channel median of non-zero pixels
             paste_MAD = per-channel median(|pixel - paste_ref|)
@@ -1262,7 +1262,7 @@ def size_count_summary(
     pandas.DataFrame
         Summary statistics for each ceramic's inclusions and voids.
         All area measurements are in cm². Column names are prefixed with
-        'blob_' or 'contour_' to indicate detection method.
+        ``blob_`` or ``contour_`` to indicate detection method.
     """
     from .detection import apply_mask, contour_detection, full_image_mask, sherd_blobs, sherd_mask
 
@@ -2067,7 +2067,7 @@ def sherd_color_summary(
     pandas.DataFrame
         Summary statistics for each ceramic's color and inclusion colors in CIELAB.
         L* = lightness (0-100), a* = green-red, b* = blue-yellow.
-        Columns are prefixed with 'blob_' or 'contour_' to indicate method.
+        Columns are prefixed with ``blob_`` or ``contour_`` to indicate method.
     """
     path_strs = [str(path) for path in Path(folder_path).rglob("*.jpeg")]
 

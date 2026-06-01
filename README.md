@@ -91,7 +91,7 @@ Pull requests welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for development
 
 ## Disclosure: use of generative AI tools
 
-Parts of this package have been developed and refined with assistance from generative AI tools (Anthropic Claude, primarily for docstring drafting, code review, and iterative tuning of detector parameters). All algorithmic design decisions, validation against real sherd data, and final acceptance of changes were performed by the human maintainer.
+Parts of this package have been developed and refined with assistance from generative AI tools (Anthropic Claude, primarily for testing, repackaging in modern Python standards, docstring and documentation drafting, code review, and iterative tuning of detector parameters). All algorithmic design decisions, validation against real sherd data, and final acceptance of changes were performed by the human maintainer. As a solo archaeologist who knows Python, I had a glaring gap in my ability to actually format the github in the modern standard where it would be useful by other researchers, so I turned to Anthropic Claude to help format the documentation, make docstrings make enough sense for other users, write tests, and do linting/CI because I had never learned how to do that. If there are any issues with this content, please reach out or suggest better ways of maintaining it!
 
 ## License
 
