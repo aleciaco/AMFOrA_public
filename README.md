@@ -15,7 +15,11 @@ Built for archaeological and materials-science workflows that need reproducible,
 
 ## Installation
 
-### From source
+```bash
+pip install amfora
+```
+
+Or, to develop against the latest source:
 
 ```bash
 git clone https://github.com/aleciaco/AMFOrA_public.git
@@ -23,7 +27,7 @@ cd AMFOrA_public
 pip install -e .
 ```
 
-PyPI installation is planned for the next release.
+PyPI project page: [pypi.org/project/amfora](https://pypi.org/project/amfora/)
 
 ### Dependencies
 
@@ -101,9 +105,9 @@ MIT License — see [LICENSE](LICENSE).
 
 If you use AMFOrA in published work, please cite:
 
-> Iacobucci, A. (2026). *AMFOrA: Automated Macroscopic Fabric and Orientation Analysis for ceramic sherds*. https://github.com/aleciaco/AMFOrA_public
+> Iacobucci, A. (2026). *AMFOrA: Automated Macroscopic Fabric and Orientation Analysis for ceramic sherds* (Version 1.0.0) [Computer software]. https://pypi.org/project/amfora/
 
-A formal citation (DOI / Zenodo archive / JOSS paper) will be added when the package is released to PyPI.
+A DOI / Zenodo archive will be added in a future release.
 
 ## Support
 

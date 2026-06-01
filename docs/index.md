@@ -25,7 +25,7 @@ AMFOrA finds features by their optical contrast against the surrounding paste. G
 
 ## Documentation map
 
-- {doc}`installation` — install via `pip install -e .` (PyPI release coming).
+- {doc}`installation` — `pip install amfora`.
 - {doc}`quickstart` — five-line example that mirrors the test suite.
 - {doc}`user-guide/basic-workflow` — the full pipeline from raw scan to CSV, with parameter notes.
 - {doc}`api-reference/index` — auto-generated reference for every public function.
@@ -39,4 +39,4 @@ MIT licensed. If you use AMFOrA in published work, please cite:
 
 > Iacobucci, A. (2026). *AMFOrA: Automated Macroscopic Fabric and Orientation Analysis for ceramic sherds*. https://github.com/aleciaco/AMFOrA_public
 
-A DOI / Zenodo archive will be added with the first PyPI release.
+PyPI: [pypi.org/project/amfora](https://pypi.org/project/amfora/). A DOI / Zenodo archive will be added in a future release.

@@ -6,9 +6,17 @@
 - **OpenCV** (>= 4.5.0). On modern Python this comes from the `opencv-python` wheel; no system OpenCV needed.
 - A recent **scientific-Python stack** — NumPy, SciPy, pandas, matplotlib, scikit-image, scikit-learn, Pillow, seaborn, plotly. All pulled in automatically by `pip install`.
 
+## Install from PyPI
+
+```bash
+pip install amfora
+```
+
+PyPI project page: [pypi.org/project/amfora](https://pypi.org/project/amfora/). This is the recommended path for users — you get a stable, tested release.
+
 ## Install from source
 
-PyPI publication is on the roadmap. For now, install from the GitHub repo:
+If you want the latest unreleased changes, or you're developing against the package, install from the GitHub repo instead:
 
 ```bash
 git clone https://github.com/aleciaco/AMFOrA_public.git
@@ -16,7 +24,7 @@ cd AMFOrA_public
 pip install -e .
 ```
 
-The `-e` flag installs the package in *editable mode* — changes to the source are picked up immediately without reinstalling. Drop the `-e` if you only want to use the package (not develop it).
+The `-e` flag installs the package in *editable mode* — changes to the source are picked up immediately without reinstalling. Drop the `-e` if you just want to use the source-tip without developing it.
 
 ## Recommended: use a fresh virtual environment
 
@@ -25,7 +33,7 @@ Create an isolated environment so AMFOrA's dependencies don't conflict with anyt
 ```bash
 conda create -n amfora python=3.12 -y
 conda activate amfora
-pip install -e .
+pip install amfora
 ```
 
 With `venv` (built into Python):
@@ -34,7 +42,7 @@ With `venv` (built into Python):
 python -m venv .venv
 source .venv/bin/activate   # macOS / Linux
 # .venv\Scripts\activate    # Windows
-pip install -e .
+pip install amfora
 ```
 
 ## Verify the install
