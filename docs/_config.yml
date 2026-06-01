@@ -1,0 +1,77 @@
+# Jupyter Book settings.
+# Built with `jupyter-book build docs/` and deployed to GitHub Pages
+# automatically by .github/workflows/docs.yml on every push to main.
+
+title: AMFOrA Documentation
+author: Alec Iacobucci
+copyright: "2026"
+
+# Re-execute notebooks during the build to keep example output in sync with
+# the package's current API.  Slows the build but catches doc-vs-code drift.
+execute:
+  execute_notebooks: force
+
+latex:
+  latex_documents:
+    targetname: amfora.tex
+
+bibtex_bibfiles:
+  - references.bib
+
+repository:
+  url: https://github.com/aleciaco/AMFOrA_public
+  path_to_book: docs
+  branch: main
+
+html:
+  use_issues_button: true
+  use_repository_button: true
+  use_edit_page_button: true
+
+launch_buttons:
+  notebook_interface: classic
+  binderhub_url: https://mybinder.org
+  colab_url: https://colab.research.google.com
+
+# MyST markdown extensions enabled in the parser.  See
+# https://myst-parser.readthedocs.io/en/latest/syntax/optional.html
+parse:
+  myst_enable_extensions:
+    - amsmath
+    - colon_fence
+    - deflist
+    - dollarmath
+    - html_admonition
+    - html_image
+    - linkify
+    - replacements
+    - smartquotes
+    - substitution
+    - tasklist
+
+# Sphinx settings.  autodoc + napoleon let us pull the function docstrings
+# straight from the package into the API reference pages.
+sphinx:
+  extra_extensions:
+    - sphinx.ext.autodoc
+    - sphinx.ext.viewcode
+    - sphinx.ext.napoleon
+    - sphinx.ext.intersphinx
+  config:
+    html_theme_options:
+      repository_url: https://github.com/aleciaco/AMFOrA_public
+      use_repository_button: true
+      use_issues_button: true
+      use_edit_page_button: true
+      path_to_docs: docs
+    intersphinx_mapping:
+      numpy: ["https://numpy.org/doc/stable/", null]
+      matplotlib: ["https://matplotlib.org/stable/", null]
+      scipy: ["https://docs.scipy.org/doc/scipy/", null]
+      pandas: ["https://pandas.pydata.org/docs/", null]
+      # OpenCV's docs don't publish a Sphinx objects.inv, so it can't be
+      # included here.  Cross-references to cv2.* fall back to plain text.
+    autodoc_default_options:
+      members: true
+      undoc-members: false
+      show-inheritance: true

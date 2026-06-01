@@ -1,0 +1,688 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>User guide: the pipeline, stage by stage &#8212; AMFOrA Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js?v=b8b12719"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="../_static/sphinx-thebe.js?v=c100c467"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/basic-workflow';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="API reference" href="../api-reference/index.html" />
+    <link rel="prev" title="Quick start" href="../quickstart.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">AMFOrA Documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick start</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">User guide</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../api-reference/index.html">API reference</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api-reference/detection.html"><code class="docutils literal notranslate"><span class="pre">amfora.core.detection</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api-reference/analysis.html"><code class="docutils literal notranslate"><span class="pre">amfora.core.analysis</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api-reference/visualization.html"><code class="docutils literal notranslate"><span class="pre">amfora.core.visualization</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api-reference/statistics.html"><code class="docutils literal notranslate"><span class="pre">amfora.core.statistics</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/aleciaco/AMFOrA_public" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/aleciaco/AMFOrA_public/edit/main/docs/user-guide/basic-workflow.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/aleciaco/AMFOrA_public/issues/new?title=Issue%20on%20page%20%2Fuser-guide/basic-workflow.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/user-guide/basic-workflow.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>User guide: the pipeline, stage by stage</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-full-pipeline">The full pipeline</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-1-masking">Stage 1: Masking</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-2-apply-the-mask">Stage 2: Apply the mask</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-3a-blob-detection">Stage 3a: Blob detection</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-3b-contour-detection">Stage 3b: Contour detection</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-4-per-sherd-statistics">Stage 4: Per-sherd statistics</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#key-parameters-and-when-to-tune-them">Key parameters and when to tune them</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#scan-dpi"><code class="docutils literal notranslate"><span class="pre">scan_dpi</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#paste-pop-k-and-paste-pop-floor"><code class="docutils literal notranslate"><span class="pre">paste_pop_k</span></code> and <code class="docutils literal notranslate"><span class="pre">paste_pop_floor</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#watershed-enabled-and-multigrain-split-enabled"><code class="docutils literal notranslate"><span class="pre">watershed_enabled</span></code> and <code class="docutils literal notranslate"><span class="pre">multigrain_split_enabled</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#void-intensity-max"><code class="docutils literal notranslate"><span class="pre">void_intensity_max</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reading-the-debug-output">Reading the debug output</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-to-go-next">Where to go next</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="user-guide-the-pipeline-stage-by-stage">
+<h1>User guide: the pipeline, stage by stage<a class="headerlink" href="#user-guide-the-pipeline-stage-by-stage" title="Link to this heading">#</a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">amfora.analyze_single_sherd</span></code> is the one-call interface, but understanding what it does internally helps when you need to tune parameters or debug unexpected results. This page walks through the same pipeline broken into its individual stages, with tuning notes for each.</p>
+<section id="the-full-pipeline">
+<h2>The full pipeline<a class="headerlink" href="#the-full-pipeline" title="Link to this heading">#</a></h2>
+<p>For a single sherd, <code class="docutils literal notranslate"><span class="pre">analyze_single_sherd</span></code> runs roughly this sequence:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span><span class="o">,</span><span class="w"> </span><span class="nn">amfora</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">amfora.core.detection</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">sherd_mask</span><span class="p">,</span> <span class="n">apply_mask</span><span class="p">,</span> <span class="n">full_image_mask</span><span class="p">,</span>
+    <span class="n">sherd_blobs</span><span class="p">,</span> <span class="n">contour_detection</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">image</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="s2">&quot;sherd.jpg&quot;</span><span class="p">)</span>
+
+<span class="c1"># 1. Segment the sherd from the scanner background</span>
+<span class="n">mask</span><span class="p">,</span> <span class="n">crop</span><span class="p">,</span> <span class="n">sherd_contour</span> <span class="o">=</span> <span class="n">sherd_mask</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">scan_dpi</span><span class="o">=</span><span class="mi">1200</span><span class="p">)</span>
+
+<span class="c1"># 2. Apply the mask (crop + bitwise_and against the mask)</span>
+<span class="n">masked</span> <span class="o">=</span> <span class="n">apply_mask</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">crop</span><span class="p">)</span>
+
+<span class="c1"># 3. Detect features two complementary ways</span>
+<span class="n">inc_blobs</span><span class="p">,</span> <span class="n">void_blobs</span> <span class="o">=</span> <span class="n">sherd_blobs</span><span class="p">(</span><span class="n">masked</span><span class="p">,</span> <span class="n">scan_dpi</span><span class="o">=</span><span class="mi">1200</span><span class="p">)</span>
+<span class="n">contour_result</span>        <span class="o">=</span> <span class="n">contour_detection</span><span class="p">(</span><span class="n">masked</span><span class="p">,</span> <span class="n">scan_dpi</span><span class="o">=</span><span class="mi">1200</span><span class="p">)</span>
+
+<span class="c1"># 4. Compute per-sherd statistics</span>
+<span class="c1">#    (analyze_single_sherd does this part for you)</span>
+</pre></div>
+</div>
+<p>The rest of this page covers each stage in more detail.</p>
+</section>
+<section id="stage-1-masking">
+<h2>Stage 1: Masking<a class="headerlink" href="#stage-1-masking" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code> segments the sherd from the scanner background using GrabCut, then crops to the sherd’s bounding box (plus a configurable buffer). Returns a 3-channel mask, the crop bounds, and the largest contour around the sherd outline.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mask</span><span class="p">,</span> <span class="n">crop</span><span class="p">,</span> <span class="n">sherd_contour</span> <span class="o">=</span> <span class="n">sherd_mask</span><span class="p">(</span>
+    <span class="n">image</span><span class="p">,</span>
+    <span class="n">scan_dpi</span><span class="o">=</span><span class="mi">1200</span><span class="p">,</span>
+    <span class="n">crop_buffer</span><span class="o">=</span><span class="mi">125</span><span class="p">,</span>   <span class="c1"># px of padding around the sherd</span>
+    <span class="n">auto_crop</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>    <span class="c1"># set False to keep original image dimensions</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Common issue:</strong> the mask “eats” part of the sherd or leaves an overhanging fragment from a broken edge. The downstream <strong>edge-band gate</strong> (4 % of the shorter image dimension, default) is the protection layer — overhanging dark splotches near the mask boundary get rejected automatically. See <a class="reference internal" href="../troubleshooting.html"><span class="doc">Troubleshooting</span></a>.</p>
+<p><strong>Skip masking</strong> when you already have a pre-cropped, background-removed image: pass <code class="docutils literal notranslate"><span class="pre">pre_masked=True</span></code> to <code class="docutils literal notranslate"><span class="pre">analyze_single_sherd</span></code> (it uses <code class="docutils literal notranslate"><span class="pre">full_image_mask</span></code> instead).</p>
+</section>
+<section id="stage-2-apply-the-mask">
+<h2>Stage 2: Apply the mask<a class="headerlink" href="#stage-2-apply-the-mask" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">apply_mask(image,</span> <span class="pre">mask,</span> <span class="pre">crop)</span></code> slices the image to the crop region, pads if needed, and zeros out non-sherd pixels via <code class="docutils literal notranslate"><span class="pre">bitwise_and</span></code>. The result is the input to both detectors.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">masked</span> <span class="o">=</span> <span class="n">apply_mask</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">crop</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The masked image has the sherd’s BGR values inside the mask and exact zeros everywhere else. The downstream detectors and the paste-anchored gate rely on this zero-background convention.</p>
+</section>
+<section id="stage-3a-blob-detection">
+<h2>Stage 3a: Blob detection<a class="headerlink" href="#stage-3a-blob-detection" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">sherd_blobs</span></code> runs three internal <code class="docutils literal notranslate"><span class="pre">cv2.SimpleBlobDetector</span></code> instances (light inclusions, dark inclusions, dark voids), one for each native BGR channel by default, then pools results. Good for round / compact grains; less good for angular ones.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">inc_blobs</span><span class="p">,</span> <span class="n">void_blobs</span> <span class="o">=</span> <span class="n">amfora</span><span class="o">.</span><span class="n">sherd_blobs</span><span class="p">(</span>
+    <span class="n">masked</span><span class="p">,</span>
+    <span class="n">scan_dpi</span><span class="o">=</span><span class="mi">1200</span><span class="p">,</span>
+    <span class="n">paste_pop_k</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>        <span class="c1"># default for blobs (looser than contour)</span>
+    <span class="n">paste_pop_floor</span><span class="o">=</span><span class="mf">8.0</span><span class="p">,</span>
+    <span class="n">edge_band_px</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>      <span class="c1"># None → 4% of shorter dim</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Returned blobs are <code class="docutils literal notranslate"><span class="pre">cv2.KeyPoint</span></code> objects. <code class="docutils literal notranslate"><span class="pre">kp.pt</span></code> is the (x, y) center; <code class="docutils literal notranslate"><span class="pre">kp.size</span></code> is the diameter in pixels.</p>
+</section>
+<section id="stage-3b-contour-detection">
+<h2>Stage 3b: Contour detection<a class="headerlink" href="#stage-3b-contour-detection" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">contour_detection</span></code> thresholds each channel into dark/light masks, traces contours with <code class="docutils literal notranslate"><span class="pre">cv2.findContours(RETR_TREE)</span></code>, filters by size, shape (aspect ratio, solidity, compactness), edge-band rejection, and the paste-anchored pop gate. Then runs two watershed passes: cluster recovery (oversize merged blobs) and multigrain split (lumpy accepted contours).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cr</span> <span class="o">=</span> <span class="n">amfora</span><span class="o">.</span><span class="n">contour_detection</span><span class="p">(</span>
+    <span class="n">masked</span><span class="p">,</span>
+    <span class="n">scan_dpi</span><span class="o">=</span><span class="mi">1200</span><span class="p">,</span>
+    <span class="n">paste_pop_k</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>                  <span class="c1"># tighter than blob default</span>
+    <span class="n">paste_pop_floor</span><span class="o">=</span><span class="mf">8.0</span><span class="p">,</span>
+    <span class="n">watershed_enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>           <span class="c1"># cluster recovery</span>
+    <span class="n">multigrain_split_enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>    <span class="c1"># split lumpy contours</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Returns a dict with <code class="docutils literal notranslate"><span class="pre">inclusions</span></code> (list of contour arrays), <code class="docutils literal notranslate"><span class="pre">voids</span></code>, per-feature <code class="docutils literal notranslate"><span class="pre">inclusion_areas</span></code> and <code class="docutils literal notranslate"><span class="pre">void_areas</span></code> in cm², total counts, and a <code class="docutils literal notranslate"><span class="pre">debug_info</span></code> dict with paste reference, MAD, and per-stage rejection counters.</p>
+</section>
+<section id="stage-4-per-sherd-statistics">
+<h2>Stage 4: Per-sherd statistics<a class="headerlink" href="#stage-4-per-sherd-statistics" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">analyze_single_sherd</span></code> wraps everything above and computes:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">sherd_area_cm2</span></code> — full mask area in cm².</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">effective_detection_area_cm2</span></code> — sherd area minus the 4 % edge band. This is what density / area-percentage metrics divide by, so cross-sherd comparisons stay valid.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">*_inclusion_count</span></code>, <code class="docutils literal notranslate"><span class="pre">*_inclusion_density_per_cm2</span></code>, <code class="docutils literal notranslate"><span class="pre">*_inclusion_area_percentage</span></code> for both detectors.</p></li>
+<li><p>Same for voids.</p></li>
+<li><p>Inclusion orientation summary, color summary, sherd color summary.</p></li>
+<li><p>Optional core-periphery firing-atmosphere analysis (slow; off by default in tests).</p></li>
+</ul>
+</section>
+<section id="key-parameters-and-when-to-tune-them">
+<h2>Key parameters and when to tune them<a class="headerlink" href="#key-parameters-and-when-to-tune-them" title="Link to this heading">#</a></h2>
+<section id="scan-dpi">
+<h3><code class="docutils literal notranslate"><span class="pre">scan_dpi</span></code><a class="headerlink" href="#scan-dpi" title="Link to this heading">#</a></h3>
+<p>The single most important parameter. Must match your actual scan resolution or every cm² value will be wrong. AMFOrA’s defaults (filter sizes, blur kernels, edge band) are calibrated at 1200 DPI but auto-scale with <code class="docutils literal notranslate"><span class="pre">scan_dpi</span></code>.</p>
+</section>
+<section id="paste-pop-k-and-paste-pop-floor">
+<h3><code class="docutils literal notranslate"><span class="pre">paste_pop_k</span></code> and <code class="docutils literal notranslate"><span class="pre">paste_pop_floor</span></code><a class="headerlink" href="#paste-pop-k-and-paste-pop-floor" title="Link to this heading">#</a></h3>
+<p>These set the threshold a candidate has to clear to count as a feature. The threshold per channel is <code class="docutils literal notranslate"><span class="pre">max(K</span> <span class="pre">·</span> <span class="pre">MAD,</span> <span class="pre">floor)</span></code>, where MAD is the per-channel Median Absolute Deviation of the paste pixels.</p>
+<ul class="simple">
+<li><p>Defaults work for most pottery (cream, terracotta, grey-bodied wares).</p></li>
+<li><p><strong>Raise K</strong> (e.g. 3.0–3.5) when you’re getting too many noise detections on visually-uniform paste.</p></li>
+<li><p><strong>Lower K</strong> (e.g. 1.5–2.0) when you’re missing visibly-present fine grains.</p></li>
+<li><p>The <strong>floor</strong> rarely needs tuning — it’s a safety net for synthetic / perfectly-smooth inputs where MAD collapses to zero.</p></li>
+</ul>
+</section>
+<section id="watershed-enabled-and-multigrain-split-enabled">
+<h3><code class="docutils literal notranslate"><span class="pre">watershed_enabled</span></code> and <code class="docutils literal notranslate"><span class="pre">multigrain_split_enabled</span></code><a class="headerlink" href="#watershed-enabled-and-multigrain-split-enabled" title="Link to this heading">#</a></h3>
+<p>On by default. The watershed cluster-recovery and multigrain-split passes are what handle the dense-inclusion case (e.g. heavily-tempered sherds where adjacent grains touch). Turn off to get legacy single-contour behavior on cluster regions.</p>
+</section>
+<section id="void-intensity-max">
+<h3><code class="docutils literal notranslate"><span class="pre">void_intensity_max</span></code><a class="headerlink" href="#void-intensity-max" title="Link to this heading">#</a></h3>
+<p>Maximum interior intensity (0–255) for a feature to count as a void. Lower (e.g. 45) for stricter void detection; raise (e.g. 90) for low-contrast scans where pores don’t quite reach near-black.</p>
+</section>
+</section>
+<section id="reading-the-debug-output">
+<h2>Reading the debug output<a class="headerlink" href="#reading-the-debug-output" title="Link to this heading">#</a></h2>
+<p>If you pass <code class="docutils literal notranslate"><span class="pre">debug_mode=True</span></code> to <code class="docutils literal notranslate"><span class="pre">contour_detection</span></code>, you get a printed breakdown of how many candidates each filter rejected:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">amfora</span><span class="o">.</span><span class="n">contour_detection</span><span class="p">(</span><span class="n">masked</span><span class="p">,</span> <span class="n">scan_dpi</span><span class="o">=</span><span class="mi">1200</span><span class="p">,</span> <span class="n">debug_mode</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>[contour_detection debug]
+  Channels                           : B, G, R
+  Combine mode                       : union
+  Size-filtered inclusion candidates : 248
+  Accepted inclusions                : 138
+  Rejected – boundary band (40 px)   : 12
+  Rejected – solidity &lt; 0.45         : 0
+  Rejected – compactness &lt; 0.12      : 0
+  Rejected – nested in larger contour: 35
+  ...
+</pre></div>
+</div>
+<p>This is the fastest way to figure out <em>why</em> a candidate didn’t make it through.</p>
+</section>
+<section id="where-to-go-next">
+<h2>Where to go next<a class="headerlink" href="#where-to-go-next" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="../api-reference/index.html"><span class="doc">API reference</span></a> — full parameter documentation for every public function.</p></li>
+<li><p><a class="reference internal" href="../troubleshooting.html"><span class="doc">Troubleshooting</span></a> — common failure modes (no features, too many false positives, void-vs-inclusion confusion).</p></li>
+</ul>
+</section>
+</section>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "python"
+        },
+        kernelOptions: {
+            name: "python3",
+            path: "./user-guide"
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'python3'</script>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../quickstart.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Quick start</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../api-reference/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">API reference</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-full-pipeline">The full pipeline</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-1-masking">Stage 1: Masking</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-2-apply-the-mask">Stage 2: Apply the mask</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-3a-blob-detection">Stage 3a: Blob detection</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-3b-contour-detection">Stage 3b: Contour detection</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-4-per-sherd-statistics">Stage 4: Per-sherd statistics</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#key-parameters-and-when-to-tune-them">Key parameters and when to tune them</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#scan-dpi"><code class="docutils literal notranslate"><span class="pre">scan_dpi</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#paste-pop-k-and-paste-pop-floor"><code class="docutils literal notranslate"><span class="pre">paste_pop_k</span></code> and <code class="docutils literal notranslate"><span class="pre">paste_pop_floor</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#watershed-enabled-and-multigrain-split-enabled"><code class="docutils literal notranslate"><span class="pre">watershed_enabled</span></code> and <code class="docutils literal notranslate"><span class="pre">multigrain_split_enabled</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#void-intensity-max"><code class="docutils literal notranslate"><span class="pre">void_intensity_max</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reading-the-debug-output">Reading the debug output</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-to-go-next">Where to go next</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Alec Iacobucci
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2026.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

@@ -1,0 +1,1329 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>amfora.core.detection &#8212; AMFOrA Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js?v=b8b12719"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="../_static/sphinx-thebe.js?v=c100c467"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'api-reference/detection';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="amfora.core.analysis" href="analysis.html" />
+    <link rel="prev" title="API reference" href="index.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">AMFOrA Documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../user-guide/basic-workflow.html">User guide</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">API reference</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">amfora.core.detection</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="analysis.html"><code class="docutils literal notranslate"><span class="pre">amfora.core.analysis</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="visualization.html"><code class="docutils literal notranslate"><span class="pre">amfora.core.visualization</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics.html"><code class="docutils literal notranslate"><span class="pre">amfora.core.statistics</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/aleciaco/AMFOrA_public" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/aleciaco/AMFOrA_public/edit/main/docs/api-reference/detection.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/aleciaco/AMFOrA_public/issues/new?title=Issue%20on%20page%20%2Fapi-reference/detection.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/api-reference/detection.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>amfora.core.detection</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.sherd_mask"><code class="docutils literal notranslate"><span class="pre">sherd_mask()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.full_image_mask"><code class="docutils literal notranslate"><span class="pre">full_image_mask()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.apply_mask"><code class="docutils literal notranslate"><span class="pre">apply_mask()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.clahe_enhance"><code class="docutils literal notranslate"><span class="pre">clahe_enhance()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.setup_robust_blob_params"><code class="docutils literal notranslate"><span class="pre">setup_robust_blob_params()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.sherd_blobs"><code class="docutils literal notranslate"><span class="pre">sherd_blobs()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.contour_detection"><code class="docutils literal notranslate"><span class="pre">contour_detection()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.detect_multiple_sherds"><code class="docutils literal notranslate"><span class="pre">detect_multiple_sherds()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.split_multi_sherd_scan"><code class="docutils literal notranslate"><span class="pre">split_multi_sherd_scan()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.prepare_multi_sherd_directory"><code class="docutils literal notranslate"><span class="pre">prepare_multi_sherd_directory()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.super_zorro_cv"><code class="docutils literal notranslate"><span class="pre">super_zorro_cv()</span></code></a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="amfora-core-detection">
+<h1><code class="docutils literal notranslate"><span class="pre">amfora.core.detection</span></code><a class="headerlink" href="#amfora-core-detection" title="Link to this heading">#</a></h1>
+<p>Image preprocessing, sherd masking, and the two feature detectors (blob and contour). This module also contains the paste-anchored MAD-scaled pop gate, the watershed cluster-recovery and multigrain-split passes, and the edge-band rejection helpers.</p>
+<p>The full source lives in <a class="reference external" href="https://github.com/aleciaco/AMFOrA_public/blob/main/src/amfora/core/detection.py"><code class="docutils literal notranslate"><span class="pre">src/amfora/core/detection.py</span></code></a>. Function docstrings are pulled directly from there into the listing below.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.detection.sherd_mask">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.detection.</span></span><span class="sig-name descname"><span class="pre">sherd_mask</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sherd_scan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gray</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crop_buffer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">125</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auto_crop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/detection.html#sherd_mask"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.detection.sherd_mask" title="Link to this definition">#</a></dt>
+<dd><p>Enhanced sherd masking with optimal edge detection and adaptive parameters.</p>
+<p>By default the mask is automatically cropped to the tightest bounding box
+of the detected sherd contour plus <code class="docutils literal notranslate"><span class="pre">crop_buffer</span></code> pixels on every side.
+This removes irrelevant background pixels from all downstream computations,
+significantly reducing processing time for large scans.  Set
+<code class="docutils literal notranslate"><span class="pre">auto_crop=False</span></code> to skip cropping and retain the full original image
+dimensions (useful for stitching results back into a larger scan).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sherd_scan</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – A scanned image of the sherd for which you want a mask</p></li>
+<li><p><strong>gray</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True returns single channel masked grayscale images;
+if False creates color masks (default: False)</p></li>
+<li><p><strong>scan_dpi</strong> (<em>int</em><em>, </em><em>optional</em>) – Scan resolution for adaptive parameter scaling (default: 1200)
+Valid range: 150-2400 DPI</p></li>
+<li><p><strong>crop_buffer</strong> (<em>int</em><em>, </em><em>optional</em>) – Extra pixels to keep beyond the sherd bounding box on all four sides
+(default: 75).  Ignored when <code class="docutils literal notranslate"><span class="pre">auto_crop=False</span></code>.</p></li>
+<li><p><strong>auto_crop</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True (default), crop the returned mask to the sherd bounding box
+plus <code class="docutils literal notranslate"><span class="pre">crop_buffer</span></code>.  If False, return a full-size mask matching the
+original image dimensions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">(mask,</span> <span class="pre">(y1,</span> <span class="pre">y2,</span> <span class="pre">x1,</span> <span class="pre">x2))</span></code> where <em>mask</em> is the binary mask
+(grayscale uint8 or 3-channel) and the second element is the crop
+rectangle in the original image’s pixel coordinates.  When
+<code class="docutils literal notranslate"><span class="pre">auto_crop=True</span></code> the mask is already cropped; apply the same crop
+to the source image with <code class="docutils literal notranslate"><span class="pre">apply_mask(image,</span> <span class="pre">mask,</span> <span class="pre">crop)</span></code> or
+directly as <code class="docutils literal notranslate"><span class="pre">image[y1:y2,</span> <span class="pre">x1:x2]</span></code>.  When <code class="docutils literal notranslate"><span class="pre">auto_crop=False</span></code> the
+crop rectangle spans the full image <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">H,</span> <span class="pre">0,</span> <span class="pre">W)</span></code> and the mask is
+full-size.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.detection.full_image_mask">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.detection.</span></span><span class="sig-name descname"><span class="pre">full_image_mask</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gray</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/detection.html#full_image_mask"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.detection.full_image_mask" title="Link to this definition">#</a></dt>
+<dd><p>Build a sherd_mask-shaped return for an image that is already pre-masked
+(i.e. the sherd fills the entire frame and there is no background to
+segment away).  Use this in place of <code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code> when the input is a
+backgroundless / tight-cropped sherd image so the GrabCut pipeline is
+skipped entirely.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Image whose full extent is treated as the sherd.</p></li>
+<li><p><strong>gray</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True returns a single-channel mask; otherwise a 3-channel mask
+(matches <code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code>’s default).  Default: False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">(mask,</span> <span class="pre">crop,</span> <span class="pre">best_contour)</span></code> matching <code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code>’s signature.
+<code class="docutils literal notranslate"><span class="pre">mask</span></code> is filled with 255 across the full image, <code class="docutils literal notranslate"><span class="pre">crop</span></code> is
+<code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">H,</span> <span class="pre">0,</span> <span class="pre">W,</span> <span class="pre">0,</span> <span class="pre">0,</span> <span class="pre">0,</span> <span class="pre">0)</span></code>, and <code class="docutils literal notranslate"><span class="pre">best_contour</span></code> is the rectangular
+contour traced around the image perimeter (image-coordinate space)
+so downstream geometry (e.g. <code class="docutils literal notranslate"><span class="pre">minAreaRect</span></code> orientation) still has
+a sherd boundary to work from.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.detection.apply_mask">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.detection.</span></span><span class="sig-name descname"><span class="pre">apply_mask</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/detection.html#apply_mask"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.detection.apply_mask" title="Link to this definition">#</a></dt>
+<dd><p>Apply a mask to an image (single image version of super_zorro_cv).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Original image to mask</p></li>
+<li><p><strong>mask</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Mask to apply (from sherd_mask function).  Must already be cropped to
+match the region described by <code class="docutils literal notranslate"><span class="pre">crop</span></code> if <code class="docutils literal notranslate"><span class="pre">crop</span></code> is provided.</p></li>
+<li><p><strong>crop</strong> (<em>tuple</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – <code class="docutils literal notranslate"><span class="pre">(y1,</span> <span class="pre">y2,</span> <span class="pre">x1,</span> <span class="pre">x2,</span> <span class="pre">pad_top,</span> <span class="pre">pad_bottom,</span> <span class="pre">pad_left,</span> <span class="pre">pad_right)</span></code>
+crop rectangle returned by <code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code>.  The first four elements
+define the slice into the original image; the last four (optional)
+give zero-padding needed when the sherd is near the scan edge.
+When provided the image is sliced and padded to match the
+(already-cropped-and-padded) mask.  When None the image is used
+as-is and must already match the mask dimensions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Masked image, cropped to the sherd bounding region when <code class="docutils literal notranslate"><span class="pre">crop</span></code> is
+provided.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.detection.clahe_enhance">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.detection.</span></span><span class="sig-name descname"><span class="pre">clahe_enhance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">masked_image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clip_limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tile_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(8,</span> <span class="pre">8)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/detection.html#clahe_enhance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.detection.clahe_enhance" title="Link to this definition">#</a></dt>
+<dd><p>Apply CLAHE to the L* channel of a masked sherd image.</p>
+<p>Enhances local contrast between paste and inclusions/voids so the
+downstream blob and contour detectors see a wider, cleaner intra-sherd
+intensity range.  Operates in CIELAB to stay consistent with the rest
+of the analysis pipeline (sherd_blobs, contour_detection, and the
+color analysis all work in Lab).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>masked_image</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – BGR image with the non-sherd background already set to zero
+(output of <code class="docutils literal notranslate"><span class="pre">apply_mask</span></code>).</p></li>
+<li><p><strong>clip_limit</strong> (<em>float</em><em>, </em><em>optional</em>) – CLAHE contrast clipping limit (default: 2.0).  Higher values give
+more aggressive enhancement; values above ~4 tend to amplify noise.</p></li>
+<li><p><strong>tile_grid</strong> (<em>tuple</em><em> of </em><em>int</em><em>, </em><em>optional</em>) – CLAHE tile grid size (default: (8, 8)).  Smaller tiles give more
+local adaptation but can introduce boundary artifacts in
+low-texture regions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>BGR image with CLAHE-enhanced L*; background pixels (those that
+were zero on input) are re-zeroed so the mask remains intact.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>CLAHE is applied to the full L* channel and then the original
+background (any pixel that was zero across all three input channels)
+is re-zeroed.  Tiles spanning the sherd boundary see a bimodal
+histogram (black background + sherd); the <code class="docutils literal notranslate"><span class="pre">clip_limit</span></code> of 2.0 keeps
+the resulting boundary artifacts well below the inclusion-detection
+thresholds.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.detection.setup_robust_blob_params">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.detection.</span></span><span class="sig-name descname"><span class="pre">setup_robust_blob_params</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blob_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'light'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/detection.html#setup_robust_blob_params"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.detection.setup_robust_blob_params" title="Link to this definition">#</a></dt>
+<dd><p>Create robust blob detector parameters with adaptive thresholding and optional size overrides.</p>
+<p>This function automatically calculates optimal detection parameters based on image characteristics,
+but allows user-specified size filtering to override the defaults.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Grayscale image for parameter calculation</p></li>
+<li><p><strong>scan_dpi</strong> (<em>int</em>) – Scan resolution in dots per inch (150-2400)</p></li>
+<li><p><strong>blob_type</strong> (<em>str</em>) – <p>Type of blobs to detect:
+- ‘light’: inclusions (bright features on darker background)
+- ‘dark_inclusion’: inclusions (dark minerals — ferruginous grains,</p>
+<blockquote>
+<div><p>magnetite, biotite, dark grog).  Uses the same adaptive dark
+thresholding as ‘dark’ but with inclusion-level size limits
+and strict shape filters: circularity &gt;= 0.3, convexity &gt;= 0.7,
+inertia ratio &gt;= 0.35 (~3:1 max elongation).  These ensure only
+high-confidence compact mineral grains are captured, leaving
+irregular dark features to the void detector.</p>
+</div></blockquote>
+<ul>
+<li><p>’dark’: voids (dark features/pores).  Uses upper-bound shape
+filters (maxCircularity = 0.85, maxConvexity = 0.85) to reject
+near-perfect circles and very smooth convex shapes that are
+almost certainly mineral grains rather than voids.</p></li>
+</ul>
+</p></li>
+<li><p><strong>size_params</strong> (<em>dict</em><em>, </em><em>optional</em>) – <p>Size filtering parameters to override defaults. If None, uses:</p>
+<p><strong>Inclusions (blob_type=’light’):</strong>
+- min: 0.1mm (fine silt boundary, Wentworth scale)
+- max: 15mm (very coarse gravel)</p>
+<p><strong>Voids (blob_type=’dark’):</strong>
+- min: 0.25mm (macroscopic voids from organic burnout)
+- max: 15mm (larger voids are likely artifacts)</p>
+<p>For inclusions, provide:
+- ‘min_inclusion_area_px’: int, minimum area in pixels
+- ‘max_inclusion_area_px’: int, maximum area in pixels</p>
+<p>For voids, provide:
+- ‘min_void_area_px’: int, minimum area in pixels
+- ‘max_void_area_px’: int, maximum area in pixels</p>
+<p>Example for detecting inclusions up to 2cm diameter at 1200 DPI:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dpcm</span> <span class="o">=</span> <span class="mi">1200</span> <span class="o">*</span> <span class="mf">0.3937</span>  <span class="c1"># ~472 dots per cm</span>
+<span class="n">max_area</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">dpcm</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># 2cm diameter</span>
+<span class="n">size_params</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;min_inclusion_area_px&#39;</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>
+    <span class="s1">&#39;max_inclusion_area_px&#39;</span><span class="p">:</span> <span class="n">max_area</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Optimized parameters for blob detection with adaptive thresholding</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>cv2.SimpleBlobDetector_Params</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.detection.sherd_blobs">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.detection.</span></span><span class="sig-name descname"><span class="pre">sherd_blobs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blob_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blur_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">('B',</span> <span class="pre">'G',</span> <span class="pre">'R')</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">combine_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'union'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vote_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enhance_contrast</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clahe_clip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clahe_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(8,</span> <span class="pre">8)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">void_intensity_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">paste_pop_k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">paste_pop_floor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_band_px</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/detection.html#sherd_blobs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.detection.sherd_blobs" title="Link to this definition">#</a></dt>
+<dd><p>Enhanced blob detection with robust, adaptive parameters and customizable size filtering.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Image array of a scanned sherd (not file path)</p></li>
+<li><p><strong>scan_dpi</strong> (<em>int</em><em>, </em><em>optional</em>) – Scan resolution in dots per inch (default: 1200)
+Valid range: 150-2400 DPI</p></li>
+<li><p><strong>size_params</strong> (<em>dict</em><em>, </em><em>optional</em>) – Dictionary containing size filtering parameters:
+- min_inclusion_area_px: minimum inclusion area in pixels
+- max_inclusion_area_px: maximum inclusion area in pixels
+- min_void_area_px: minimum void area in pixels
+- max_void_area_px: maximum void area in pixels</p></li>
+<li><p><strong>channels</strong> (<em>tuple</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – Channels to run blob detection on.  Default <code class="docutils literal notranslate"><span class="pre">('B',</span> <span class="pre">'G',</span> <span class="pre">'R')</span></code> runs
+detection on each of OpenCV’s native BGR channels (not RGB) and
+combines the results, so inclusions that only contrast strongly in
+one channel (e.g. iron-rich grains in R, organic dark cores in B)
+get picked up.  Valid entries also include <code class="docutils literal notranslate"><span class="pre">'L'</span></code> (CIELAB lightness)
+— pass <code class="docutils literal notranslate"><span class="pre">channels=('L',)</span></code> to recover the pre-multi-channel L*-only
+behavior.  L* is excluded from the default because it’s a
+perceptually-weighted blend of B/G/R, so including it gives features
+visible in L* an extra redundant vote in the combination step.</p></li>
+<li><p><strong>combine_mode</strong> (<em>{'union'</em><em>, </em><em>'vote'}</em><em>, </em><em>optional</em>) – How to merge per-channel detections when <code class="docutils literal notranslate"><span class="pre">len(channels)</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>.
+Default <code class="docutils literal notranslate"><span class="pre">'union'</span></code> pools detections and removes spatial
+duplicates without requiring cross-channel agreement.  This
+catches monochromatic features that only contrast strongly in
+one channel — e.g. an iron-bearing mineral grain in sand
+temper may register as warm-toned against a cream matrix and
+thus pop in B (where the warm grain reads dark) while showing
+near-zero contrast in R (where both grain and matrix read
+bright).  The prior <code class="docutils literal notranslate"><span class="pre">'vote'</span></code> default with <code class="docutils literal notranslate"><span class="pre">vote_min=2</span></code> was
+dropping roughly half of these legitimate single-channel
+detections.  Noise rejection is instead handled by
+the paste-anchored pop gate (<code class="docutils literal notranslate"><span class="pre">paste_pop_k</span></code> / <code class="docutils literal notranslate"><span class="pre">paste_pop_floor</span></code>,
+sampled on raw, pre-CLAHE BGR), which is a stronger discriminator
+than per-channel agreement: it directly measures whether a
+candidate’s interior is statistically distinct from the sherd’s
+paste in noise-floor units.  Use <code class="docutils literal notranslate"><span class="pre">'vote'</span></code> only if you
+have a specific reason to require cross-channel agreement
+(e.g. very noisy scans where the pop gate alone is
+insufficient).</p></li>
+<li><p><strong>vote_min</strong> (<em>int</em><em>, </em><em>optional</em>) – Minimum number of channels that must agree for a feature to be kept
+when <code class="docutils literal notranslate"><span class="pre">combine_mode='vote'</span></code> (default: 2 of 3 BGR channels).
+Ignored under the default <code class="docutils literal notranslate"><span class="pre">combine_mode='union'</span></code>.</p></li>
+<li><p><strong>enhance_contrast</strong> (<em>bool</em><em>, </em><em>optional</em>) – Apply CLAHE to each requested channel before detection (default:
+True).  Set to False if you’ve already pre-applied contrast
+enhancement to the input image — otherwise the detector handles
+CLAHE per channel internally.</p></li>
+<li><p><strong>clahe_clip</strong> (<em>float / tuple</em><em>, </em><em>optional</em>) – Forwarded to <code class="docutils literal notranslate"><span class="pre">cv2.createCLAHE</span></code> when <code class="docutils literal notranslate"><span class="pre">enhance_contrast=True</span></code>.</p></li>
+<li><p><strong>clahe_grid</strong> (<em>float / tuple</em><em>, </em><em>optional</em>) – Forwarded to <code class="docutils literal notranslate"><span class="pre">cv2.createCLAHE</span></code> when <code class="docutils literal notranslate"><span class="pre">enhance_contrast=True</span></code>.</p></li>
+<li><p><strong>void_intensity_max</strong> (<em>float in 0..255</em><em>, </em><em>optional</em>) – Maximum allowed mean pixel intensity inside a void keypoint’s
+disc, sampled from the (pre-blur) channel (default: 60).  Mirrors
+the gate in <code class="docutils literal notranslate"><span class="pre">contour_detection</span></code>: a real pore reads near-black
+inside, while a dark mineral inclusion is just darker paste and
+stays well above black.  Without this gate, dark mineral grains on
+light-grey fabrics show up in the void list because the dark-void
+blob detector’s upper-bound shape filters alone can’t separate
+them from grains.  Lower (e.g. 45) for stricter void detection;
+raise (e.g. 90) for low-contrast scans.</p></li>
+<li><p><strong>paste_pop_k</strong> (<em>float</em><em>, </em><em>optional</em>) – <p>Minimum “pop” required for a candidate inclusion to be kept,
+expressed as a multiple of the paste’s per-channel Median
+Absolute Deviation (default: 2.0 for blobs — looser than the
+contour detector’s 2.5 default because SimpleBlobDetector’s
+own shape filters already cull most noise, so the pop gate
+can afford to be more permissive without losing precision).
+“Pop” here is informal shorthand for <strong>how much the feature
+stands out against the sherd’s paste</strong> — concretely, on the
+<strong>raw (pre-CLAHE) BGR channels</strong> of the masked input image:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">paste_ref</span> <span class="o">=</span> <span class="n">per</span><span class="o">-</span><span class="n">channel</span> <span class="n">median</span> <span class="n">of</span> <span class="n">non</span><span class="o">-</span><span class="n">zero</span> <span class="n">pixels</span>
+<span class="n">paste_MAD</span> <span class="o">=</span> <span class="n">per</span><span class="o">-</span><span class="n">channel</span> <span class="n">median</span><span class="p">(</span><span class="o">|</span><span class="n">pixel</span> <span class="o">-</span> <span class="n">paste_ref</span><span class="o">|</span><span class="p">)</span>
+<span class="n">keep</span> <span class="n">iff</span>  <span class="o">|</span><span class="n">median</span><span class="p">(</span><span class="n">disc</span><span class="p">)</span> <span class="o">-</span> <span class="n">paste_ref</span><span class="o">|</span>  <span class="o">&gt;=</span>  <span class="nb">max</span><span class="p">(</span><span class="n">K</span> <span class="o">*</span> <span class="n">MAD</span><span class="p">,</span> <span class="n">floor</span><span class="p">)</span>
+          <span class="n">on</span> <span class="n">at</span> <span class="n">least</span> <span class="n">one</span> <span class="n">BGR</span> <span class="n">channel</span>
+</pre></div>
+</div>
+<p>The MAD scaling makes the same K work across paste types —
+smooth cream paste (MAD ~5) gets a tight absolute threshold,
+mottled grog-tempered paste (MAD ~18) gets a loose one.  For
+normal data σ ≈ 1.4826 · MAD, so K=2.0 corresponds to roughly
+a 3σ detection threshold.  Comparing against the global paste
+reference (instead of the local ring used by earlier versions)
+is what fixes the dense-cluster failure mode where bright
+paste pockets between dark grains were detected as light
+inclusions and dark cluster grains were rejected for having
+dark neighbors.
+Set to 0 to disable; raise (e.g. 2.5-3.0) to tighten precision
+on fine-grained fabrics; lower (e.g. 1.5) when chasing very
+subtle features.</p>
+</p></li>
+<li><p><strong>paste_pop_floor</strong> (<em>float in 0..255</em><em>, </em><em>optional</em>) – Absolute brightness floor under the MAD-scaled threshold
+(default: 8.0).  Effective threshold per channel is
+<code class="docutils literal notranslate"><span class="pre">max(paste_pop_k</span> <span class="pre">*</span> <span class="pre">MAD,</span> <span class="pre">paste_pop_floor)</span></code>.  Inactive on every
+real flatbed scan (where MAD ≥ ~7 across our calibration set),
+but protects against pathological near-zero-MAD inputs
+(synthetic test images, heavily slipped pieces) where a tiny
+MAD would otherwise collapse the gate.</p></li>
+<li><p><strong>edge_band_px</strong> (<em>int</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – <p>Width of the band inside the sherd mask boundary that is treated
+as “edge”; any blob whose center falls in this band is rejected
+as a CLAHE tile-boundary artifact or unmasked-overhang splotch.
+Default <code class="docutils literal notranslate"><span class="pre">None</span></code> uses the same value as <code class="docutils literal notranslate"><span class="pre">contour_detection</span></code>
+(<code class="docutils literal notranslate"><span class="pre">max(5,</span> <span class="pre">4</span> <span class="pre">%</span> <span class="pre">of</span> <span class="pre">shorter</span> <span class="pre">image</span> <span class="pre">dimension)</span></code>), so both detectors
+share an effective search area and <code class="docutils literal notranslate"><span class="pre">analyze_single_sherd</span></code>’s
+<code class="docutils literal notranslate"><span class="pre">effective_detection_area_cm2</span></code> denominator stays consistent
+with both.  Set to 0 to disable.
+Dictionary to override any cv2.SimpleBlobDetector_Params attributes
+after the adaptive defaults are calculated by setup_robust_blob_params.
+Applies to all three internal detectors (light-inclusion,
+dark-inclusion, and dark-void).</p>
+<p>Shape filtering keys:
+- filterByCircularity (bool), minCircularity (float 0–1)</p>
+<blockquote>
+<div><p>Default: disabled.  Enable to restrict detection to compact grains.
+e.g. minCircularity=0.7 captures near-circular (quartz-like) grains
+and rejects elongated minerals (biotite laths, feldspar needles).</p>
+</div></blockquote>
+<ul>
+<li><p>filterByConvexity (bool), minConvexity (float 0–1)
+Default: disabled.  Enable to reject grains with deep concavities.</p></li>
+<li><p>filterByInertia (bool), minInertiaRatio (float 0–1)
+Default: True / 0.2 (allows up to ~5:1 aspect ratio).
+This is the primary shape filter for inclusions and directly
+mirrors the <code class="docutils literal notranslate"><span class="pre">inclusion_max_aspect_ratio</span></code> parameter in <code class="docutils literal notranslate"><span class="pre">contour_detection</span></code>:</p>
+<blockquote>
+<div><p>minInertiaRatio = 1 / max_aspect_ratio
+0.2  ↔  max_aspect_ratio = 5.0  (the shared default)</p>
+</div></blockquote>
+<p>Decreasing minInertiaRatio accepts more elongated shapes:
+e.g. 0.1 → ~10:1 max, 0.05 → ~20:1 (very elongated laths).
+Increasing restricts to more equant grains:
+e.g. 0.5 → ~4:1 max, 0.9 → ~1.2:1 (near-circular only).</p>
+</li>
+<li><p>minDistBetweenBlobs (float, pixels)
+Default: adaptive (~1.2× sqrt of min area).
+Increase to avoid double-counting adjacent touching grains.</p></li>
+</ul>
+<p>Threshold keys (override the adaptive calculation):
+- minThreshold, maxThreshold (float 0–255)
+- thresholdStep (float)</p>
+<p>Note: blobColor and filterByColor are set internally to select
+light vs dark features and should NOT be overridden here.</p>
+<p>Example — restrict to near-circular grains (quartz, oolites):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">inclusions</span><span class="p">,</span> <span class="n">voids</span> <span class="o">=</span> <span class="n">amfora</span><span class="o">.</span><span class="n">sherd_blobs</span><span class="p">(</span>
+    <span class="n">masked_img</span><span class="p">,</span> <span class="n">scan_dpi</span><span class="o">=</span><span class="n">SCAN_DPI</span><span class="p">,</span>
+    <span class="n">blob_params</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;filterByCircularity&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s1">&#39;minCircularity&#39;</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Example — accept highly elongated blobs (same as setting max_aspect_ratio=10 in contour_detection):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">inclusions</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">amfora</span><span class="o">.</span><span class="n">sherd_blobs</span><span class="p">(</span>
+    <span class="n">masked_img</span><span class="p">,</span> <span class="n">scan_dpi</span><span class="o">=</span><span class="n">SCAN_DPI</span><span class="p">,</span>
+    <span class="n">blob_params</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;filterByInertia&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s1">&#39;minInertiaRatio&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(inclusion_blobs, void_blobs) — Two lists of <code class="docutils literal notranslate"><span class="pre">cv2.KeyPoint</span></code>.
+<em>inclusion_blobs</em> contains both light and dark mineral inclusions;
+<em>void_blobs</em> contains all detected dark voids.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Internally three detectors run: light-inclusions, dark-inclusions, and
+dark-voids.  The dark-inclusion detector uses the same adaptive dark
+thresholding as the void detector but applies inclusion-level size limits
+and strict shape filters (circularity &gt;= 0.2, convexity &gt;= 0.5, inertia
+ratio &gt;= 0.35) to capture only high-confidence dark mineral grains
+(ferruginous, magnetite, biotite, dark grog).  The void detector uses
+<strong>upper-bound</strong> shape filters (maxCircularity = 0.85, maxConvexity = 0.85)
+to reject features that are too regular — near-perfect circles or very
+smooth convex shapes are almost certainly mineral grains, not voids.
+Together the lower-bound (dark-inclusion) and upper-bound (void) filters
+form complementary shape discriminators, but on real masked sherds the
+blur smooths concavities and dark mineral grains can still pass the
+void detector’s upper-bound shape gates.  A second gate — the
+<code class="docutils literal notranslate"><span class="pre">void_intensity_max</span></code> brightness filter — therefore drops any void
+keypoint whose disc isn’t actually near-black, mirroring the gate in
+<code class="docutils literal notranslate"><span class="pre">contour_detection</span></code>.  This makes the void/inclusion classification
+effectively mutually exclusive on common pottery samples.</p>
+<p><code class="docutils literal notranslate"><span class="pre">blob_params</span></code> overrides are applied to all three detectors.  Note that
+<code class="docutils literal notranslate"><span class="pre">blobColor</span></code> and <code class="docutils literal notranslate"><span class="pre">filterByColor</span></code> are set internally per detector and
+should NOT be overridden.</p>
+<p>blob.size represents the diameter of the detected blob in pixels.
+To convert to real-world measurements, use: diameter_cm = blob.size / (scan_dpi * 0.3937)</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.detection.contour_detection">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.detection.</span></span><span class="sig-name descname"><span class="pre">contour_detection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">debug_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blur_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">('B',</span> <span class="pre">'G',</span> <span class="pre">'R')</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">combine_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'union'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vote_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enhance_contrast</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clahe_clip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clahe_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(8,</span> <span class="pre">8)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">void_intensity_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">paste_pop_k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">paste_pop_floor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">watershed_enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">multigrain_split_enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_solidity_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.75</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_area_cm2_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.005</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/detection.html#contour_detection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.detection.contour_detection" title="Link to this definition">#</a></dt>
+<dd><p>Contour-based detection using the exact cv2_test.py methodology for individual inclusions.</p>
+<p>This implements the approach from “Trying to find contours for individual inclusions”:
+1. Threshold at 127 (not 125 from contour_counter)
+2. Find contours using RETR_TREE, CHAIN_APPROX_SIMPLE
+3. Sort by area (largest first)
+4. Filter by solidity (convex hull ratio &gt; 0.7)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Image array of a scanned sherd (not file path)</p></li>
+<li><p><strong>scan_dpi</strong> (<em>int</em><em>, </em><em>optional</em>) – Scan resolution in dots per inch (default: 1200)
+Valid range: 150-2400 DPI</p></li>
+<li><p><strong>size_params</strong> (<em>dict</em><em>, </em><em>optional</em>) – <p>Size filtering parameters to override defaults. If None, uses:</p>
+<p><strong>Inclusions:</strong>
+- min: 0.1 mm (smallest grain size for v. fine sand, Wentworth scale after accounting for elbow in chart)
+- max: 15mm (very coarse gravel)</p>
+<p><strong>Voids:</strong>
+- min: 0.25mm (macroscopic voids from organic burnout)
+- max: 15mm (larger voids are likely artifacts)</p>
+<p>To override, provide a dict with:
+- ‘user_override’: bool, must be True to enable custom sizes
+- ‘min_inclusion_area_px’: int, minimum inclusion area in pixels
+- ‘max_inclusion_area_px’: int, maximum inclusion area in pixels
+- ‘min_void_area_px’: int, minimum void area in pixels
+- ‘max_void_area_px’: int, maximum void area in pixels</p>
+<p>Example for detecting features up to 2cm diameter at 1200 DPI:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dpcm</span> <span class="o">=</span> <span class="mi">1200</span> <span class="o">*</span> <span class="mf">0.3937</span>  <span class="c1"># ~472 dots per cm</span>
+<span class="n">max_area</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">dpcm</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># 2cm diameter</span>
+<span class="n">size_params</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;user_override&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;min_inclusion_area_px&#39;</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>
+    <span class="s1">&#39;max_inclusion_area_px&#39;</span><span class="p">:</span> <span class="n">max_area</span><span class="p">,</span>
+    <span class="s1">&#39;min_void_area_px&#39;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+    <span class="s1">&#39;max_void_area_px&#39;</span><span class="p">:</span> <span class="n">max_area</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>shape_params</strong> (<em>dict</em><em>, </em><em>optional</em>) – <p>Override the hardcoded shape-quality thresholds used to filter contours.
+If None, calibrated defaults are used.</p>
+<p>Keys:
+- inclusion_solidity_min (float, default 0.45)</p>
+<blockquote>
+<div><p>Ratio of contour area to convex hull area.
+Lower values (e.g. 0.3) accept more irregular, angular grains;
+higher values (e.g. 0.9) restrict to nearly-convex shapes only.
+The 0.45 default is permissive enough to capture angular ceramic
+temper (sub-angular to rounded grains in ceramic fabric score
+0.6–0.95 still pass with margin).</p>
+</div></blockquote>
+<ul>
+<li><p>inclusion_compactness_min (float, default 0.125)
+4π · area / perimeter².  A perfect circle = 1.0.
+Lower values accept more irregular outlines (e.g. angular grog fragments);
+higher values (e.g. 0.5) restrict to rounder, more compact grains.</p></li>
+<li><p>void_solidity_min (float, default 0.1)
+Solidity lower bound for void contours.  More permissive than for
+inclusions because firing voids from organic burnout can be very
+irregular.</p></li>
+<li><p>void_compactness_min (float, default 0.06)
+4π · area / perimeter² lower bound for void contours.  Very permissive
+since organic-burnout voids can have highly irregular perimeters;
+tighter checks are handled by aspect ratio and the boundary-band gate.</p></li>
+<li><p>void_solidity_max (float, default 1.01)
+Optional solidity <em>upper</em> bound for void contours.  In principle
+voids are concave (low solidity) and inclusions are convex, but the
+DPI-scaled blur + contour-simplification pipeline rounds out
+concavities so on real masked sherds nearly all dark contours end
+up with solidity ≥ 0.5 regardless of class.  The default leaves
+this gate effectively disabled; tighten it only if you know your
+scans preserve concavity well.</p></li>
+<li><p>void_intensity_max (float in 0..255, default 60)
+<strong>Primary inclusion-vs-void discriminator.</strong>  Maximum allowed mean
+pixel intensity <em>inside</em> a void contour, measured on the channel
+being processed.  A real pore is a hole, so its interior reads
+near-black; a dark mineral inclusion is just darker paste with no
+near-black core.  Lower this for stricter void detection (e.g. 45
+to keep only deep blacks); raise it to count grey-toned cavities
+(e.g. 90 on low-contrast scans).</p></li>
+<li><p>inclusion_max_aspect_ratio (float, default 4.0)
+<strong>Primary shape filter.</strong>  Maximum allowed ratio of the longer side
+to the shorter side of the minimum-area bounding rectangle (from
+<code class="docutils literal notranslate"><span class="pre">cv2.minAreaRect</span></code>).  Contours exceeding this ratio are rejected as
+wire-thin scan artifacts (dead pixel rows, calibration lines, thin
+scratches).  This is the direct contour-detection counterpart of the
+blob detector’s <code class="docutils literal notranslate"><span class="pre">minInertiaRatio</span></code> filter:</p>
+<blockquote>
+<div><blockquote>
+<div><p>inclusion_max_aspect_ratio = 1 / minInertiaRatio
+5.0  ↔  minInertiaRatio = 0.2  (the shared default for both detectors)</p>
+</div></blockquote>
+<p>Decreasing accepts fewer shapes (more equant only); increasing passes
+more elongated contours.  Most ceramic inclusions (biotite laths,
+elongated grog) fall in the 2:1–4:1 range and are safely captured
+by the 4:1 default.  Wire-thin artifacts typically exceed 10:1.</p>
+</div></blockquote>
+</li>
+<li><dl class="simple">
+<dt>void_max_aspect_ratio (float, default 5.0)</dt><dd><p>Maximum aspect ratio for void contours.  Voids can be more elongated
+but still filter out wire-thin artifacts.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>edge_band_px (int, default max(5, 4% of shorter image dimension))</dt><dd><p>Width of the band inside the sherd mask boundary that is treated
+as “edge.”  Any candidate contour with a vertex inside this band
+is rejected.  Covers two failure modes: CLAHE tile-boundary
+leakage (the mask edge sits at a brightness discontinuity that
+CLAHE amplifies into apparent inclusions on the inner side),
+and unmasked-overhang artifacts (broken sherd-edge slivers
+that GrabCut leaves attached and read as dark splotches).
+~4 % covers about half a CLAHE tile and most overhangs;
+e.g. ~40 px on a 1000×1000 crop, ~225 px on a 5669×5669 scan.
+<code class="docutils literal notranslate"><span class="pre">analyze_single_sherd</span></code> mirrors this band into the
+<code class="docutils literal notranslate"><span class="pre">effective_detection_area_cm2</span></code> it uses as the denominator
+for density / area-percentage metrics, so they reflect the
+area actually searched.  Set to 0 to disable.</p>
+</dd>
+</dl>
+</li>
+</ul>
+<p>Example — strict detection, convex grains only:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cr</span> <span class="o">=</span> <span class="n">amfora</span><span class="o">.</span><span class="n">contour_detection</span><span class="p">(</span>
+    <span class="n">masked_img</span><span class="p">,</span> <span class="n">scan_dpi</span><span class="o">=</span><span class="n">SCAN_DPI</span><span class="p">,</span>
+    <span class="n">shape_params</span><span class="o">=</span><span class="p">{</span>
+        <span class="s1">&#39;inclusion_solidity_min&#39;</span><span class="p">:</span> <span class="mf">0.85</span><span class="p">,</span>
+        <span class="s1">&#39;inclusion_compactness_min&#39;</span><span class="p">:</span> <span class="mf">0.45</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Example — permissive detection, captures angular / irregular grains:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cr</span> <span class="o">=</span> <span class="n">amfora</span><span class="o">.</span><span class="n">contour_detection</span><span class="p">(</span>
+    <span class="n">masked_img</span><span class="p">,</span> <span class="n">scan_dpi</span><span class="o">=</span><span class="n">SCAN_DPI</span><span class="p">,</span>
+    <span class="n">shape_params</span><span class="o">=</span><span class="p">{</span>
+        <span class="s1">&#39;inclusion_solidity_min&#39;</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span>
+        <span class="s1">&#39;inclusion_compactness_min&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+        <span class="s1">&#39;void_solidity_min&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
+<li><p><strong>debug_mode</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, prints a summary of candidate counts and filter decisions (default: False)</p></li>
+<li><p><strong>channels</strong> (<em>tuple</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – Channels to run contour detection on.  Default <code class="docutils literal notranslate"><span class="pre">('B',</span> <span class="pre">'G',</span> <span class="pre">'R')</span></code>
+runs detection on each BGR channel and combines the results so
+inclusions that only contrast strongly in one channel get picked up.
+Valid entries also include <code class="docutils literal notranslate"><span class="pre">'L'</span></code> (CIELAB lightness) — pass
+<code class="docutils literal notranslate"><span class="pre">channels=('L',)</span></code> to recover the pre-multi-channel behavior.  See
+<code class="docutils literal notranslate"><span class="pre">sherd_blobs</span></code> for why L* is excluded by default.</p></li>
+<li><p><strong>combine_mode</strong> (<em>{'union'</em><em>, </em><em>'vote'}</em><em>, </em><em>optional</em>) – How to merge per-channel detections when <code class="docutils literal notranslate"><span class="pre">len(channels)</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>.
+Default <code class="docutils literal notranslate"><span class="pre">'union'</span></code> (matches <code class="docutils literal notranslate"><span class="pre">analyze_single_sherd</span></code> and
+<code class="docutils literal notranslate"><span class="pre">sherd_blobs</span></code>) pools detections and removes spatial duplicates via
+centroid containment without requiring cross-channel agreement —
+catches monochromatic features that single-channel detection alone
+would miss.  Use <code class="docutils literal notranslate"><span class="pre">'vote'</span></code> to require a contour’s centroid to fall
+inside the rasterized contour mask of at least <code class="docutils literal notranslate"><span class="pre">vote_min</span></code> channels
+for stricter noise rejection on low-contrast scans.</p></li>
+<li><p><strong>vote_min</strong> (<em>int</em><em>, </em><em>optional</em>) – Minimum number of channels that must agree for a contour to be kept
+when <code class="docutils literal notranslate"><span class="pre">combine_mode='vote'</span></code> (default: 2 of 3 BGR channels).
+Ignored under the default <code class="docutils literal notranslate"><span class="pre">combine_mode='union'</span></code>.</p></li>
+<li><p><strong>enhance_contrast</strong> (<em>bool</em><em>, </em><em>optional</em>) – Apply CLAHE to each requested channel before detection (default:
+True).  Set to False if you’ve already pre-applied contrast
+enhancement to the input image — otherwise the detector handles
+CLAHE per channel internally.</p></li>
+<li><p><strong>clahe_clip</strong> (<em>float / tuple</em><em>, </em><em>optional</em>) – Forwarded to <code class="docutils literal notranslate"><span class="pre">cv2.createCLAHE</span></code> when <code class="docutils literal notranslate"><span class="pre">enhance_contrast=True</span></code>.</p></li>
+<li><p><strong>clahe_grid</strong> (<em>float / tuple</em><em>, </em><em>optional</em>) – Forwarded to <code class="docutils literal notranslate"><span class="pre">cv2.createCLAHE</span></code> when <code class="docutils literal notranslate"><span class="pre">enhance_contrast=True</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>Dictionary containing:
+- ‘inclusions’: list of inclusion contours (cv2 contour arrays)
+- ‘voids’: list of void contours (cv2 contour arrays)
+- ‘inclusion_areas’: list of inclusion areas in cm²
+- ‘void_areas’: list of void areas in cm²
+- ‘total_inclusions’: count of inclusions
+- ‘total_voids’: count of voids
+- ‘debug_info’: dict with candidate counts, filter thresholds, and rejection breakdown.</p>
+<blockquote>
+<div><p>When multi-channel mode is active, also contains a <code class="docutils literal notranslate"><span class="pre">per_channel</span></code> key
+mapping each channel to its individual debug_info.</p>
+</div></blockquote>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.detection.detect_multiple_sherds">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.detection.</span></span><span class="sig-name descname"><span class="pre">detect_multiple_sherds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sherd_scan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crop_buffer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">125</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auto_crop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_sherds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_area_cm2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.75</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/detection.html#detect_multiple_sherds"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.detection.detect_multiple_sherds" title="Link to this definition">#</a></dt>
+<dd><p>Detect one or many sherds in a single scan and return per-sherd masks/crops.</p>
+<p>This is the multi-sherd counterpart to <code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code>.  When the scanning
+plate carries several pieces it runs the same Canny + Otsu + adaptive
+threshold pipeline used by <code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code> but, instead of keeping only the
+largest contour, retains every contour that survives an absolute-size
+filter, a bbox-IoU deduplication pass, and a gap-based stopping rule.</p>
+<section id="auto-count-heuristic">
+<h2>Auto-count heuristic<a class="headerlink" href="#auto-count-heuristic" title="Link to this heading">#</a></h2>
+<ol class="arabic simple">
+<li><p>Pool contours from all three methods.</p></li>
+<li><p>Drop anything smaller than <code class="docutils literal notranslate"><span class="pre">min_area_cm2</span></code> (DPI-aware) or larger than
+90% of the image (filters out the whole-frame contour).</p></li>
+<li><p>Sort descending by area and deduplicate any pair whose bounding boxes
+overlap with IoU &gt; 0.5 (keeps the larger of the two — prevents the
+outer Canny ring and the filled Otsu interior of the same sherd from
+being counted twice).</p></li>
+<li><p>Walk consecutive area ratios and stop at the largest drop-off
+(<code class="docutils literal notranslate"><span class="pre">area[i]</span> <span class="pre">/</span> <span class="pre">area[i-1]</span></code> minimum).  Everything before the gap is a
+real sherd; everything after is noise.</p></li>
+</ol>
+<p>If <code class="docutils literal notranslate"><span class="pre">n_sherds</span></code> is supplied, the gap rule is skipped and the top-N largest
+survivors are returned instead.</p>
+<dl class="field-list">
+<dt class="field-odd">param sherd_scan<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The scanned image.  Expected to be BGR (as returned by <code class="docutils literal notranslate"><span class="pre">cv2.imread</span></code>).</p>
+</dd>
+<dt class="field-even">type sherd_scan<span class="colon">:</span></dt>
+<dd class="field-even"><p>numpy.ndarray</p>
+</dd>
+<dt class="field-odd">param scan_dpi<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Scan resolution for adaptive parameter scaling (default: 1200).</p>
+</dd>
+<dt class="field-even">type scan_dpi<span class="colon">:</span></dt>
+<dd class="field-even"><p>int, optional</p>
+</dd>
+<dt class="field-odd">param crop_buffer<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Extra pixels kept beyond each sherd’s bounding box on all four sides
+when <code class="docutils literal notranslate"><span class="pre">auto_crop=True</span></code> (default: 125).</p>
+</dd>
+<dt class="field-even">type crop_buffer<span class="colon">:</span></dt>
+<dd class="field-even"><p>int, optional</p>
+</dd>
+<dt class="field-odd">param auto_crop<span class="colon">:</span></dt>
+<dd class="field-odd"><p>If True (default), each returned <code class="docutils literal notranslate"><span class="pre">mask</span></code> is cropped to its sherd’s
+bounding box plus <code class="docutils literal notranslate"><span class="pre">crop_buffer</span></code>.  If False, every returned mask is
+full-image-sized.</p>
+</dd>
+<dt class="field-even">type auto_crop<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool, optional</p>
+</dd>
+<dt class="field-odd">param n_sherds<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Override the auto-count.  When set, returns the top-N contours by
+area regardless of the gap heuristic.  Default <code class="docutils literal notranslate"><span class="pre">None</span></code> = auto.</p>
+</dd>
+<dt class="field-even">type n_sherds<span class="colon">:</span></dt>
+<dd class="field-even"><p>int, optional</p>
+</dd>
+<dt class="field-odd">param min_area_cm2<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Absolute lower bound on sherd area (default: 0.25 cm²).  Contours
+below this are treated as noise.</p>
+</dd>
+<dt class="field-even">type min_area_cm2<span class="colon">:</span></dt>
+<dd class="field-even"><p>float, optional</p>
+</dd>
+<dt class="field-odd">param mask<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Pre-computed multi-blob mask.  When supplied, this function skips
+the edge pipeline and runs connected-components on <code class="docutils literal notranslate"><span class="pre">mask</span></code> instead.
+Useful for callers that already have a mask from a different source.
+Note: <code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code> only ever produces a single-blob mask, so do
+<strong>not</strong> pass its output here.</p>
+</dd>
+<dt class="field-even">type mask<span class="colon">:</span></dt>
+<dd class="field-even"><p>numpy.ndarray, optional</p>
+</dd>
+<dt class="field-odd">returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>One entry per detected sherd, sorted descending by area.  Each entry
+has the same keys <code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code> would expose plus a few extras:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s1">&#39;mask&#39;</span><span class="p">:</span>     <span class="n">mask_slice</span><span class="p">,</span>       <span class="c1"># cropped+padded binary mask (uint8)</span>
+    <span class="s1">&#39;color_mask&#39;</span><span class="p">:</span> <span class="n">color_mask_slice</span><span class="p">,</span>  <span class="c1"># 3-channel version of `mask`</span>
+    <span class="s1">&#39;crop&#39;</span><span class="p">:</span>     <span class="p">(</span><span class="n">y1</span><span class="p">,</span> <span class="n">y2</span><span class="p">,</span> <span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">pad_top</span><span class="p">,</span> <span class="n">pad_bottom</span><span class="p">,</span> <span class="n">pad_left</span><span class="p">,</span> <span class="n">pad_right</span><span class="p">),</span>
+    <span class="s1">&#39;contour&#39;</span><span class="p">:</span>  <span class="n">contour</span><span class="p">,</span>          <span class="c1"># in image_cropped coordinates</span>
+    <span class="s1">&#39;bbox&#39;</span><span class="p">:</span>     <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">h</span><span class="p">),</span>     <span class="c1"># bbox in image_cropped coords</span>
+    <span class="s1">&#39;centroid&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">cx</span><span class="p">,</span> <span class="n">cy</span><span class="p">),</span>         <span class="c1"># centroid in image_cropped coords</span>
+    <span class="s1">&#39;area&#39;</span><span class="p">:</span>     <span class="n">area_px</span><span class="p">,</span>          <span class="c1"># contour area in pixels</span>
+    <span class="s1">&#39;area_cm2&#39;</span><span class="p">:</span> <span class="n">area_cm2</span><span class="p">,</span>         <span class="c1"># contour area in cm²</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Returns an empty list if no sherd survives the filters.</p>
+</dd>
+<dt class="field-even">rtype<span class="colon">:</span></dt>
+<dd class="field-even"><p>list of dict</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.detection.split_multi_sherd_scan">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.detection.</span></span><span class="sig-name descname"><span class="pre">split_multi_sherd_scan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crop_buffer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">125</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_sherds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_area_cm2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_manifest</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">manifest_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_mask_to_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/detection.html#split_multi_sherd_scan"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.detection.split_multi_sherd_scan" title="Link to this definition">#</a></dt>
+<dd><p>Split a (possibly multi-sherd) scan into one cropped image per sherd and
+write them to <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> so <code class="docutils literal notranslate"><span class="pre">full_analysis</span></code> can consume them.</p>
+<p>The output naming convention is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">N</span> <span class="o">==</span> <span class="mi">1</span> <span class="p">:</span> <span class="o">&lt;</span><span class="n">stem</span><span class="o">&gt;.&lt;</span><span class="n">ext</span><span class="o">&gt;</span>           <span class="p">(</span><span class="n">no</span> <span class="n">suffix</span><span class="p">;</span> <span class="n">behaves</span> <span class="n">like</span> <span class="n">a</span> <span class="n">normal</span> <span class="n">single</span><span class="o">-</span><span class="n">sherd</span> <span class="n">scan</span><span class="p">)</span>
+<span class="n">N</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="p">:</span> <span class="o">&lt;</span><span class="n">stem</span><span class="o">&gt;</span><span class="n">_1</span><span class="o">.&lt;</span><span class="n">ext</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;</span><span class="n">stem</span><span class="o">&gt;</span><span class="n">_2</span><span class="o">.&lt;</span><span class="n">ext</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>The shared <code class="docutils literal notranslate"><span class="pre">&lt;stem&gt;</span></code> is the original filename’s stem, so downstream CSV
+rows (<code class="docutils literal notranslate"><span class="pre">filename</span></code> column from <code class="docutils literal notranslate"><span class="pre">full_analysis</span></code>) trace back to the source
+scan trivially.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image_path</strong> (<em>str</em><em> or </em><em>pathlib.Path</em>) – Path to the source scan.</p></li>
+<li><p><strong>output_dir</strong> (<em>str</em><em> or </em><em>pathlib.Path</em>) – Directory to write cropped per-sherd images into.  Created if missing.</p></li>
+<li><p><strong>scan_dpi</strong> (<em>int</em><em>, </em><em>optional</em>) – Scan resolution (default: 1200).</p></li>
+<li><p><strong>crop_buffer</strong> (<em>int</em><em>, </em><em>optional</em>) – Pixels of padding around each sherd in the output crop (default: 125).</p></li>
+<li><p><strong>n_sherds</strong> (<em>int</em><em>, </em><em>optional</em>) – Force a specific number of sherds.  Default <code class="docutils literal notranslate"><span class="pre">None</span></code> = auto-detect.</p></li>
+<li><p><strong>min_area_cm2</strong> (<em>float</em><em>, </em><em>optional</em>) – Minimum sherd area (default: 0.25 cm²).</p></li>
+<li><p><strong>write_manifest</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True (default), append a row per output file to <code class="docutils literal notranslate"><span class="pre">manifest.csv</span></code>
+in <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> mapping it back to its source.</p></li>
+<li><p><strong>manifest_path</strong> (<em>str</em><em> or </em><em>pathlib.Path</em><em>, </em><em>optional</em>) – Override the default manifest location (<code class="docutils literal notranslate"><span class="pre">output_dir/manifest.csv</span></code>).</p></li>
+<li><p><strong>apply_mask_to_output</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, multiply each output crop by its mask so the background is
+black.  Default <code class="docutils literal notranslate"><span class="pre">False</span></code> — write the raw crop so downstream
+<code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code> can re-derive an accurate boundary.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Paths of the written per-sherd images, in detection order
+(largest first).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of pathlib.Path</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.detection.prepare_multi_sherd_directory">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.detection.</span></span><span class="sig-name descname"><span class="pre">prepare_multi_sherd_directory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crop_buffer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">125</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_sherds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_area_cm2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_formats</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_manifest</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_mask_to_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/detection.html#prepare_multi_sherd_directory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.detection.prepare_multi_sherd_directory" title="Link to this definition">#</a></dt>
+<dd><p>Batch wrapper for <code class="docutils literal notranslate"><span class="pre">split_multi_sherd_scan</span></code>.</p>
+<p>Iterates every image in <code class="docutils literal notranslate"><span class="pre">input_dir</span></code> (recursively), splits each one,
+and writes the per-sherd crops into <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> with consistent
+<code class="docutils literal notranslate"><span class="pre">&lt;stem&gt;[_N].&lt;ext&gt;</span></code> naming.  A single combined <code class="docutils literal notranslate"><span class="pre">manifest.csv</span></code> is
+written into <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> so every output file can be traced back to
+its source scan.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_dir</strong> (<em>str</em><em> or </em><em>pathlib.Path</em>) – Directory of source scans (each scan may contain 1+ sherds).</p></li>
+<li><p><strong>output_dir</strong> (<em>str</em><em> or </em><em>pathlib.Path</em>) – Directory to write per-sherd images into.</p></li>
+<li><p><strong>scan_dpi</strong> – Forwarded to <code class="docutils literal notranslate"><span class="pre">split_multi_sherd_scan</span></code> and
+<code class="docutils literal notranslate"><span class="pre">detect_multiple_sherds</span></code>.</p></li>
+<li><p><strong>crop_buffer</strong> – Forwarded to <code class="docutils literal notranslate"><span class="pre">split_multi_sherd_scan</span></code> and
+<code class="docutils literal notranslate"><span class="pre">detect_multiple_sherds</span></code>.</p></li>
+<li><p><strong>n_sherds</strong> – Forwarded to <code class="docutils literal notranslate"><span class="pre">split_multi_sherd_scan</span></code> and
+<code class="docutils literal notranslate"><span class="pre">detect_multiple_sherds</span></code>.</p></li>
+<li><p><strong>min_area_cm2</strong> – Forwarded to <code class="docutils literal notranslate"><span class="pre">split_multi_sherd_scan</span></code> and
+<code class="docutils literal notranslate"><span class="pre">detect_multiple_sherds</span></code>.</p></li>
+<li><p><strong>apply_mask_to_output</strong> – Forwarded to <code class="docutils literal notranslate"><span class="pre">split_multi_sherd_scan</span></code> and
+<code class="docutils literal notranslate"><span class="pre">detect_multiple_sherds</span></code>.</p></li>
+<li><p><strong>file_formats</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – Extensions to look for.  Default:
+<code class="docutils literal notranslate"><span class="pre">['jpg',</span> <span class="pre">'jpeg',</span> <span class="pre">'png',</span> <span class="pre">'bmp',</span> <span class="pre">'tiff',</span> <span class="pre">'tif']</span></code>.</p></li>
+<li><p><strong>write_manifest</strong> (<em>bool</em><em>, </em><em>optional</em>) – Write a combined <code class="docutils literal notranslate"><span class="pre">manifest.csv</span></code> in <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> (default True).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>All per-sherd image paths that were written.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of pathlib.Path</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.detection.super_zorro_cv">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.detection.</span></span><span class="sig-name descname"><span class="pre">super_zorro_cv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">folder_read</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">folder_write</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fileformat</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'jpeg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gray</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/detection.html#super_zorro_cv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.detection.super_zorro_cv" title="Link to this definition">#</a></dt>
+<dd><p>Enhanced batch sherd masking with optimal edge detection and adaptive parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>folder_read</strong> (<em>str</em>) – Path to folder containing images to process</p></li>
+<li><p><strong>folder_write</strong> (<em>str</em>) – Path to folder where masked images will be saved</p></li>
+<li><p><strong>fileformat</strong> (<em>str</em><em>, </em><em>optional</em>) – File format to process (default: ‘jpeg’)</p></li>
+<li><p><strong>gray</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True saves single channel masked grayscale images;
+if False saves color masks (default: False)</p></li>
+<li><p><strong>scan_dpi</strong> (<em>int</em><em>, </em><em>optional</em>) – Scan resolution for adaptive parameter scaling (default: 1200)
+Valid range: 150-2400 DPI</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Saves processed images to folder_write</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "python"
+        },
+        kernelOptions: {
+            name: "python3",
+            path: "./api-reference"
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'python3'</script>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="index.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">API reference</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="analysis.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title"><code class="docutils literal notranslate"><span class="pre">amfora.core.analysis</span></code></p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.sherd_mask"><code class="docutils literal notranslate"><span class="pre">sherd_mask()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.full_image_mask"><code class="docutils literal notranslate"><span class="pre">full_image_mask()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.apply_mask"><code class="docutils literal notranslate"><span class="pre">apply_mask()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.clahe_enhance"><code class="docutils literal notranslate"><span class="pre">clahe_enhance()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.setup_robust_blob_params"><code class="docutils literal notranslate"><span class="pre">setup_robust_blob_params()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.sherd_blobs"><code class="docutils literal notranslate"><span class="pre">sherd_blobs()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.contour_detection"><code class="docutils literal notranslate"><span class="pre">contour_detection()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.detect_multiple_sherds"><code class="docutils literal notranslate"><span class="pre">detect_multiple_sherds()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.split_multi_sherd_scan"><code class="docutils literal notranslate"><span class="pre">split_multi_sherd_scan()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.prepare_multi_sherd_directory"><code class="docutils literal notranslate"><span class="pre">prepare_multi_sherd_directory()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.detection.super_zorro_cv"><code class="docutils literal notranslate"><span class="pre">super_zorro_cv()</span></code></a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Alec Iacobucci
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2026.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

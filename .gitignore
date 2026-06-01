@@ -49,7 +49,6 @@ basic_analysis.py
 
 # Local configuration files
 settings.local.json
-/docs
 
 # macOS system files
 .DS_Store

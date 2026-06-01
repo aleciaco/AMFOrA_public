@@ -1,0 +1,21 @@
+# Jupyter Book table of contents.
+# See https://jupyterbook.org/customize/toc.html
+# Each entry points at a markdown / notebook file relative to docs/.
+
+format: jb-book
+root: index
+chapters:
+  - file: installation
+  - file: quickstart
+  - file: user-guide/basic-workflow
+    title: User guide
+  - file: api-reference/index
+    title: API reference
+    sections:
+      - file: api-reference/detection
+      - file: api-reference/analysis
+      - file: api-reference/visualization
+      - file: api-reference/statistics
+  - file: troubleshooting
+  - file: contributing
+  - file: changelog

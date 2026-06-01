@@ -1,0 +1,1126 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>amfora.core.statistics &#8212; AMFOrA Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js?v=b8b12719"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="../_static/sphinx-thebe.js?v=c100c467"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'api-reference/statistics';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Troubleshooting" href="../troubleshooting.html" />
+    <link rel="prev" title="amfora.core.visualization" href="visualization.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">AMFOrA Documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../user-guide/basic-workflow.html">User guide</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">API reference</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="detection.html"><code class="docutils literal notranslate"><span class="pre">amfora.core.detection</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="analysis.html"><code class="docutils literal notranslate"><span class="pre">amfora.core.analysis</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="visualization.html"><code class="docutils literal notranslate"><span class="pre">amfora.core.visualization</span></code></a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">amfora.core.statistics</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/aleciaco/AMFOrA_public" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/aleciaco/AMFOrA_public/edit/main/docs/api-reference/statistics.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/aleciaco/AMFOrA_public/issues/new?title=Issue%20on%20page%20%2Fapi-reference/statistics.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/api-reference/statistics.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>amfora.core.statistics</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#convenience-entry-points">Convenience entry points</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.quick_ceramic_analysis"><code class="docutils literal notranslate"><span class="pre">quick_ceramic_analysis()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.compare_assemblages"><code class="docutils literal notranslate"><span class="pre">compare_assemblages()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#classes">Classes</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicStatisticalAnalyzer"><code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.assemblage_comparison"><code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.assemblage_comparison()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.correlation_analysis"><code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.correlation_analysis()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.generate_report"><code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.generate_report()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.perform_clustering"><code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.perform_clustering()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.perform_pca"><code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.perform_pca()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.prepare_data"><code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.prepare_data()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicVisualization"><code class="docutils literal notranslate"><span class="pre">CeramicVisualization</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicVisualization.plot_archaeological_summary"><code class="docutils literal notranslate"><span class="pre">CeramicVisualization.plot_archaeological_summary()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicVisualization.plot_cluster_comparison"><code class="docutils literal notranslate"><span class="pre">CeramicVisualization.plot_cluster_comparison()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicVisualization.plot_correlation_heatmap"><code class="docutils literal notranslate"><span class="pre">CeramicVisualization.plot_correlation_heatmap()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicVisualization.plot_dendrogram"><code class="docutils literal notranslate"><span class="pre">CeramicVisualization.plot_dendrogram()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicVisualization.plot_pca_3d"><code class="docutils literal notranslate"><span class="pre">CeramicVisualization.plot_pca_3d()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicVisualization.plot_pca_biplot"><code class="docutils literal notranslate"><span class="pre">CeramicVisualization.plot_pca_biplot()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicVisualization.plot_scree_plot"><code class="docutils literal notranslate"><span class="pre">CeramicVisualization.plot_scree_plot()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="amfora-core-statistics">
+<h1><code class="docutils literal notranslate"><span class="pre">amfora.core.statistics</span></code><a class="headerlink" href="#amfora-core-statistics" title="Link to this heading">#</a></h1>
+<p>Cross-sherd statistical analysis: PCA, clustering, hierarchical dendrograms, group comparisons. Operates on the DataFrame produced by <code class="docutils literal notranslate"><span class="pre">amfora.full_analysis</span></code>.</p>
+<p>Source: <a class="reference external" href="https://github.com/aleciaco/AMFOrA_public/blob/main/src/amfora/core/statistics.py"><code class="docutils literal notranslate"><span class="pre">src/amfora/core/statistics.py</span></code></a>.</p>
+<section id="convenience-entry-points">
+<h2>Convenience entry points<a class="headerlink" href="#convenience-entry-points" title="Link to this heading">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.statistics.quick_ceramic_analysis">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.statistics.</span></span><span class="sig-name descname"><span class="pre">quick_ceramic_analysis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v3.0.3)"><span class="pre">DataFrame</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'standard'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#quick_ceramic_analysis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.quick_ceramic_analysis" title="Link to this definition">#</a></dt>
+<dd><p>One-liner convenience wrapper: prepare data and run <code class="docutils literal notranslate"><span class="pre">generate_report()</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>pd.DataFrame</em><em> or </em><em>dict</em>) – Ceramic analysis data (e.g. output of <code class="docutils literal notranslate"><span class="pre">full_analysis()</span></code>).</p></li>
+<li><p><strong>scaling_method</strong> (<em>str</em><em>, </em><em>default 'standard'</em>) – Scaling method passed to <code class="docutils literal notranslate"><span class="pre">prepare_data()</span></code> — see that method
+for options (<code class="docutils literal notranslate"><span class="pre">'standard'</span></code>, <code class="docutils literal notranslate"><span class="pre">'robust'</span></code>, <code class="docutils literal notranslate"><span class="pre">'none'</span></code>).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Complete analysis report (same as <code class="docutils literal notranslate"><span class="pre">generate_report()</span></code>).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.statistics.compare_assemblages">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.statistics.</span></span><span class="sig-name descname"><span class="pre">compare_assemblages</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v3.0.3)"><span class="pre">DataFrame</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_column</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">analysis_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'comprehensive'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#compare_assemblages"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.compare_assemblages" title="Link to this definition">#</a></dt>
+<dd><p>Compare ceramic assemblages between different archaeological contexts.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Not yet implemented — raises <code class="docutils literal notranslate"><span class="pre">NotImplementedError</span></code>.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>pd.DataFrame</em>) – Ceramic data with group identifiers</p></li>
+<li><p><strong>group_column</strong> (<em>str</em>) – Column containing group/context identifiers</p></li>
+<li><p><strong>analysis_type</strong> (<em>str</em><em>, </em><em>default 'comprehensive'</em>) – Type of analysis: <code class="docutils literal notranslate"><span class="pre">'basic'</span></code>, <code class="docutils literal notranslate"><span class="pre">'comprehensive'</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">'advanced'</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Assemblage comparison results</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="amfora.core.statistics.CeramicStatisticalAnalyzer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">amfora.core.statistics.</span></span><span class="sig-name descname"><span class="pre">CeramicStatisticalAnalyzer</span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#CeramicStatisticalAnalyzer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.CeramicStatisticalAnalyzer" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Comprehensive statistical analysis class for ceramic fabric data.</p>
+<p>This class provides all the statistical methods used in the streamlit application
+in a standalone, reusable format suitable for batch analysis and research.</p>
+<p>Typical workflow:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">analyzer</span> <span class="o">=</span> <span class="n">CeramicStatisticalAnalyzer</span><span class="p">()</span>
+<span class="n">analyzer</span><span class="o">.</span><span class="n">prepare_data</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">scaling_method</span><span class="o">=</span><span class="s1">&#39;standard&#39;</span><span class="p">)</span>
+
+<span class="n">pca_results</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">perform_pca</span><span class="p">(</span><span class="n">variance_threshold</span><span class="o">=</span><span class="mf">0.90</span><span class="p">)</span>
+<span class="n">cluster_results</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">perform_clustering</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s1">&#39;hierarchical&#39;</span><span class="p">)</span>
+<span class="n">corr_results</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">correlation_analysis</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s1">&#39;pearson&#39;</span><span class="p">)</span>
+
+<span class="c1"># Or run everything at once:</span>
+<span class="n">report</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">generate_report</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Use <cite>CeramicVisualization</cite> to plot results (biplots, dendrograms, etc.).</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="amfora.core.statistics.CeramicStatisticalAnalyzer.assemblage_comparison">
+<span class="sig-name descname"><span class="pre">assemblage_comparison</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group_column</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comparison_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'all'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#CeramicStatisticalAnalyzer.assemblage_comparison"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.assemblage_comparison" title="Link to this definition">#</a></dt>
+<dd><p>Compare ceramic assemblages between different groups.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Not yet implemented — raises <code class="docutils literal notranslate"><span class="pre">NotImplementedError</span></code>.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>group_column</strong> (<em>str</em>) – Column name containing group identifiers</p></li>
+<li><p><strong>comparison_type</strong> (<em>str</em><em>, </em><em>default 'all'</em>) – Type of comparison: <code class="docutils literal notranslate"><span class="pre">'all'</span></code>, <code class="docutils literal notranslate"><span class="pre">'pairwise'</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">'one_vs_rest'</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Comprehensive assemblage comparison results</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="amfora.core.statistics.CeramicStatisticalAnalyzer.correlation_analysis">
+<span class="sig-name descname"><span class="pre">correlation_analysis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'pearson'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">significance_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.05</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#CeramicStatisticalAnalyzer.correlation_analysis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.correlation_analysis" title="Link to this definition">#</a></dt>
+<dd><p>Perform pairwise correlation analysis on ceramic features.</p>
+<p>Computes the full correlation matrix, tests each pair for
+statistical significance, and returns significant pairs sorted
+by absolute strength.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>method</strong> (<em>str</em><em>, </em><em>default 'pearson'</em>) – <p>Correlation coefficient to compute:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">'pearson'</span></code> — linear correlation (parametric). Assumes
+approximately normal distributions.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'spearman'</span></code> — rank correlation (non-parametric). Robust
+to non-linearity and outliers; recommended when data are
+ordinal or heavily skewed.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'kendall'</span></code> — Kendall’s tau (non-parametric). More robust
+than Spearman for small sample sizes but slower to compute.</p></li>
+</ul>
+</p></li>
+<li><p><strong>significance_level</strong> (<em>float</em><em>, </em><em>default 0.05</em>) – Alpha threshold for identifying significant correlations.
+Pairs with <em>p</em> &lt; <em>significance_level</em> are included in the
+<code class="docutils literal notranslate"><span class="pre">significant_correlations</span></code> list.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">'correlation_matrix'</span></code> — DataFrame (features x features).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'p_values'</span></code> — DataFrame of p-values for each pair.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'significant_correlations'</span></code> — list of dicts sorted by
+<code class="docutils literal notranslate"><span class="pre">|correlation|</span></code>, each with <code class="docutils literal notranslate"><span class="pre">feature1</span></code>, <code class="docutils literal notranslate"><span class="pre">feature2</span></code>,
+<code class="docutils literal notranslate"><span class="pre">correlation</span></code>, <code class="docutils literal notranslate"><span class="pre">p_value</span></code>, and <code class="docutils literal notranslate"><span class="pre">strength</span></code>
+(Strong/Moderate/Weak/Very weak).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'method'</span></code>, <code class="docutils literal notranslate"><span class="pre">'significance_level'</span></code> — echo of inputs.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="amfora.core.statistics.CeramicStatisticalAnalyzer.generate_report">
+<span class="sig-name descname"><span class="pre">generate_report</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">include_plots</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#CeramicStatisticalAnalyzer.generate_report"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.generate_report" title="Link to this definition">#</a></dt>
+<dd><p>Run PCA, hierarchical clustering, and correlation analysis in
+one call and bundle results into a single report dict.</p>
+<p>Each analysis is run with default parameters (see
+<code class="docutils literal notranslate"><span class="pre">perform_pca</span></code>, <code class="docutils literal notranslate"><span class="pre">perform_clustering</span></code>, <code class="docutils literal notranslate"><span class="pre">correlation_analysis</span></code>
+for details). If any individual analysis fails, its entry will
+contain <code class="docutils literal notranslate"><span class="pre">{'error':</span> <span class="pre">'&lt;message&gt;'}</span></code> rather than raising.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>include_plots</strong> (<em>bool</em><em>, </em><em>default True</em>) – Whether to include visualization plots in the report
+(currently unused — reserved for future HTML export).</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">'data_summary'</span></code> — sample/feature counts and names.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'pca_analysis'</span></code> — output of <code class="docutils literal notranslate"><span class="pre">perform_pca()</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'cluster_analysis'</span></code> — output of <code class="docutils literal notranslate"><span class="pre">perform_clustering()</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'correlation_analysis'</span></code> — output of
+<code class="docutils literal notranslate"><span class="pre">correlation_analysis()</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'archaeological_interpretation'</span></code> — auto-generated
+summary of main findings and technological insights.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="amfora.core.statistics.CeramicStatisticalAnalyzer.perform_clustering">
+<span class="sig-name descname"><span class="pre">perform_clustering</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'hierarchical'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_clusters</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">linkage_method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'ward'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distance_metric</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'euclidean'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#CeramicStatisticalAnalyzer.perform_clustering"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.perform_clustering" title="Link to this definition">#</a></dt>
+<dd><p>Perform clustering analysis on ceramic data.</p>
+<p>Requires <code class="docutils literal notranslate"><span class="pre">prepare_data()</span></code> to have been called first. When
+<em>n_clusters</em> is <code class="docutils literal notranslate"><span class="pre">None</span></code>, the optimal count is estimated
+automatically (elbow method for hierarchical, silhouette scan
+for k-means).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>method</strong> (<em>str</em><em>, </em><em>default 'hierarchical'</em>) – <p>Clustering algorithm to use:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">'hierarchical'</span></code> — agglomerative hierarchical clustering.
+Produces a linkage matrix suitable for dendrogram plotting
+via <code class="docutils literal notranslate"><span class="pre">CeramicVisualization.plot_dendrogram()</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'kmeans'</span></code> — K-means partitioning. Good when the number
+of groups is known or roughly estimated. Does not produce
+a dendrogram.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'dbscan'</span></code> — density-based clustering. Does not require
+<em>n_clusters</em>; discovers clusters of arbitrary shape and
+labels outliers as noise (cluster label <code class="docutils literal notranslate"><span class="pre">-1</span></code>). Parameters
+<em>eps</em> and <em>min_samples</em> are chosen automatically.</p></li>
+</ul>
+</p></li>
+<li><p><strong>n_clusters</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of clusters for hierarchical and k-means. Ignored by
+DBSCAN. If <code class="docutils literal notranslate"><span class="pre">None</span></code> (default), determined automatically.</p></li>
+<li><p><strong>linkage_method</strong> (<em>str</em><em>, </em><em>default 'ward'</em>) – <p>Linkage criterion for hierarchical clustering (ignored by
+k-means/DBSCAN). Passed to <code class="docutils literal notranslate"><span class="pre">scipy.cluster.hierarchy.linkage()</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">'ward'</span></code> — minimizes within-cluster variance (requires
+Euclidean distance). Generally best for balanced clusters.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'complete'</span></code> — maximum inter-cluster distance. Tends to
+produce compact, equally-sized clusters.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'average'</span></code> — mean inter-cluster distance (UPGMA).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'single'</span></code> — minimum inter-cluster distance. Susceptible
+to chaining; useful for detecting elongated clusters.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'centroid'</span></code>, <code class="docutils literal notranslate"><span class="pre">'median'</span></code>, <code class="docutils literal notranslate"><span class="pre">'weighted'</span></code> — less common
+alternatives (see scipy docs).</p></li>
+</ul>
+</p></li>
+<li><p><strong>distance_metric</strong> (<em>str</em><em>, </em><em>default 'euclidean'</em>) – <p>Distance metric for hierarchical clustering (ignored by
+k-means/DBSCAN). Any metric accepted by
+<code class="docutils literal notranslate"><span class="pre">scipy.spatial.distance.pdist()</span></code> is valid, including:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">'euclidean'</span></code> — standard L2 distance. Required when
+<em>linkage_method</em> is <code class="docutils literal notranslate"><span class="pre">'ward'</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'mahalanobis'</span></code> — accounts for feature correlations and
+unequal variances. The inverse covariance matrix is
+computed automatically from the data. Well-suited for
+compositional / provenance studies. Falls back to
+pseudo-inverse with a warning if the covariance matrix
+is singular (e.g. when n &lt; number of features).
+Incompatible with <code class="docutils literal notranslate"><span class="pre">'ward'</span></code> linkage.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'correlation'</span></code> — <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">-</span> <span class="pre">Pearson</span> <span class="pre">r</span></code>. Useful when the
+<em>shape</em> of the feature profile matters more than magnitude.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'cosine'</span></code>, <code class="docutils literal notranslate"><span class="pre">'cityblock'</span></code> (Manhattan),
+<code class="docutils literal notranslate"><span class="pre">'chebyshev'</span></code>, etc.</p></li>
+</ul>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>Clustering results. Keys common to all methods:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">'method'</span></code> — the method string used.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'cluster_labels'</span></code> — integer array of cluster assignments.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'n_clusters'</span></code> — number of clusters found.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'silhouette_score'</span></code> — mean silhouette coefficient (−1 to 1;
+higher is better). <code class="docutils literal notranslate"><span class="pre">-1</span></code> if only one cluster.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'calinski_harabasz_score'</span></code> — Calinski-Harabasz index.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'cophenetic_correlation'</span></code> — cophenetic correlation coefficient
+(0 to 1; higher means the dendrogram faithfully represents
+pairwise distances). Only set for hierarchical clustering;
+<code class="docutils literal notranslate"><span class="pre">None</span></code> for k-means and DBSCAN.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'cluster_summary'</span></code> — per-cluster size and feature means.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'sample_names'</span></code> — list of sample labels (from filenames).</p></li>
+</ul>
+<p>Additional keys by method:</p>
+<ul class="simple">
+<li><p><em>hierarchical</em>: <code class="docutils literal notranslate"><span class="pre">'linkage_matrix'</span></code>, <code class="docutils literal notranslate"><span class="pre">'linkage_method'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'distance_metric'</span></code>.</p></li>
+<li><p><em>kmeans</em>: <code class="docutils literal notranslate"><span class="pre">'cluster_centers'</span></code>, <code class="docutils literal notranslate"><span class="pre">'inertia'</span></code>.</p></li>
+<li><p><em>dbscan</em>: <code class="docutils literal notranslate"><span class="pre">'eps'</span></code>, <code class="docutils literal notranslate"><span class="pre">'min_samples'</span></code>, <code class="docutils literal notranslate"><span class="pre">'n_noise'</span></code>.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="amfora.core.statistics.CeramicStatisticalAnalyzer.perform_pca">
+<span class="sig-name descname"><span class="pre">perform_pca</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_components</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variance_threshold</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.95</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#CeramicStatisticalAnalyzer.perform_pca"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.perform_pca" title="Link to this definition">#</a></dt>
+<dd><p>Perform Principal Component Analysis on ceramic data.</p>
+<p>Requires <code class="docutils literal notranslate"><span class="pre">prepare_data()</span></code> to have been called first. When
+<code class="docutils literal notranslate"><span class="pre">n_components</span></code> is not set, the number of components is chosen
+automatically as the fewest that cumulatively explain at least
+<code class="docutils literal notranslate"><span class="pre">variance_threshold</span></code> of the total variance (minimum 2).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n_components</strong> (<em>int</em><em>, </em><em>optional</em>) – Exact number of principal components to retain. If <code class="docutils literal notranslate"><span class="pre">None</span></code>
+(default), determined automatically from <em>variance_threshold</em>.</p></li>
+<li><p><strong>variance_threshold</strong> (<em>float</em><em>, </em><em>default 0.95</em>) – Cumulative explained-variance ratio at which to stop adding
+components. Only used when <em>n_components</em> is <code class="docutils literal notranslate"><span class="pre">None</span></code>.
+E.g. <code class="docutils literal notranslate"><span class="pre">0.90</span></code> keeps enough components to explain 90 % of
+variance — useful for reducing dimensionality while retaining
+most information.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>PCA results with keys:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">'scores'</span></code> — DataFrame of sample scores (PC1, PC2, …)
+with a <code class="docutils literal notranslate"><span class="pre">Sample</span></code> column (from filenames).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'loadings'</span></code> — DataFrame of feature loadings per component.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'explained_variance'</span></code> — array of per-component variance
+ratios.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'cumulative_variance'</span></code> — cumulative sum of the above.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'interpretations'</span></code> — auto-generated archaeological
+interpretation of each component based on top loadings.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'model'</span></code> — fitted <code class="docutils literal notranslate"><span class="pre">sklearn.decomposition.PCA</span></code> object.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'n_components'</span></code> — number of components retained.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="amfora.core.statistics.CeramicStatisticalAnalyzer.prepare_data">
+<span class="sig-name descname"><span class="pre">prepare_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v3.0.3)"><span class="pre">DataFrame</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude_columns</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_only</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'standard'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v3.0.3)"><span class="pre">DataFrame</span></a></span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#CeramicStatisticalAnalyzer.prepare_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.prepare_data" title="Link to this definition">#</a></dt>
+<dd><p>Prepare and preprocess ceramic analysis data for statistical analysis.</p>
+<p>Must be called before any analysis method (<code class="docutils literal notranslate"><span class="pre">perform_pca</span></code>,
+<code class="docutils literal notranslate"><span class="pre">perform_clustering</span></code>, <code class="docutils literal notranslate"><span class="pre">correlation_analysis</span></code>, <code class="docutils literal notranslate"><span class="pre">generate_report</span></code>).</p>
+<p>Non-numeric columns and constant columns (zero variance) are
+automatically removed. If the DataFrame contains a <code class="docutils literal notranslate"><span class="pre">filename</span></code>
+column, those values are stored as sample labels and used in PCA
+score tables and dendrogram leaf labels.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>pd.DataFrame</em><em> or </em><em>dict</em>) – Raw ceramic analysis data. If a dict, it is converted to a
+DataFrame first. Each row is one sherd/sample; columns are
+numeric measurement features (e.g. from <code class="docutils literal notranslate"><span class="pre">full_analysis()</span></code>).</p></li>
+<li><p><strong>exclude_columns</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – Column names to drop before analysis. Useful for removing
+metadata columns that survived automatic filtering, e.g.
+<code class="docutils literal notranslate"><span class="pre">['notes',</span> <span class="pre">'context']</span></code>.</p></li>
+<li><p><strong>include_only</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – If provided, <strong>only</strong> these columns are kept (after numeric
+filtering). Takes precedence — <code class="docutils literal notranslate"><span class="pre">exclude_columns</span></code> is applied
+first, then <code class="docutils literal notranslate"><span class="pre">include_only</span></code> filters the remainder.</p></li>
+<li><p><strong>scaling_method</strong> (<em>str</em><em>, </em><em>default 'standard'</em>) – <p>How to scale features before multivariate analysis:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">'standard'</span></code> — zero-mean, unit-variance (scikit-learn
+<code class="docutils literal notranslate"><span class="pre">StandardScaler</span></code>). Best general-purpose choice.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'robust'</span></code> — median-centered, IQR-scaled (<code class="docutils literal notranslate"><span class="pre">RobustScaler</span></code>).
+Use when data contains outliers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'none'</span></code> — no scaling. Only appropriate when all features
+share the same units and comparable ranges.</p></li>
+</ul>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Preprocessed, scaled data stored internally (also accessible
+as <code class="docutils literal notranslate"><span class="pre">self.scaled_data</span></code>).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.DataFrame</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p><strong>Feature selection tips</strong> — AMFOrA <code class="docutils literal notranslate"><span class="pre">full_analysis()</span></code> can
+produce ~80+ columns per sherd, many of which are redundant
+(e.g. <code class="docutils literal notranslate"><span class="pre">blob_mean_diameter_mm</span></code> and <code class="docutils literal notranslate"><span class="pre">blob_mean_area_mm2</span></code>
+measure essentially the same thing). Trimming redundant features
+improves clustering stability and is <strong>required</strong> for distance
+metrics like Mahalanobis (which need more samples than features
+for a well-conditioned covariance matrix).</p>
+<p>Strategies for reducing feature count:</p>
+<ol class="arabic simple">
+<li><p><strong>Drop one from each highly-correlated pair.</strong> Run
+<code class="docutils literal notranslate"><span class="pre">correlation_analysis()</span></code> first and inspect
+<code class="docutils literal notranslate"><span class="pre">significant_correlations</span></code> — pairs with <a href="#id1"><span class="problematic" id="id2">|r|</span></a> &gt; 0.9 are
+near-duplicates. Keep whichever is more interpretable.</p></li>
+<li><p><strong>Pick one detection method.</strong> Blob and contour columns
+(<code class="docutils literal notranslate"><span class="pre">blob_*</span></code> vs <code class="docutils literal notranslate"><span class="pre">contour_*</span></code>) measure the same properties
+with different algorithms. Use <code class="docutils literal notranslate"><span class="pre">include_only</span></code> with one
+prefix, or <code class="docutils literal notranslate"><span class="pre">exclude_columns</span></code> to drop the other.</p></li>
+<li><p><strong>Separate concerns.</strong> Color features (<code class="docutils literal notranslate"><span class="pre">*_color_l/a/b</span></code>),
+size features (<code class="docutils literal notranslate"><span class="pre">*_diameter_*</span></code>, <code class="docutils literal notranslate"><span class="pre">*_area_*</span></code>), and
+orientation features (<code class="docutils literal notranslate"><span class="pre">*_orientation_*</span></code>) capture different
+aspects of the fabric. For a focused analysis, include only
+the relevant group.</p></li>
+<li><p><strong>Exclude summary statistics that overlap.</strong> Mean and median
+size, or count and density, often carry the same information.
+Keep one representative per concept.</p></li>
+</ol>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="amfora.core.statistics.CeramicVisualization">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">amfora.core.statistics.</span></span><span class="sig-name descname"><span class="pre">CeramicVisualization</span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#CeramicVisualization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.CeramicVisualization" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Static visualization methods for ceramic statistical analysis results.</p>
+<p>All methods are <code class="docutils literal notranslate"><span class="pre">&#64;staticmethod</span></code> — no instantiation required:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">core.statistics</span><span class="w"> </span><span class="kn">import</span> <span class="n">CeramicVisualization</span> <span class="k">as</span> <span class="n">viz</span>
+
+<span class="n">fig</span> <span class="o">=</span> <span class="n">viz</span><span class="o">.</span><span class="n">plot_pca_biplot</span><span class="p">(</span><span class="n">pca_results</span><span class="p">)</span>
+<span class="n">fig</span> <span class="o">=</span> <span class="n">viz</span><span class="o">.</span><span class="n">plot_dendrogram</span><span class="p">(</span><span class="n">cluster_results</span><span class="p">)</span>
+<span class="n">fig</span> <span class="o">=</span> <span class="n">viz</span><span class="o">.</span><span class="n">plot_correlation_heatmap</span><span class="p">(</span><span class="n">corr_results</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Every method returns a <code class="docutils literal notranslate"><span class="pre">plotly.graph_objects.Figure</span></code> that can be
+displayed with <code class="docutils literal notranslate"><span class="pre">fig.show()</span></code> or saved with <code class="docutils literal notranslate"><span class="pre">fig.write_image()</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="amfora.core.statistics.CeramicVisualization.plot_archaeological_summary">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">plot_archaeological_summary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">report</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Figure</span></span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#CeramicVisualization.plot_archaeological_summary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.CeramicVisualization.plot_archaeological_summary" title="Link to this definition">#</a></dt>
+<dd><p>Create a 2x2 dashboard summarizing PCA variance, cluster quality,
+top correlations, and sample distribution.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>report</strong> (<em>dict</em>) – Output of <code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.generate_report()</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Four-panel summary figure.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>plotly.graph_objects.Figure</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="amfora.core.statistics.CeramicVisualization.plot_cluster_comparison">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">plot_cluster_comparison</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cluster_results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v3.0.3)"><span class="pre">DataFrame</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">features_to_plot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Figure</span></span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#CeramicVisualization.plot_cluster_comparison"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.CeramicVisualization.plot_cluster_comparison" title="Link to this definition">#</a></dt>
+<dd><p>Create box-plot grid comparing feature distributions across clusters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cluster_results</strong> (<em>dict</em>) – Output of <code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.perform_clustering()</span></code>
+(any method).</p></li>
+<li><p><strong>feature_data</strong> (<em>pd.DataFrame</em>) – The (unscaled) feature data — typically
+<code class="docutils literal notranslate"><span class="pre">analyzer.scaled_data</span></code> or the original DataFrame subset.</p></li>
+<li><p><strong>features_to_plot</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – Column names to include. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the first 4 columns of
+<em>feature_data</em> are used.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Grid of box plots, one per feature, colored by cluster.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>plotly.graph_objects.Figure</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="amfora.core.statistics.CeramicVisualization.plot_correlation_heatmap">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">plot_correlation_heatmap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">correlation_results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Figure</span></span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#CeramicVisualization.plot_correlation_heatmap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.CeramicVisualization.plot_correlation_heatmap" title="Link to this definition">#</a></dt>
+<dd><p>Create interactive correlation-matrix heatmap.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>correlation_results</strong> (<em>dict</em>) – Output of <code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.correlation_analysis()</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Heatmap colored by correlation coefficient (−1 to +1).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>plotly.graph_objects.Figure</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="amfora.core.statistics.CeramicVisualization.plot_dendrogram">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">plot_dendrogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cluster_results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orientation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'bottom'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_labels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_names</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Figure</span></span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#CeramicVisualization.plot_dendrogram"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.CeramicVisualization.plot_dendrogram" title="Link to this definition">#</a></dt>
+<dd><p>Create hierarchical clustering dendrogram.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cluster_results</strong> (<em>dict</em>) – Results from hierarchical clustering</p></li>
+<li><p><strong>orientation</strong> (<em>str</em><em>, </em><em>default 'bottom'</em>) – Dendrogram orientation</p></li>
+<li><p><strong>max_labels</strong> (<em>int</em><em>, </em><em>default 20</em>) – Maximum number of labels to show</p></li>
+<li><p><strong>sample_names</strong> (<em>list</em><em>, </em><em>optional</em>) – Labels for leaf nodes. If None, uses cluster_results[‘sample_names’]
+if available, otherwise falls back to numeric indices.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Interactive dendrogram</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>plotly.graph_objects.Figure</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="amfora.core.statistics.CeramicVisualization.plot_pca_3d">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">plot_pca_3d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pca_results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pc_x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'PC1'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pc_y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'PC2'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pc_z</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'PC3'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_labels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">ndarray</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Figure</span></span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#CeramicVisualization.plot_pca_3d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.CeramicVisualization.plot_pca_3d" title="Link to this definition">#</a></dt>
+<dd><p>Create interactive 3D PCA scatter plot.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pca_results</strong> (<em>dict</em>) – Output of <code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.perform_pca()</span></code>.</p></li>
+<li><p><strong>pc_x</strong> (<em>str</em><em>, </em><em>default 'PC1' / 'PC2' / 'PC3'</em>) – Principal components mapped to the x / y / z axes.</p></li>
+<li><p><strong>pc_y</strong> (<em>str</em><em>, </em><em>default 'PC1' / 'PC2' / 'PC3'</em>) – Principal components mapped to the x / y / z axes.</p></li>
+<li><p><strong>pc_z</strong> (<em>str</em><em>, </em><em>default 'PC1' / 'PC2' / 'PC3'</em>) – Principal components mapped to the x / y / z axes.</p></li>
+<li><p><strong>cluster_labels</strong> (<em>array-like</em><em> of </em><em>int</em><em>, </em><em>optional</em>) – Cluster assignment per sample (e.g. from
+<code class="docutils literal notranslate"><span class="pre">perform_clustering()['cluster_labels']</span></code>). When provided,
+points are color-coded by cluster; noise samples (label
+<code class="docutils literal notranslate"><span class="pre">-1</span></code> from DBSCAN) appear as “Noise”.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Interactive 3D scatter (rotate/zoom with mouse).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>plotly.graph_objects.Figure</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="amfora.core.statistics.CeramicVisualization.plot_pca_biplot">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">plot_pca_biplot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pca_results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pc_x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'PC1'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pc_y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'PC2'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_loadings</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_arrows</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Figure</span></span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#CeramicVisualization.plot_pca_biplot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.CeramicVisualization.plot_pca_biplot" title="Link to this definition">#</a></dt>
+<dd><p>Create PCA biplot with sample scores and feature-loading arrows.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pca_results</strong> (<em>dict</em>) – Output of <code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.perform_pca()</span></code>.</p></li>
+<li><p><strong>pc_x</strong> (<em>str</em><em>, </em><em>default 'PC1' / 'PC2'</em>) – Which principal components to plot on the x/y axes. Use
+<code class="docutils literal notranslate"><span class="pre">'PC3'</span></code>, <code class="docutils literal notranslate"><span class="pre">'PC4'</span></code>, etc. to explore higher components.</p></li>
+<li><p><strong>pc_y</strong> (<em>str</em><em>, </em><em>default 'PC1' / 'PC2'</em>) – Which principal components to plot on the x/y axes. Use
+<code class="docutils literal notranslate"><span class="pre">'PC3'</span></code>, <code class="docutils literal notranslate"><span class="pre">'PC4'</span></code>, etc. to explore higher components.</p></li>
+<li><p><strong>show_loadings</strong> (<em>bool</em><em>, </em><em>default True</em>) – Overlay feature-loading vectors as arrows. Arrows point in
+the direction each feature contributes to the two plotted
+components; longer arrows indicate stronger influence.</p></li>
+<li><p><strong>max_arrows</strong> (<em>int</em><em>, </em><em>default 10</em>) – Cap on the number of loading arrows shown (top features by
+combined loading magnitude). Reduces clutter in high-
+dimensional datasets.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Interactive PCA biplot.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>plotly.graph_objects.Figure</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="amfora.core.statistics.CeramicVisualization.plot_scree_plot">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">plot_scree_plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pca_results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Figure</span></span></span><a class="reference internal" href="../_modules/amfora/core/statistics.html#CeramicVisualization.plot_scree_plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.statistics.CeramicVisualization.plot_scree_plot" title="Link to this definition">#</a></dt>
+<dd><p>Create scree plot showing per-component explained variance.</p>
+<p>Displays both individual (bars) and cumulative (line) variance
+ratios, helping determine how many components to retain.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>pca_results</strong> (<em>dict</em>) – Output of <code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.perform_pca()</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Scree / elbow plot.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>plotly.graph_objects.Figure</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "python"
+        },
+        kernelOptions: {
+            name: "python3",
+            path: "./api-reference"
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'python3'</script>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="visualization.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title"><code class="docutils literal notranslate"><span class="pre">amfora.core.visualization</span></code></p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../troubleshooting.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Troubleshooting</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#convenience-entry-points">Convenience entry points</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.quick_ceramic_analysis"><code class="docutils literal notranslate"><span class="pre">quick_ceramic_analysis()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.compare_assemblages"><code class="docutils literal notranslate"><span class="pre">compare_assemblages()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#classes">Classes</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicStatisticalAnalyzer"><code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.assemblage_comparison"><code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.assemblage_comparison()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.correlation_analysis"><code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.correlation_analysis()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.generate_report"><code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.generate_report()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.perform_clustering"><code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.perform_clustering()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.perform_pca"><code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.perform_pca()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicStatisticalAnalyzer.prepare_data"><code class="docutils literal notranslate"><span class="pre">CeramicStatisticalAnalyzer.prepare_data()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicVisualization"><code class="docutils literal notranslate"><span class="pre">CeramicVisualization</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicVisualization.plot_archaeological_summary"><code class="docutils literal notranslate"><span class="pre">CeramicVisualization.plot_archaeological_summary()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicVisualization.plot_cluster_comparison"><code class="docutils literal notranslate"><span class="pre">CeramicVisualization.plot_cluster_comparison()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicVisualization.plot_correlation_heatmap"><code class="docutils literal notranslate"><span class="pre">CeramicVisualization.plot_correlation_heatmap()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicVisualization.plot_dendrogram"><code class="docutils literal notranslate"><span class="pre">CeramicVisualization.plot_dendrogram()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicVisualization.plot_pca_3d"><code class="docutils literal notranslate"><span class="pre">CeramicVisualization.plot_pca_3d()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicVisualization.plot_pca_biplot"><code class="docutils literal notranslate"><span class="pre">CeramicVisualization.plot_pca_biplot()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.statistics.CeramicVisualization.plot_scree_plot"><code class="docutils literal notranslate"><span class="pre">CeramicVisualization.plot_scree_plot()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Alec Iacobucci
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2026.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

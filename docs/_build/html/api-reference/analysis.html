@@ -1,0 +1,1295 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>amfora.core.analysis &#8212; AMFOrA Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js?v=b8b12719"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="../_static/sphinx-thebe.js?v=c100c467"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'api-reference/analysis';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="amfora.core.visualization" href="visualization.html" />
+    <link rel="prev" title="amfora.core.detection" href="detection.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">AMFOrA Documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../user-guide/basic-workflow.html">User guide</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">API reference</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="detection.html"><code class="docutils literal notranslate"><span class="pre">amfora.core.detection</span></code></a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">amfora.core.analysis</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="visualization.html"><code class="docutils literal notranslate"><span class="pre">amfora.core.visualization</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="statistics.html"><code class="docutils literal notranslate"><span class="pre">amfora.core.statistics</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/aleciaco/AMFOrA_public" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/aleciaco/AMFOrA_public/edit/main/docs/api-reference/analysis.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/aleciaco/AMFOrA_public/issues/new?title=Issue%20on%20page%20%2Fapi-reference/analysis.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/api-reference/analysis.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>amfora.core.analysis</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#top-level-pipeline">Top-level pipeline</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.analyze_single_sherd"><code class="docutils literal notranslate"><span class="pre">analyze_single_sherd()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.full_analysis"><code class="docutils literal notranslate"><span class="pre">full_analysis()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#per-stage-helpers">Per-stage helpers</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.size_count_summary_single"><code class="docutils literal notranslate"><span class="pre">size_count_summary_single()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.size_count_summary"><code class="docutils literal notranslate"><span class="pre">size_count_summary()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.void_counter"><code class="docutils literal notranslate"><span class="pre">void_counter()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.contour_counter"><code class="docutils literal notranslate"><span class="pre">contour_counter()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.sacredsquare"><code class="docutils literal notranslate"><span class="pre">sacredsquare()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.inclusion_colors"><code class="docutils literal notranslate"><span class="pre">inclusion_colors()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.inclusion_colors_from_contours"><code class="docutils literal notranslate"><span class="pre">inclusion_colors_from_contours()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.inclusion_orientation"><code class="docutils literal notranslate"><span class="pre">inclusion_orientation()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.inclusion_orientation2"><code class="docutils literal notranslate"><span class="pre">inclusion_orientation2()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.sherd_color_analysis"><code class="docutils literal notranslate"><span class="pre">sherd_color_analysis()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.sherd_color_summary"><code class="docutils literal notranslate"><span class="pre">sherd_color_summary()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.extract_core_periphery_colors"><code class="docutils literal notranslate"><span class="pre">extract_core_periphery_colors()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.analyze_inclusion_angularity"><code class="docutils literal notranslate"><span class="pre">analyze_inclusion_angularity()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.analyze_orientation_for_pca"><code class="docutils literal notranslate"><span class="pre">analyze_orientation_for_pca()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.analyze_manufacturing_technique"><code class="docutils literal notranslate"><span class="pre">analyze_manufacturing_technique()</span></code></a></li>
+</ul>
+</li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="amfora-core-analysis">
+<h1><code class="docutils literal notranslate"><span class="pre">amfora.core.analysis</span></code><a class="headerlink" href="#amfora-core-analysis" title="Link to this heading">#</a></h1>
+<p>Per-sherd and batch analysis. <code class="docutils literal notranslate"><span class="pre">analyze_single_sherd</span></code> is the main entry point; <code class="docutils literal notranslate"><span class="pre">full_analysis</span></code> is the batch wrapper that produces a CSV / DataFrame from a folder of images. The other functions are component helpers and are exposed mostly so you can pull them out of the pipeline when you need finer control.</p>
+<p>Source: <a class="reference external" href="https://github.com/aleciaco/AMFOrA_public/blob/main/src/amfora/core/analysis.py"><code class="docutils literal notranslate"><span class="pre">src/amfora/core/analysis.py</span></code></a>.</p>
+<section id="top-level-pipeline">
+<h2>Top-level pipeline<a class="headerlink" href="#top-level-pipeline" title="Link to this heading">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.analyze_single_sherd">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">analyze_single_sherd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">analyze_inclusions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">analyze_voids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">analyze_core_periphery</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_blob</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_contour</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enhance_contrast</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clahe_clip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clahe_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(8,</span> <span class="pre">8)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">('B',</span> <span class="pre">'G',</span> <span class="pre">'R')</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">combine_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'union'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vote_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">void_intensity_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">paste_pop_k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">paste_pop_floor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">watershed_enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">multigrain_split_enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre_masked</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#analyze_single_sherd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.analyze_single_sherd" title="Link to this definition">#</a></dt>
+<dd><p>Comprehensive analysis of a single ceramic sherd image.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Image array of a scanned sherd</p></li>
+<li><p><strong>scan_dpi</strong> (<em>int</em><em>, </em><em>optional</em>) – Scan resolution in dots per inch (default: 1200)</p></li>
+<li><p><strong>analyze_inclusions</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to analyze inclusions (default: True)</p></li>
+<li><p><strong>analyze_voids</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to analyze voids (default: True)</p></li>
+<li><p><strong>analyze_core_periphery</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to perform core-periphery color analysis for firing atmosphere
+interpretation. This is computationally intensive. (default: True)</p></li>
+<li><p><strong>use_blob</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to use blob detection method (default: True)</p></li>
+<li><p><strong>use_contour</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to use contour detection method (default: True)</p></li>
+<li><p><strong>enhance_contrast</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True (default), apply CLAHE before running blob/contour detection.
+When <code class="docutils literal notranslate"><span class="pre">channels</span> <span class="pre">==</span> <span class="pre">('L',)</span></code> CLAHE is applied once to the masked image’s
+L* channel via the BGR round-trip; when multiple channels are requested
+CLAHE is instead applied to each channel inside the detectors so every
+channel benefits from the contrast enhancement.  Set to False to
+disable entirely.</p></li>
+<li><p><strong>clahe_clip</strong> (<em>float</em><em>, </em><em>optional</em>) – CLAHE clip limit when <code class="docutils literal notranslate"><span class="pre">enhance_contrast=True</span></code> (default: 2.0).</p></li>
+<li><p><strong>clahe_grid</strong> (<em>tuple</em><em> of </em><em>int</em><em>, </em><em>optional</em>) – CLAHE tile grid size when <code class="docutils literal notranslate"><span class="pre">enhance_contrast=True</span></code> (default: (8, 8)).</p></li>
+<li><p><strong>channels</strong> (<em>tuple</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – Image channels passed to both detectors.  Default
+<code class="docutils literal notranslate"><span class="pre">('B',</span> <span class="pre">'G',</span> <span class="pre">'R')</span></code> runs detection independently on each of OpenCV’s
+native BGR channels (not RGB) and combines the results, so inclusions
+that only contrast strongly in one channel (e.g. iron-rich grains in
+R, organic dark cores in B) are still picked up.  L* is excluded
+from the default because it is a perceptually-weighted blend of B,
+G, and R, so including it gives features visible in L* an extra
+redundant vote in the combination step.  Set <code class="docutils literal notranslate"><span class="pre">channels=('L',)</span></code> to
+recover the pre-multi-channel behavior.</p></li>
+<li><p><strong>combine_mode</strong> (<em>{'union'</em><em>, </em><em>'vote'}</em><em>, </em><em>optional</em>) – How to combine per-channel detections when <code class="docutils literal notranslate"><span class="pre">len(channels)</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>.
+Default <code class="docutils literal notranslate"><span class="pre">'union'</span></code> pools detections across channels and removes
+spatial duplicates without requiring cross-channel agreement.
+This catches monochromatic features — e.g. an iron-bearing
+sand grain can contrast strongly in B (where the warm-toned
+grain reads dark against a cream matrix) while showing near-
+zero contrast in R (where both grain and matrix read bright)
+— that the old <code class="docutils literal notranslate"><span class="pre">'vote'</span></code> default with <code class="docutils literal notranslate"><span class="pre">vote_min=2</span></code> dropped:
+roughly half of legitimate single-channel detections were lost
+to the agreement requirement on sand-tempered fabrics.  Noise
+rejection is instead handled by the paste-anchored pop gate
+(<code class="docutils literal notranslate"><span class="pre">paste_pop_k</span></code> / <code class="docutils literal notranslate"><span class="pre">paste_pop_floor</span></code>), which directly measures
+whether a candidate’s interior is statistically distinct from the
+sherd’s paste on the raw (pre-CLAHE) pixels and is a stronger
+discriminator than per-channel voting.  Both detectors accept
+this parameter; the contour
+detector’s noise rejection is less voting-dependent (shape
+filters do more of the work), so the <code class="docutils literal notranslate"><span class="pre">'union'</span></code> default
+trades a small contour-recall hit (~5%) for a large blob-
+recall gain (~27%) on sand-tempered fabrics.  Use <code class="docutils literal notranslate"><span class="pre">'vote'</span></code>
+only if you have a specific reason to require cross-channel
+agreement (e.g. very noisy scans).</p></li>
+<li><p><strong>vote_min</strong> (<em>int</em><em>, </em><em>optional</em>) – Minimum number of channels that must agree for a feature to be kept
+when <code class="docutils literal notranslate"><span class="pre">combine_mode='vote'</span></code> (default: 2 of 3 BGR channels).
+Ignored under the default <code class="docutils literal notranslate"><span class="pre">combine_mode='union'</span></code>.</p></li>
+<li><p><strong>void_intensity_max</strong> (<em>float in 0..255</em><em>, </em><em>optional</em>) – Brightness gate applied to void detections in both detectors.  A
+candidate void’s interior must read below this mean pixel intensity
+on its channel (default: 60).  This is the primary
+inclusion-vs-void discriminator on real scans, because the
+DPI-scaled blur smooths shape concavities that would otherwise
+distinguish a pore (hole, near-black inside) from a dark mineral
+grain (just darker paste).  Lower (e.g. 45) for stricter void
+detection; raise (e.g. 90) for low-contrast scans where genuine
+pores don’t quite reach black.</p></li>
+<li><p><strong>paste_pop_k</strong> (<em>float</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – <p>Minimum “pop” required for a candidate inclusion to be kept,
+expressed as a multiple of the paste’s per-channel Median
+Absolute Deviation.  Default <code class="docutils literal notranslate"><span class="pre">None</span></code> lets each detector use
+its own calibrated default — <code class="docutils literal notranslate"><span class="pre">sherd_blobs</span></code> defaults to 2.0
+(looser, since SimpleBlobDetector’s own shape filters already
+cull most noise) and <code class="docutils literal notranslate"><span class="pre">contour_detection</span></code> defaults to 2.5
+(tighter, since contour candidates pass fewer prior gates).
+Setting an explicit value overrides BOTH detectors with the
+same K.  “Pop” here is informal shorthand for <strong>how much the
+feature stands out against the sherd’s paste</strong> — concretely,
+on the <strong>raw (pre-CLAHE) BGR channels</strong> of the masked input
+image:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">paste_ref</span> <span class="o">=</span> <span class="n">per</span><span class="o">-</span><span class="n">channel</span> <span class="n">median</span> <span class="n">of</span> <span class="n">non</span><span class="o">-</span><span class="n">zero</span> <span class="n">pixels</span>
+<span class="n">paste_MAD</span> <span class="o">=</span> <span class="n">per</span><span class="o">-</span><span class="n">channel</span> <span class="n">median</span><span class="p">(</span><span class="o">|</span><span class="n">pixel</span> <span class="o">-</span> <span class="n">paste_ref</span><span class="o">|</span><span class="p">)</span>
+<span class="n">keep</span> <span class="n">iff</span>  <span class="o">|</span><span class="n">median</span><span class="p">(</span><span class="n">interior</span><span class="p">)</span> <span class="o">-</span> <span class="n">paste_ref</span><span class="o">|</span>  <span class="o">&gt;=</span>  <span class="nb">max</span><span class="p">(</span><span class="n">K</span> <span class="o">*</span> <span class="n">MAD</span><span class="p">,</span> <span class="n">floor</span><span class="p">)</span>
+          <span class="n">on</span> <span class="n">at</span> <span class="n">least</span> <span class="n">one</span> <span class="n">BGR</span> <span class="n">channel</span>
+</pre></div>
+</div>
+<p>The MAD scaling makes the same K work across paste types —
+smooth cream paste (MAD ~5) gets a tight absolute threshold,
+mottled grog-tempered paste (MAD ~18) gets a loose one.
+K=2.0 is roughly a 3σ detection threshold, K=2.5 ~3.7σ
+(σ ≈ 1.4826 · MAD for normal data).  Anchoring on the global
+paste reference instead of the local ring used by earlier
+versions is what fixed the dense-cluster failure mode where
+bright paste pockets between dark grains were detected as
+light inclusions and dark cluster grains were rejected for
+having dark neighbors.
+Set to 0 to disable; raise (e.g. 3.0+) for tighter precision;
+lower (e.g. 1.5) when chasing very subtle features.</p>
+</p></li>
+<li><p><strong>paste_pop_floor</strong> (<em>float in 0..255</em><em>, </em><em>optional</em>) – Absolute brightness floor under the MAD-scaled threshold
+(default: 8.0).  Effective threshold per channel is
+<code class="docutils literal notranslate"><span class="pre">max(paste_pop_k</span> <span class="pre">*</span> <span class="pre">MAD,</span> <span class="pre">paste_pop_floor)</span></code>.  Inactive on every
+real flatbed scan (MAD ≥ ~7 across our calibration set), but
+protects against pathological near-zero-MAD inputs (synthetic
+test images, heavily slipped pieces) where a tiny MAD would
+otherwise collapse the gate.</p></li>
+<li><p><strong>watershed_enabled</strong> (<em>bool</em><em>, </em><em>optional</em>) – Enable distance-transform watershed recovery of dark cluster
+contours the size cap would otherwise drop (default: True).
+Contour detection only.  Disable for legacy behavior or to
+save ~10-30 % runtime on cluster-dense scans.</p></li>
+<li><p><strong>multigrain_split_enabled</strong> (<em>bool</em><em>, </em><em>optional</em>) – Enable a second watershed pass that breaks already-accepted
+lumpy contours into individual grain sub-contours (default:
+True).  Contour detection only.  Splitting triggers only when
+a contour exceeds both an area threshold (default 0.005 cm²)
+and a solidity ceiling (default 0.75) — single big convex
+grains (large grog fragments, quartz pebbles) pass through
+untouched.</p></li>
+<li><p><strong>pre_masked</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, skip <code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code> and treat the entire input image as
+the sherd (default: False).  Use for backgroundless / tight-cropped
+images where every pixel is sherd and GrabCut has nothing to
+segment against.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><em>dict</em> – Dictionary containing comprehensive analysis results</p></li>
+<li><p><em>Limitations</em></p></li>
+<li><p><em>———–</em></p></li>
+<li><p><em>**Optical contrast limit on same-coloured temper-in-matrix systems.**</em></p></li>
+<li><p><em>Both detectors find features by their intensity contrast against the</em></p></li>
+<li><p><em>surrounding paste on the scanned image.  When the optical signature</em></p></li>
+<li><p><em>of the temper grains overlaps the optical signature of the matrix —</em></p></li>
+<li><p><em>e.g. a quartz/feldspar/iron-mineral sand temper in an iron-rich</em></p></li>
+<li><p><em>terra-cotta paste, where the warmer-toned mineral fraction of the</em></p></li>
+<li><p><em>sand reads similarly to the surrounding red paste — those grains</em></p></li>
+<li><p><em>become chromatically camouflaged and the detectors can only resolve</em></p></li>
+<li><p><em>the subset that still differs in lightness.  This is a property of</em></p></li>
+<li><p><strong>the scan, not of the algorithm</strong> (<em>in the AMFOrA_Test_Bars set the</em>)</p></li>
+<li><p><em>R08G (grey clay body) and R08TC (terra-cotta clay body) bars share</em></p></li>
+<li><p><em>an identical sand temper, but R08G yields ~200 inclusions/cm²</em></p></li>
+<li><p><em>while R08TC yields ~88/cm² (a 2.3× gap) because the warmer grains</em></p></li>
+<li><p><em>in the sand disappear visually against the warmer paste.  Note</em></p></li>
+<li><p><em>that the scan colour rendering can also overstate this effect</em></p></li>
+<li><p><em>sand that appears as a “salt and pepper” mix in the lab can read</em></p></li>
+<li><p><em>as predominantly warm-toned under flatbed-scanner illumination,</em></p></li>
+<li><p><em>which is what drives the chromatic overlap with terra-cotta</em></p></li>
+<li><p><em>matrices.</em></p></li>
+<li><p><em>Practical implications</em></p></li>
+<li><p><em>- Inclusion counts and densities are NOT directly comparable across</em> – sherds with substantially different matrix colours, even when the
+temper is identical.  Reported counts represent an optically-
+visible lower bound on the true grain population, not a complete
+census.</p></li>
+<li><p><em>- Same-coloured temper-in-matrix systems known to be affected</em> – include: red-bodied wares with self-temper or iron-rich sand,
+calcareous (white-firing) clays with calcareous (limestone)
+temper, and reduced black wares with carbonaceous inclusions.</p></li>
+<li><p><em>- For cross-fabric comparison, group sherds by matrix colour</em> – first (e.g. compare R##G to R##G, R##TC to R##TC), or use
+petrographic thin-sectioning + polarised-light microscopy when
+a true grain census is required.</p></li>
+<li><p><em>No parameter adjustment can recover the missing grains — the</em></p></li>
+<li><p><em>information is not in the image — so the limitation should be</em></p></li>
+<li><p><em>reported alongside any cross-fabric comparison of inclusion</em></p></li>
+<li><p><em>metrics.</em></p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.full_analysis">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">full_analysis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">folder_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">analyze_inclusions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">analyze_voids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">analyze_core_periphery</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_blob</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_contour</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interleave_columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_formats</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_csv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enhance_contrast</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clahe_clip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clahe_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(8,</span> <span class="pre">8)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">('B',</span> <span class="pre">'G',</span> <span class="pre">'R')</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">combine_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'union'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vote_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">void_intensity_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">paste_pop_k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">paste_pop_floor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">watershed_enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">multigrain_split_enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre_masked</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#full_analysis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.full_analysis" title="Link to this definition">#</a></dt>
+<dd><p>Comprehensive analysis of all ceramic sherds in a directory with both blob and contour detection.</p>
+<p>This function processes all images in a directory using both detection methods and provides
+complete size, orientation, color, and morphological analysis for archaeological research.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>folder_path</strong> (<em>str</em>) – Path to folder containing ceramic images</p></li>
+<li><p><strong>scan_dpi</strong> (<em>int</em><em>, </em><em>optional</em>) – Scan resolution in dots per inch (default: 1200)</p></li>
+<li><p><strong>analyze_inclusions</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to analyze inclusions (default: True)</p></li>
+<li><p><strong>analyze_voids</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to analyze voids (default: True)</p></li>
+<li><p><strong>analyze_core_periphery</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to perform core-periphery color analysis for firing atmosphere
+interpretation. This is computationally intensive. (default: True)</p></li>
+<li><p><strong>use_blob</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to use blob detection method (default: True)</p></li>
+<li><p><strong>use_contour</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to use contour detection method (default: True)</p></li>
+<li><p><strong>interleave_columns</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to reorder columns so blob/contour variants of the same metric
+are placed side-by-side. (default: False)</p></li>
+<li><p><strong>file_formats</strong> (<em>list</em><em>, </em><em>optional</em>) – List of file extensions to process (default: [‘jpg’, ‘jpeg’, ‘png’, ‘bmp’, ‘tiff’, ‘tif’])</p></li>
+<li><p><strong>save_csv</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to automatically save results as CSV (default: True)</p></li>
+<li><p><strong>output_filename</strong> (<em>str</em><em>, </em><em>optional</em>) – Custom filename for CSV output (default: auto-generated based on folder name)</p></li>
+<li><p><strong>enhance_contrast</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True (default), apply CLAHE before running blob/contour detection.
+With the default multi-channel <code class="docutils literal notranslate"><span class="pre">channels</span></code> setting, CLAHE is applied
+to each channel independently inside the detectors; with
+<code class="docutils literal notranslate"><span class="pre">channels=('L',)</span></code> it falls back to the legacy single-pass L* CLAHE
+on the masked image.  Set to False to disable entirely.</p></li>
+<li><p><strong>clahe_clip</strong> (<em>float</em><em>, </em><em>optional</em>) – CLAHE clip limit when <code class="docutils literal notranslate"><span class="pre">enhance_contrast=True</span></code> (default: 2.0).</p></li>
+<li><p><strong>clahe_grid</strong> (<em>tuple</em><em> of </em><em>int</em><em>, </em><em>optional</em>) – CLAHE tile grid size when <code class="docutils literal notranslate"><span class="pre">enhance_contrast=True</span></code> (default: (8, 8)).</p></li>
+<li><p><strong>channels</strong> (<em>tuple</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – Image channels passed to both detectors.  Default <code class="docutils literal notranslate"><span class="pre">('B',</span> <span class="pre">'G',</span> <span class="pre">'R')</span></code>
+runs detection on each BGR channel and combines the results so
+inclusions that only contrast in one channel are still picked up.
+Set <code class="docutils literal notranslate"><span class="pre">channels=('L',)</span></code> to recover the pre-multi-channel L*-only
+behavior.  See <code class="docutils literal notranslate"><span class="pre">analyze_single_sherd</span></code> for the full description.</p></li>
+<li><p><strong>combine_mode</strong> (<em>{'union'</em><em>, </em><em>'vote'}</em><em>, </em><em>optional</em>) – How to combine per-channel detections (default: <code class="docutils literal notranslate"><span class="pre">'union'</span></code>).
+Pools detections without requiring cross-channel agreement,
+catching monochromatic features (e.g. an iron-bearing sand
+grain visible only in B against a warm matrix) that voting
+would drop.  Noise rejection is handled by
+the paste-anchored pop gate (<code class="docutils literal notranslate"><span class="pre">paste_pop_k</span></code> / <code class="docutils literal notranslate"><span class="pre">paste_pop_floor</span></code>)
+instead.  See <code class="docutils literal notranslate"><span class="pre">analyze_single_sherd</span></code> for the full rationale.</p></li>
+<li><p><strong>vote_min</strong> (<em>int</em><em>, </em><em>optional</em>) – Minimum number of channels that must agree under <code class="docutils literal notranslate"><span class="pre">combine_mode='vote'</span></code>
+(default: 2 of 3 BGR channels).  Ignored under the default
+<code class="docutils literal notranslate"><span class="pre">combine_mode='union'</span></code>.</p></li>
+<li><p><strong>void_intensity_max</strong> (<em>float in 0..255</em><em>, </em><em>optional</em>) – Brightness gate for void detection in both detectors (default: 60).
+See <code class="docutils literal notranslate"><span class="pre">analyze_single_sherd</span></code> for the full description; lower this
+for stricter voids, raise for low-contrast scans.</p></li>
+<li><p><strong>paste_pop_k</strong> (<em>float</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Minimum paste-pop required for a candidate inclusion to be kept,
+expressed as a multiple of the paste’s per-channel Median
+Absolute Deviation.  Default <code class="docutils literal notranslate"><span class="pre">None</span></code> lets each detector use
+its own calibrated default (<code class="docutils literal notranslate"><span class="pre">sherd_blobs</span></code> = 2.0, looser;
+<code class="docutils literal notranslate"><span class="pre">contour_detection</span></code> = 2.5, tighter).  Setting an explicit
+value overrides BOTH detectors.  See <code class="docutils literal notranslate"><span class="pre">analyze_single_sherd</span></code>
+for the formal definition and full rationale.</p></li>
+<li><p><strong>paste_pop_floor</strong> (<em>float in 0..255</em><em>, </em><em>optional</em>) – Absolute brightness floor under the MAD-scaled threshold
+(default: 8.0).  Effective threshold per channel is
+<code class="docutils literal notranslate"><span class="pre">max(paste_pop_k</span> <span class="pre">*</span> <span class="pre">MAD,</span> <span class="pre">paste_pop_floor)</span></code>.</p></li>
+<li><p><strong>watershed_enabled</strong> (<em>bool</em><em>, </em><em>optional</em>) – Enable distance-transform watershed recovery of dark cluster
+contours the size cap would otherwise drop (default: True).
+Contour detection only.</p></li>
+<li><p><strong>multigrain_split_enabled</strong> (<em>bool</em><em>, </em><em>optional</em>) – Enable a second watershed pass that breaks already-accepted
+lumpy contours into individual grain sub-contours (default:
+True).  Contour detection only.</p></li>
+<li><p><strong>pre_masked</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, skip <code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code> and treat every input image as
+already isolated to its sherd (default: False).  Use for
+backgroundless / tight-cropped directories where GrabCut has
+nothing to segment against.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Comprehensive DataFrame containing:
+- Blob detection results (blob_inclusion_*, blob_void_*)
+- Contour detection results (contour_inclusion_*, contour_void_*)
+- Orientation analysis (inclusion_orientation_*, sherd_orientation)
+- Color analysis (inclusion_color_*, sherd_color_*)
+- Density and percentage calculations
+- Processing status and metadata</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v3.0.3)">pandas.DataFrame</a></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Output includes dual detection methods:</p>
+<p><strong>Blob Detection</strong> - Better for round, circular features:
+- Good for: quartz grains, rounded temper, spherical voids
+- Metrics: blob_inclusion_count, blob_inclusion_total_area_cm2, etc.</p>
+<p><strong>Contour Detection</strong> - Better for irregular, angular features:
+- Good for: angular rock fragments, irregular voids, elongated inclusions
+- Metrics: contour_inclusion_count, contour_inclusion_total_area_cm2, etc.</p>
+<p>All area measurements are in cm², densities in features per cm².</p>
+<section id="limitations">
+<h3>Limitations<a class="headerlink" href="#limitations" title="Link to this heading">#</a></h3>
+<p>Inclusion counts and densities are NOT directly comparable across
+sherds whose matrix colours overlap their temper colours (e.g. an
+iron-bearing sand temper in a terra-cotta paste vs the same sand
+in a grey paste).  The detectors can only resolve grains that
+contrast against the matrix; chromatically camouflaged grains are
+invisible to optical scanning regardless of detection parameters.
+See <code class="docutils literal notranslate"><span class="pre">analyze_single_sherd</span></code> for the full discussion and the
+R08G/R08TC calibration data showing the ~2.3× density gap on
+bars sharing identical sand temper.</p>
+</section>
+</dd></dl>
+
+</section>
+<section id="per-stage-helpers">
+<h2>Per-stage helpers<a class="headerlink" href="#per-stage-helpers" title="Link to this heading">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.size_count_summary_single">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">size_count_summary_single</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">blobs_light</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blobs_dark</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#size_count_summary_single"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.size_count_summary_single" title="Link to this definition">#</a></dt>
+<dd><p>Analyze size distributions for a single image’s detected blobs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>blobs_light</strong> (<em>list</em>) – List of light blob keypoints (inclusions)</p></li>
+<li><p><strong>blobs_dark</strong> (<em>list</em>) – List of dark blob keypoints (voids)</p></li>
+<li><p><strong>scan_dpi</strong> (<em>int</em><em>, </em><em>optional</em>) – Scan resolution in dots per inch (default: 1200)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary containing comprehensive size statistics for inclusions and voids</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.size_count_summary">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">size_count_summary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">folder_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fileformat</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'jpeg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_blob</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_contour</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interleave_columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre_masked</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#size_count_summary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.size_count_summary" title="Link to this definition">#</a></dt>
+<dd><p>Analysis of inclusions and voids using blob and/or contour detection.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>folder_path</strong> (<em>str</em>) – Path to folder containing ceramic images</p></li>
+<li><p><strong>fileformat</strong> (<em>str</em><em>, </em><em>optional</em>) – Image file format to process (default: ‘jpeg’)</p></li>
+<li><p><strong>scan_dpi</strong> (<em>int</em><em>, </em><em>optional</em>) – Scan resolution in dots per inch (default: 1200)
+Valid range: 150-2400 DPI</p></li>
+<li><p><strong>use_blob</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to use blob detection (default: True)</p></li>
+<li><p><strong>use_contour</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to use contour detection (default: True)</p></li>
+<li><p><strong>interleave_columns</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to reorder columns so blob/contour variants of the same metric
+are placed side-by-side. (default: False)</p></li>
+<li><p><strong>pre_masked</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, skip <code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code> and treat every input as already
+isolated to its sherd (default: False).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Summary statistics for each ceramic’s inclusions and voids.
+All area measurements are in cm². Column names are prefixed with
+<code class="docutils literal notranslate"><span class="pre">blob_</span></code> or <code class="docutils literal notranslate"><span class="pre">contour_</span></code> to indicate detection method.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v3.0.3)">pandas.DataFrame</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.void_counter">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">void_counter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#void_counter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.void_counter" title="Link to this definition">#</a></dt>
+<dd><p>Calculate the number and area of void spaces within a ceramic sherd.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Image of a scanned sherd</p></li>
+<li><p><strong>scan_dpi</strong> (<em>int</em><em>, </em><em>optional</em>) – Scan resolution in dots per inch (default: 1200)
+Valid range: 150-2400 DPI</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(list of void areas in cm², number of voids found)</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.contour_counter">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">contour_counter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#contour_counter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.contour_counter" title="Link to this definition">#</a></dt>
+<dd><p>Calculate the number and area of contours within a ceramic sherd.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Image of a scanned sherd</p></li>
+<li><p><strong>scan_dpi</strong> (<em>int</em><em>, </em><em>optional</em>) – Scan resolution in dots per inch (default: 1200)
+Valid range: 150-2400 DPI</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(list of contour areas in cm², number of contours found)</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.sacredsquare">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">sacredsquare</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">og_img</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blobs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#sacredsquare"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.sacredsquare" title="Link to this definition">#</a></dt>
+<dd><p>Extract squares representing inclusions using blob detection results.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>og_img</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Original image from which blobs were detected</p></li>
+<li><p><strong>blobs</strong> (<em>list</em>) – Blob KeyPoint objects from blob detection</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>(sorted list of [(left_vertex, right_vertex), size],</dt><dd><p>image with squares drawn over blobs)</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.inclusion_colors">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">inclusion_colors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inclusion_list</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#inclusion_colors"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.inclusion_colors" title="Link to this definition">#</a></dt>
+<dd><p>Extract color information for each inclusion using k-means clustering.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Masked scanned image for color analysis (BGR format)</p></li>
+<li><p><strong>inclusion_list</strong> (<em>list</em>) – List of inclusions and their locations from sacredsquare</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of CIELAB colors for dominant 3 colors of each inclusion
+[[L*, a*, b*], [L*, a*, b*], [L*, a*, b*]] ordered by frequency
+L* = lightness (0-100), a* = green-red, b* = blue-yellow</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.inclusion_colors_from_contours">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">inclusion_colors_from_contours</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contours</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#inclusion_colors_from_contours"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.inclusion_colors_from_contours" title="Link to this definition">#</a></dt>
+<dd><p>Extract color information for contour-detected inclusions using contour masks.</p>
+<p>Unlike inclusion_colors() which uses rectangular bounding boxes,
+this function masks each inclusion to its exact contour boundary,
+avoiding paste/matrix color contamination.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Masked scanned image (BGR format)</p></li>
+<li><p><strong>contours</strong> (<em>list</em>) – List of contour arrays from contour_detection[‘inclusions’]</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of CIELAB colors for dominant 3 colors of each inclusion
+[[L*, a*, b*], [L*, a*, b*], [L*, a*, b*]] ordered by frequency</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.inclusion_orientation">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">inclusion_orientation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contour_result</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#inclusion_orientation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.inclusion_orientation" title="Link to this definition">#</a></dt>
+<dd><p>Estimate orientations of inclusions and voids.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Masked image of a scanned sherd (background zeroed).</p></li>
+<li><p><strong>scan_dpi</strong> (<em>int</em>) – Scan resolution in dots per inch.</p></li>
+<li><p><strong>contour_result</strong> (<em>dict</em><em>, </em><em>optional</em>) – Output dict from <code class="docutils literal notranslate"><span class="pre">contour_detection()</span></code>.  When provided the
+already-filtered inclusion and void contours are used directly,
+avoiding a redundant re-detection pass.  When None the function
+falls back to independent threshold-based detection.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">(inclusion_angles,</span> <span class="pre">void_angles)</span></code> — lists of integer angles in
+degrees derived from the minimum-area bounding rectangle of each
+detected feature.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Orientation will depend on how sherds were scanned — trends will be
+in modal angles, not true measures.  Use <code class="docutils literal notranslate"><span class="pre">inclusion_orientation2</span></code>
+to correct for the sherd’s own principal axis.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.inclusion_orientation2">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">inclusion_orientation2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contour_result</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sherd_contour</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#inclusion_orientation2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.inclusion_orientation2" title="Link to this definition">#</a></dt>
+<dd><p>Enhanced orientation analysis that corrects angles relative to the sherd’s
+own principal axis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Masked image of a scanned sherd (background zeroed).</p></li>
+<li><p><strong>scan_dpi</strong> (<em>int</em>) – Scan resolution in dots per inch.</p></li>
+<li><p><strong>contour_result</strong> (<em>dict</em><em>, </em><em>optional</em>) – Output dict from <code class="docutils literal notranslate"><span class="pre">contour_detection()</span></code>.  When provided the
+already-filtered inclusion and void contours are used directly,
+avoiding a redundant re-detection pass.  When None the function
+falls back to independent threshold-based detection.</p></li>
+<li><p><strong>sherd_contour</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a><em> or </em><em>None</em><em>, </em><em>optional</em>) – The <code class="docutils literal notranslate"><span class="pre">best_contour</span></code> returned by <code class="docutils literal notranslate"><span class="pre">sherd_mask()</span></code>.  When provided
+the sherd’s principal axis is derived from this exact contour via
+<code class="docutils literal notranslate"><span class="pre">cv2.minAreaRect</span></code> — the same geometry that determined the mask and
+crop.  This is the authoritative sherd orientation because the mask
+bounding box is what orients the entire sherd in the pipeline.
+When None the function derives the sherd orientation by
+thresholding the masked image (fallback — less reliable on
+dark-matrix sherds).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">(inclusion_angles,</span> <span class="pre">void_angles,</span> <span class="pre">sherd_angle)</span></code> — angle lists in
+degrees corrected for the sherd’s principal axis orientation, plus
+the sherd angle itself.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.sherd_color_analysis">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">sherd_color_analysis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre_masked</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#sherd_color_analysis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.sherd_color_analysis" title="Link to this definition">#</a></dt>
+<dd><p>Analyze color properties of a single ceramic sherd image using CIELAB.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a>) – Input image array (BGR format).  Pass the original (un-cropped) image;
+the function will slice it using <code class="docutils literal notranslate"><span class="pre">crop</span></code> when provided.</p></li>
+<li><p><strong>mask</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>numpy.ndarray</em></a><em>, </em><em>optional</em>) – Mask to apply (already cropped to the sherd region when <code class="docutils literal notranslate"><span class="pre">crop</span></code> is
+given).  If None, a mask is generated automatically via <code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code>
+(or <code class="docutils literal notranslate"><span class="pre">full_image_mask</span></code> when <code class="docutils literal notranslate"><span class="pre">pre_masked=True</span></code>).</p></li>
+<li><p><strong>crop</strong> (<em>tuple</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – <code class="docutils literal notranslate"><span class="pre">(y1,</span> <span class="pre">y2,</span> <span class="pre">x1,</span> <span class="pre">x2)</span></code> crop rectangle as returned by <code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code>.
+When provided together with <code class="docutils literal notranslate"><span class="pre">mask</span></code>, the image is sliced to this
+region so its dimensions match the (already-cropped) mask.</p></li>
+<li><p><strong>pre_masked</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True and <code class="docutils literal notranslate"><span class="pre">mask</span></code> is None, skip <code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code> and treat the entire
+input as the sherd (default: False).  Ignored when <code class="docutils literal notranslate"><span class="pre">mask</span></code> is given.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary containing CIELAB color values:
+- mean_l: L* lightness (0-100)
+- mean_a: a* green-red axis (-128 to +127)
+- mean_b: b* blue-yellow axis (-128 to +127)</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.sherd_color_summary">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">sherd_color_summary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">folder_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_blob</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_contour</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">analyze_core_periphery</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interleave_columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre_masked</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#sherd_color_summary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.sherd_color_summary" title="Link to this definition">#</a></dt>
+<dd><p>Provide summary of color aspects of sherds in CIELAB colorspace.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>folder_path</strong> (<em>str</em>) – Path to folder containing ceramic images</p></li>
+<li><p><strong>scan_dpi</strong> (<em>int</em><em>, </em><em>optional</em>) – Scan resolution in dots per inch (default: 1200)</p></li>
+<li><p><strong>use_blob</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to analyze inclusion colors using blob detection (default: True)</p></li>
+<li><p><strong>use_contour</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to analyze inclusion colors using contour detection (default: True)</p></li>
+<li><p><strong>analyze_core_periphery</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to perform core-periphery color analysis for firing atmosphere
+interpretation. This is computationally intensive. (default: True)</p></li>
+<li><p><strong>interleave_columns</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to reorder columns so blob/contour variants of the same metric
+are placed side-by-side. (default: False)</p></li>
+<li><p><strong>pre_masked</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, skip <code class="docutils literal notranslate"><span class="pre">sherd_mask</span></code> and treat every input as already
+isolated to its sherd (default: False).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Summary statistics for each ceramic’s color and inclusion colors in CIELAB.
+L* = lightness (0-100), a* = green-red, b* = blue-yellow.
+Columns are prefixed with <code class="docutils literal notranslate"><span class="pre">blob_</span></code> or <code class="docutils literal notranslate"><span class="pre">contour_</span></code> to indicate method.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame" title="(in pandas v3.0.3)">pandas.DataFrame</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.extract_core_periphery_colors">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">extract_core_periphery_colors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">masked_image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#extract_core_periphery_colors"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.extract_core_periphery_colors" title="Link to this definition">#</a></dt>
+<dd><p>Extract ceramic paste colors from core vs margin regions using distance transform.</p>
+<p>Uses distance transform to define the structural core (innermost 20% by distance
+from edges) and analyzes color differences between core and margin regions.</p>
+<section id="archaeological-significance">
+<h3>Archaeological Significance<a class="headerlink" href="#archaeological-significance" title="Link to this heading">#</a></h3>
+<p>The a* channel (red-green axis) is the primary indicator of iron oxidation
+state in ceramics.  Oxidized iron (Fe2O3, hematite) produces red/brown
+colors (high a*), while reduced iron and preserved carbon remain
+chromatically neutral (gray/black).  L* alone cannot distinguish a dark
+oxidized ceramic from a reduced one.</p>
+<p>Each zone is independently classified as <em>oxidized</em>, <em>reduced</em>,
+<em>incomplete_oxidation</em>, or <em>carbonaceous</em> using the full CIELAB color,
+then a whole-sherd <code class="docutils literal notranslate"><span class="pre">firing_interpretation</span></code> is derived from the
+combination.</p>
+<dl class="field-list simple">
+<dt class="field-odd">param masked_image<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Masked ceramic sherd image (BGR format)</p>
+</dd>
+<dt class="field-even">type masked_image<span class="colon">:</span></dt>
+<dd class="field-even"><p>numpy.ndarray</p>
+</dd>
+<dt class="field-odd">param mask<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Binary mask defining ceramic boundaries</p>
+</dd>
+<dt class="field-even">type mask<span class="colon">:</span></dt>
+<dd class="field-even"><p>numpy.ndarray</p>
+</dd>
+<dt class="field-odd">param scan_dpi<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Scan resolution (default: 1200)</p>
+</dd>
+<dt class="field-even">type scan_dpi<span class="colon">:</span></dt>
+<dd class="field-even"><p>int, optional</p>
+</dd>
+<dt class="field-odd">returns<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p>‘core_lab’: [L*, a*, b*] for ceramic core</p></li>
+<li><p>‘inner_margin_lab’: [L*, a*, b*] for inner margin</p></li>
+<li><p>‘outer_margin_lab’: [L*, a*, b*] for outer margin</p></li>
+<li><p>‘core_atmosphere’: per-zone classification</p></li>
+<li><p>‘inner_margin_atmosphere’: per-zone classification</p></li>
+<li><p>‘outer_margin_atmosphere’: per-zone classification</p></li>
+<li><p>‘color_gradient’: Max Delta-E between regions</p></li>
+<li><p>‘firing_interpretation’: Archaeological assessment</p></li>
+<li><p>‘margin_symmetry’: symmetric/symmetric_transitional/asymmetric</p></li>
+<li><p>‘core_pixels’, ‘inner_margin_pixels’, ‘outer_margin_pixels’: Counts</p></li>
+</ul>
+</dd>
+<dt class="field-even">rtype<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.analyze_inclusion_angularity">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">analyze_inclusion_angularity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">contours</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan_dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1200</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#analyze_inclusion_angularity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.analyze_inclusion_angularity" title="Link to this definition">#</a></dt>
+<dd><p>Analyze geometric angularity and roundness of inclusion contours.</p>
+<p>This function uses polygon approximation and roundness metrics to classify
+inclusions into the six standard sedimentological roundness categories
+established by Muller (1964) and Powers (1953), as applied to ceramic
+petrography by Stienstra (1986).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>contours</strong> (<em>list</em>) – List of contour objects from cv2.findContours()</p></li>
+<li><p><strong>scan_dpi</strong> (<em>int</em><em>, </em><em>optional</em>) – Scan resolution for size-aware filtering (default: 1200)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>Dictionary containing:
+- ‘angularity_scores’: list of angularity scores (0-1, higher = more angular)
+- ‘vertex_counts’: list of vertex counts for each inclusion
+- ‘roundness_ratios’: list of roundness ratios (0-1, higher = more round)
+- ‘roundness_classifications’: list of Muller/Powers roundness classes</p>
+<blockquote>
+<div><p>(‘very_angular’, ‘angular’, ‘sub_angular’, ‘sub_rounded’, ‘rounded’, ‘well_rounded’)</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>’approx_polygons’: list of approximated polygon contours</p></li>
+<li><p>’summary_stats’: dict with aggregate statistics</p></li>
+<li><p>’pca_metrics’: dict with metrics formatted for PCA analysis</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Roundness classification follows the Powers (1953) / Muller (1964) scale
+adapted for automated circularity measurement:
+- Very angular:  circularity &lt; 0.17
+- Angular:       0.17 &lt;= circularity &lt; 0.25
+- Sub-angular:   0.25 &lt;= circularity &lt; 0.35
+- Sub-rounded:   0.35 &lt;= circularity &lt; 0.49
+- Rounded:       0.49 &lt;= circularity &lt; 0.70
+- Well-rounded:  circularity &gt;= 0.70</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.analyze_orientation_for_pca">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">analyze_orientation_for_pca</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">orientation_angles</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#analyze_orientation_for_pca"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.analyze_orientation_for_pca" title="Link to this definition">#</a></dt>
+<dd><p>Convert circular orientation data to PCA-compatible metrics.</p>
+<p>Handles the statistical challenges of circular data by computing:
+1. Vector components (sine/cosine) - preserves directional information
+2. Circular statistical measures (mean direction, concentration)
+3. Fabric strength indicators (preferred orientation vs randomness)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>orientation_angles</strong> (<em>list</em><em> or </em><em>array-like</em>) – List of angles in degrees (0-360° or -180° to +180°)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary containing PCA-ready orientation metrics:
+- orientation_strength: How strongly oriented the fabric is (0=random, 1=perfectly aligned)
+- mean_orientation_x: X-component of mean orientation vector
+- mean_orientation_y: Y-component of mean orientation vector
+- orientation_concentration: Circular concentration parameter (higher = more aligned)
+- orientation_uniformity: Measure of how evenly distributed angles are
+- dominant_orientation_deg: Main orientation direction in degrees
+- orientation_bimodality: Whether fabric shows two preferred orientations</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>This approach solves the “circular data problem” for PCA by:
+1. Converting angles to unit vectors, avoiding 0°/360° discontinuity
+2. Computing vector statistics that are PCA-compatible
+3. Providing archaeological interpretations (fabric strength, preferred orientations)</p>
+<p>For ceramic analysis:
+- High orientation_strength = strong fabric, deliberate manufacturing technique
+- Low orientation_strength = random fabric, hand-building or poor clay preparation
+- Bimodality = cross-hatched or woven fabric structure</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="amfora.core.analysis.analyze_manufacturing_technique">
+<span class="sig-prename descclassname"><span class="pre">amfora.core.analysis.</span></span><span class="sig-name descname"><span class="pre">analyze_manufacturing_technique</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">orientation_metrics</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size_metrics</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geometric_metrics</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/amfora/core/analysis.html#analyze_manufacturing_technique"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#amfora.core.analysis.analyze_manufacturing_technique" title="Link to this definition">#</a></dt>
+<dd><p>Identify likely ceramic manufacturing technique based on inclusion patterns.</p>
+<p>Based on archaeological research (Berg 2008, Roux &amp; Courty 2005, EXARC 2021):
+- Coiling: wavy/spiral patterns, radial orientations, moderate alignment
+- Wheel throwing: strong horizontal alignment, high uniformity, low bimodality
+- Slab construction: parallel to walls, moderate-high alignment, clustered joints
+- Pinching: random orientations, low alignment, clustering at stress points</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>orientation_metrics</strong> (<em>dict</em>) – Results from analyze_orientation_for_pca()</p></li>
+<li><p><strong>size_metrics</strong> (<em>dict</em>) – Size distribution metrics</p></li>
+<li><p><strong>geometric_metrics</strong> (<em>dict</em>) – Geometric analysis results</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Manufacturing technique analysis with confidence scores</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "python"
+        },
+        kernelOptions: {
+            name: "python3",
+            path: "./api-reference"
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'python3'</script>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="detection.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title"><code class="docutils literal notranslate"><span class="pre">amfora.core.detection</span></code></p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="visualization.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title"><code class="docutils literal notranslate"><span class="pre">amfora.core.visualization</span></code></p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#top-level-pipeline">Top-level pipeline</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.analyze_single_sherd"><code class="docutils literal notranslate"><span class="pre">analyze_single_sherd()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.full_analysis"><code class="docutils literal notranslate"><span class="pre">full_analysis()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#per-stage-helpers">Per-stage helpers</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.size_count_summary_single"><code class="docutils literal notranslate"><span class="pre">size_count_summary_single()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.size_count_summary"><code class="docutils literal notranslate"><span class="pre">size_count_summary()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.void_counter"><code class="docutils literal notranslate"><span class="pre">void_counter()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.contour_counter"><code class="docutils literal notranslate"><span class="pre">contour_counter()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.sacredsquare"><code class="docutils literal notranslate"><span class="pre">sacredsquare()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.inclusion_colors"><code class="docutils literal notranslate"><span class="pre">inclusion_colors()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.inclusion_colors_from_contours"><code class="docutils literal notranslate"><span class="pre">inclusion_colors_from_contours()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.inclusion_orientation"><code class="docutils literal notranslate"><span class="pre">inclusion_orientation()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.inclusion_orientation2"><code class="docutils literal notranslate"><span class="pre">inclusion_orientation2()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.sherd_color_analysis"><code class="docutils literal notranslate"><span class="pre">sherd_color_analysis()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.sherd_color_summary"><code class="docutils literal notranslate"><span class="pre">sherd_color_summary()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.extract_core_periphery_colors"><code class="docutils literal notranslate"><span class="pre">extract_core_periphery_colors()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.analyze_inclusion_angularity"><code class="docutils literal notranslate"><span class="pre">analyze_inclusion_angularity()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.analyze_orientation_for_pca"><code class="docutils literal notranslate"><span class="pre">analyze_orientation_for_pca()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#amfora.core.analysis.analyze_manufacturing_technique"><code class="docutils literal notranslate"><span class="pre">analyze_manufacturing_technique()</span></code></a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Alec Iacobucci
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2026.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
