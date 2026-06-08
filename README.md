@@ -4,6 +4,8 @@ A Python package for automated quantitative analysis of ceramic sherd fabric fro
 
 Built for archaeological and materials-science workflows that need reproducible, DPI-aware measurements across many sherds.
 
+Developed at the University of Washington's [Digital Archaeology Research Laboratory (DigAR Lab)](https://www.digarlab.uw.edu) 
+
 ## Features
 
 - **Inclusion detection** — Blob and contour-based detectors with a paste-anchored MAD-scaled pop gate that handles dense clusters, fine grains on uniform paste, and mottled tempers consistently.
