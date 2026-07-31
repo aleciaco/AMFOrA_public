@@ -63,7 +63,7 @@ See `examples/` for working notebooks and `docs/` for the full user guide.
 
 ## Documentation
 
-The Jupyter Book under `docs/` builds locally with `jupyter-book build docs/` and covers installation, quickstart, the user guide, full API reference, and tutorials. Online publishing via GitHub Pages is planned (link will go here once the site is live).
+[AMFOrA Docs -- GitHub Docs](https://aleciaco.github.io/AMFOrA_public/)
 
 ## Core entry points
 
