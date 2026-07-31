@@ -59,7 +59,7 @@ df = amfora.full_analysis('path/to/sherd_scans/', scan_dpi=1200)
 df.to_csv('results.csv')
 ```
 
-See `examples/` for working notebooks and `docs/` for the full user guide.
+See `examples/` for working notebooks (and example sherd images) and `docs/` for the full user guide.
 
 ## Documentation
 
