@@ -374,7 +374,16 @@ def analyze_single_sherd(
     Returns
     -------
     dict
-        Dictionary containing comprehensive analysis results
+        Dictionary containing comprehensive analysis results.
+
+        Contour inclusion orientation includes circular, multivariate-ready metrics
+        (v1.0.2+) computed on the sherd-corrected *axial* angles:
+        ``contour_inclusion_orientation_strength`` (0 = random .. 1 = perfectly aligned),
+        ``_concentration`` (von Mises), ``_uniformity``, ``_bimodality``, ``_dominant_deg``,
+        and ``_alignment`` — a signed ``mean(cos 2*theta)`` where +1 = grains parallel to the
+        sherd surface, 0 = random, -1 = perpendicular. Unlike the retained legacy ``_mean`` /
+        ``_std`` columns (plain statistics on circular degrees), these are valid for PCA/LDA and
+        clustering. See ``analyze_orientation_for_pca``.
 
     Limitations
     -----------
@@ -666,7 +675,24 @@ def analyze_single_sherd(
                 results["contour_inclusion_area_percentage"] = 0
                 results["contour_void_area_percentage"] = 0
 
-        # Orientation analysis — contour-based (reuses pre-detected contour inclusions/voids)
+        # Orientation analysis — contour-based (reuses pre-detected contour inclusions/voids).
+        # Grain orientation is AXIAL (theta == theta + 180). ``inclusion_orientation2`` already
+        # returns angles CORRECTED relative to the sherd's principal axis, folded to (-90, 90]
+        # (0 = parallel to the surface). For multivariate use we add proper circular metrics via
+        # ``analyze_orientation_for_pca``, computed on the DOUBLED angles so the axial (-90, 90]
+        # range maps onto the full (-180, 180] circle: a random fabric then gives strength ~0
+        # (feeding the raw axial angles would wrongly report ~0.64).
+        _orient_zero = {
+            "contour_inclusion_orientation_mean": 0,
+            "contour_inclusion_orientation_std": 0,
+            "contour_inclusion_orientation_strength": 0.0,
+            "contour_inclusion_orientation_concentration": 0.0,
+            "contour_inclusion_orientation_uniformity": 0.0,
+            "contour_inclusion_orientation_bimodality": 0.0,
+            "contour_inclusion_orientation_dominant_deg": 0.0,
+            "contour_inclusion_orientation_alignment": 0.0,
+            "sherd_orientation": 0,
+        }
         if use_contour and analyze_inclusions and contour_inclusions:
             try:
                 orientation_data = inclusion_orientation2(
@@ -675,29 +701,38 @@ def analyze_single_sherd(
                     contour_result=contour_results,
                     sherd_contour=best_contour,
                 )
-                if orientation_data and len(orientation_data) >= 3:
+                if orientation_data and len(orientation_data) >= 3 and orientation_data[0]:
                     inc_angles, void_angles, sherd_angle = orientation_data
-                    results["contour_inclusion_orientation_mean"] = (
-                        np.mean(inc_angles) if inc_angles else 0
-                    )
-                    results["contour_inclusion_orientation_std"] = (
-                        np.std(inc_angles) if inc_angles else 0
-                    )
+                    results["contour_inclusion_orientation_mean"] = float(np.mean(inc_angles))
+                    results["contour_inclusion_orientation_std"] = float(np.std(inc_angles))
                     results["sherd_orientation"] = sherd_angle if sherd_angle is not None else 0
+
+                    # Circular (axial) metrics on the DOUBLED angles — multivariate-ready.
+                    _ori = analyze_orientation_for_pca([2.0 * a for a in inc_angles])
+                    results["contour_inclusion_orientation_strength"] = _ori["orientation_strength"]
+                    results["contour_inclusion_orientation_concentration"] = _ori[
+                        "orientation_concentration"
+                    ]
+                    results["contour_inclusion_orientation_uniformity"] = _ori["orientation_uniformity"]
+                    results["contour_inclusion_orientation_bimodality"] = _ori["orientation_bimodality"]
+                    # Halve the doubled dominant direction back to real axial degrees.
+                    results["contour_inclusion_orientation_dominant_deg"] = (
+                        _ori["dominant_orientation_deg"] / 2.0
+                    )
+                    # Signed alignment index mean(cos 2*theta): +1 = grains parallel to the sherd
+                    # surface (well-aligned), 0 = random, -1 = perpendicular. This is the single
+                    # number most directly tied to coiling-pressure alignment.
+                    results["contour_inclusion_orientation_alignment"] = float(
+                        np.mean(np.cos(np.deg2rad(2.0 * np.asarray(inc_angles, dtype=float))))
+                    )
                 else:
-                    results["contour_inclusion_orientation_mean"] = 0
-                    results["contour_inclusion_orientation_std"] = 0
-                    results["sherd_orientation"] = 0
+                    results.update(_orient_zero)
             except Exception as e:
                 print(f"Warning: Contour orientation analysis failed: {e}")
-                results["contour_inclusion_orientation_mean"] = 0
-                results["contour_inclusion_orientation_std"] = 0
-                results["sherd_orientation"] = 0
+                results.update(_orient_zero)
         elif use_contour:
             # Contour enabled but no inclusions to orient — zero-fill contour columns
-            results["contour_inclusion_orientation_mean"] = 0
-            results["contour_inclusion_orientation_std"] = 0
-            results["sherd_orientation"] = 0
+            results.update(_orient_zero)
         else:
             # Contour disabled — only keep the unprefixed sherd_orientation
             results["sherd_orientation"] = 0
@@ -920,7 +955,19 @@ def analyze_single_sherd(
                 ]
             ]
             + (
-                [f"contour_inclusion_orientation_{stat}" for stat in ["mean", "std"]]
+                [
+                    f"contour_inclusion_orientation_{stat}"
+                    for stat in [
+                        "mean",
+                        "std",
+                        "strength",
+                        "concentration",
+                        "uniformity",
+                        "bimodality",
+                        "dominant_deg",
+                        "alignment",
+                    ]
+                ]
                 if use_contour
                 else []
             )
@@ -1053,7 +1100,9 @@ def full_analysis(
         Comprehensive DataFrame containing:
         - Blob detection results (blob_inclusion_*, blob_void_*)
         - Contour detection results (contour_inclusion_*, contour_void_*)
-        - Orientation analysis (inclusion_orientation_*, sherd_orientation)
+        - Orientation analysis (inclusion_orientation_* — including circular
+          strength / concentration / uniformity / bimodality / alignment metrics
+          valid for multivariate analysis — plus sherd_orientation)
         - Color analysis (inclusion_color_*, sherd_color_*)
         - Density and percentage calculations
         - Processing status and metadata

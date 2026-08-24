@@ -2,6 +2,17 @@
 
 All notable changes to AMFOrA are documented here. The format roughly follows [Keep a Changelog](https://keepachangelog.com/), and versions follow [semantic versioning](https://semver.org/).
 
+## v1.0.2 — 2026-08-24
+
+- **Inclusion orientation is now multivariate-ready.** `analyze_single_sherd` (and therefore `full_analysis`) now emits circular orientation metrics computed from the sherd-corrected *axial* grain angles, alongside the retained legacy `contour_inclusion_orientation_mean` / `_std`:
+  - `contour_inclusion_orientation_strength` — resultant length (0 = random, 1 = perfectly aligned)
+  - `contour_inclusion_orientation_concentration` — von Mises concentration estimate
+  - `contour_inclusion_orientation_uniformity`, `contour_inclusion_orientation_bimodality`
+  - `contour_inclusion_orientation_dominant_deg` — dominant direction (real axial degrees)
+  - `contour_inclusion_orientation_alignment` — signed `mean(cos 2θ)`: +1 = grains parallel to the sherd surface, 0 = random, −1 = perpendicular
+- The circular metrics call the pre-existing `analyze_orientation_for_pca()` on the **doubled** angles, so the axial (−90°, 90°] range maps onto the full circle and a random fabric correctly yields strength ≈ 0. Plain `mean`/`std` of circular degrees were not valid for PCA/LDA/clustering; these fix that and should have been exported in earlier releases.
+- No breaking changes: existing columns are unchanged; the new columns are additive.
+
 ## v1.0.1 — 2026-06-01
 
 - Documentation: README, docs/index.md, and docs/installation.md now lead with `pip install amfora` instead of cloning the GitHub repo. The from-source path is still documented for development use.
