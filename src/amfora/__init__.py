@@ -8,14 +8,19 @@ A Python package for automated analysis of ceramic sherd fabric, including:
 - Color analysis
 - Enhanced edge detection and masking
 
-Version: 1.0.1
 Author: Alec Iacobucci
 """
+
+from importlib.metadata import PackageNotFoundError, version
 
 from .core.analysis import *
 from .core.detection import *
 from .core.statistics import *
 from .core.visualization import *
 
-__version__ = "1.0.1"
+try:
+    # Single source of truth: the version declared in pyproject.toml. Bump it there only.
+    __version__ = version("amfora")
+except PackageNotFoundError:  # running from an uninstalled source checkout
+    __version__ = "0.0.0+dev"
 __author__ = "Alec Iacobucci"

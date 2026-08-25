@@ -377,7 +377,7 @@ def analyze_single_sherd(
         Dictionary containing comprehensive analysis results.
 
         Contour inclusion orientation includes circular, multivariate-ready metrics
-        (v1.0.2+) computed on the sherd-corrected *axial* angles:
+        (v1.0.3+) computed on the sherd-corrected *axial* angles:
         ``contour_inclusion_orientation_strength`` (0 = random .. 1 = perfectly aligned),
         ``_concentration`` (von Mises), ``_uniformity``, ``_bimodality``, ``_dominant_deg``,
         and ``_alignment`` — a signed ``mean(cos 2*theta)`` where +1 = grains parallel to the

@@ -2,8 +2,9 @@
 
 All notable changes to AMFOrA are documented here. The format roughly follows [Keep a Changelog](https://keepachangelog.com/), and versions follow [semantic versioning](https://semver.org/).
 
-## v1.0.2 — 2026-08-24
+## v1.0.3 — 2026-08-24
 
+- **Single source of truth for the version.** `amfora.__version__` is now read from the installed package metadata via `importlib.metadata`, so the version is declared only in `pyproject.toml`. Removes the hand-maintained duplicates in `src/amfora/__init__.py` that could drift out of sync.
 - **Inclusion orientation is now multivariate-ready.** `analyze_single_sherd` (and therefore `full_analysis`) now emits circular orientation metrics computed from the sherd-corrected *axial* grain angles, alongside the retained legacy `contour_inclusion_orientation_mean` / `_std`:
   - `contour_inclusion_orientation_strength` — resultant length (0 = random, 1 = perfectly aligned)
   - `contour_inclusion_orientation_concentration` — von Mises concentration estimate

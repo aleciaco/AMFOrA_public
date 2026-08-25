@@ -107,7 +107,7 @@ MIT License — see [LICENSE](LICENSE).
 
 If you use AMFOrA in published work, please cite:
 
-> Iacobucci, A. (2026). *AMFOrA: Automated Macroscopic Fabric and Orientation Analysis for ceramic sherds* (Version 1.0.2) [Computer software]. https://pypi.org/project/amfora/
+> Iacobucci, A. (2026). *AMFOrA: Automated Macroscopic Fabric and Orientation Analysis for ceramic sherds* (Version 1.0.3) [Computer software]. https://pypi.org/project/amfora/
 
 A DOI / Zenodo archive will be added in a future release.
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "amfora"
-version = "1.0.2"
+version = "1.0.3"
 description = "Automated Macroscopic Fabric and Orientation Analysis for ceramic sherds"
 readme = "README.md"
 license = "MIT"
